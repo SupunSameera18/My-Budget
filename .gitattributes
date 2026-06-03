@@ -1,0 +1,15 @@
+# Normalize all text files to LF in the repo and on checkout.
+# Keeps Windows working trees consistent with the LF-only repo and with
+# Prettier (endOfLine: "lf") + the Linux CI, avoiding spurious format:check
+# failures from CRLF line endings.
+* text=auto eol=lf
+
+# Binary assets — never apply text/eol filters.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.webp binary
+*.ico  binary
+*.woff  binary
+*.woff2 binary
