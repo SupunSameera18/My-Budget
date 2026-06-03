@@ -52,7 +52,8 @@ export function LogTransactionForm({
       } catch {
         setAppError({
           code: ErrorCode.TransactionCreateFailed,
-          message: "Could not save — please check your connection and try again.",
+          message:
+            "Could not save — please check your connection and try again.",
         });
       }
     });
