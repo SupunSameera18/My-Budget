@@ -1,15 +1,14 @@
 import type { Config } from "tailwindcss";
+import tailwindcssAnimate from "tailwindcss-animate";
 
 export default {
   darkMode: ["class"],
-  content: [
-    "./pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./app/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/**/*.{js,ts,jsx,tsx,mdx}",
-  ],
+  content: ["./src/**/*.{js,ts,jsx,tsx,mdx}"],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["-apple-system", '"Segoe UI"', "Roboto", "sans-serif"],
+      },
       colors: {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
@@ -51,13 +50,41 @@ export default {
           "4": "hsl(var(--chart-4))",
           "5": "hsl(var(--chart-5))",
         },
+        // DESIGN.md brand tokens
+        "brand-accent": "var(--budget-accent)",
+        "brand-accent-strong": "var(--budget-accent-strong)",
+        "brand-accent-text": "var(--budget-accent-text)",
+        "brand-on-accent": "var(--budget-on-accent)",
+        "surface-base": "var(--budget-surface-base)",
+        "surface-raised": "var(--budget-surface-raised)",
+        "surface-inset": "var(--budget-surface-inset)",
+        "ink-primary": "var(--budget-ink-primary)",
+        "ink-secondary": "var(--budget-ink-secondary)",
+        hairline: "var(--budget-hairline)",
+        income: {
+          DEFAULT: "var(--budget-income)",
+          text: "var(--budget-income-text)",
+        },
+        expense: {
+          DEFAULT: "var(--budget-expense)",
+          text: "var(--budget-expense-text)",
+        },
+        saving: {
+          DEFAULT: "var(--budget-saving)",
+          text: "var(--budget-saving-text)",
+        },
+        "breathing-low": {
+          DEFAULT: "var(--budget-breathing-low)",
+          text: "var(--budget-breathing-low-text)",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        full: "9999px",
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [tailwindcssAnimate],
 } satisfies Config;

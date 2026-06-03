@@ -1,0 +1,72 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  House,
+  ArrowLeftRight,
+  PieChart,
+  Target,
+  BarChart2,
+  CalendarDays,
+  FileText,
+  Bell,
+  Users,
+  Settings,
+} from "lucide-react";
+
+const NAV_ITEMS = [
+  { label: "Home", href: "/dashboard", icon: House },
+  { label: "Transactions", href: "/transactions", icon: ArrowLeftRight },
+  { label: "Budgets", href: "/budgets", icon: PieChart },
+  { label: "Goals", href: "/goals", icon: Target },
+  { label: "Analytics", href: "/analytics", icon: BarChart2 },
+  { label: "Monthly Summary", href: "/summary", icon: CalendarDays },
+  { label: "Reports", href: "/reports", icon: FileText },
+  { label: "Notifications", href: "/notifications", icon: Bell },
+  { label: "Family", href: "/family", icon: Users },
+  { label: "Settings", href: "/settings", icon: Settings },
+] as const;
+
+function isActive(pathname: string, href: string) {
+  return pathname === href || pathname.startsWith(href + "/");
+}
+
+export function Sidebar() {
+  const pathname = usePathname();
+
+  return (
+    <aside
+      data-testid="sidebar"
+      className="hidden w-56 shrink-0 flex-col border-r border-hairline bg-surface-raised md:flex"
+    >
+      <div className="px-3 py-4">
+        <p className="mb-2 px-3 text-sm font-semibold text-ink-primary">
+          My Budget
+        </p>
+        <nav className="flex flex-col gap-0.5">
+          {NAV_ITEMS.map((item) => {
+            const active = isActive(pathname, item.href);
+            const Icon = item.icon;
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-label={item.label}
+                className={`flex min-h-[44px] items-center gap-3 rounded-md px-3 transition-colors ${
+                  active
+                    ? "bg-surface-inset text-brand-accent"
+                    : "text-ink-secondary hover:bg-surface-inset hover:text-ink-primary"
+                }`}
+              >
+                <Icon strokeWidth={1.75} className="h-5 w-5 shrink-0" />
+                <span className="text-sm">{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
+    </aside>
+  );
+}

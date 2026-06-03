@@ -1,0 +1,122 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* shadcn variables mapped to DESIGN.md light-mode values */
+    --background: 197 19% 96%; /* #F2F6F7 surface-base */
+    --foreground: 198 14% 17%; /* #243133 ink-primary */
+    --card: 0 0% 100%; /* #FFFFFF surface-raised */
+    --card-foreground: 198 14% 17%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 198 14% 17%;
+    --primary: 174 62% 29%; /* #1F7A78 accent-strong — AA compliant */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 194 20% 94%; /* #EDF3F4 surface-inset */
+    --secondary-foreground: 198 14% 17%;
+    --muted: 194 20% 94%;
+    --muted-foreground: 194 10% 40%; /* #5C6E72 ink-secondary */
+    --accent: 194 20% 94%;
+    --accent-foreground: 198 14% 17%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 196 27% 92%; /* #E4ECEE hairline */
+    --input: 196 27% 92%;
+    --ring: 174 62% 29%;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 14px;
+
+    /* DESIGN.md budget tokens — light mode */
+    --budget-accent: #4fa6a6;
+    --budget-accent-strong: #1f7a78;
+    --budget-accent-text: #2c7e7b;
+    --budget-on-accent: #ffffff;
+    --budget-surface-base: #f2f6f7;
+    --budget-surface-raised: #ffffff;
+    --budget-surface-inset: #edf3f4;
+    --budget-ink-primary: #243133;
+    --budget-ink-secondary: #5c6e72;
+    --budget-hairline: #e4ecee;
+    --budget-income: #5fa98c;
+    --budget-income-text: #1f7a53;
+    --budget-expense: #8796a0;
+    --budget-expense-text: #566570;
+    --budget-saving: #2c8c8c;
+    --budget-saving-text: #1f6f6d;
+    --budget-breathing-low: #c9a24b;
+    --budget-breathing-low-text: #8a6a1e;
+  }
+
+  .dark {
+    /* shadcn variables — dark mode */
+    --background: 192 29% 7%; /* #0C1416 surface-base — page background */
+    --foreground: 180 14% 93%; /* #E7EFEF ink-primary dark */
+    --card: 197 22% 9%; /* #131D1F surface-raised — cards lift above page bg */
+    --card-foreground: 180 14% 93%;
+    --popover: 197 22% 9%;
+    --popover-foreground: 180 14% 93%;
+    --primary: 174 62% 29%; /* #1F7A78 — same fill, AA on dark */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 196 17% 12%; /* #1A2426 surface-inset */
+    --secondary-foreground: 180 14% 93%;
+    --muted: 196 17% 12%;
+    --muted-foreground: 188 10% 61%; /* #8FA3A6 ink-secondary dark */
+    --accent: 196 17% 12%;
+    --accent-foreground: 180 14% 93%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 196 19% 16%; /* #223032 hairline dark */
+    --input: 196 19% 16%;
+    --ring: 174 62% 29%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+
+    /* DESIGN.md budget tokens — dark mode */
+    --budget-accent: #4fa6a6;
+    --budget-accent-strong: #1f7a78;
+    --budget-on-accent: #eaf4f3;
+    --budget-surface-base: #0c1416;
+    --budget-surface-raised: #131d1f;
+    --budget-surface-inset: #1a2426;
+    --budget-ink-primary: #e7efef;
+    --budget-ink-secondary: #8fa3a6;
+    --budget-hairline: #223032;
+    --budget-income: #7cc4a6;
+    --budget-income-text: #7cc4a6;
+    --budget-expense: #8da0aa;
+    --budget-expense-text: #8da0aa;
+    --budget-saving: #4fb3b3;
+    --budget-saving-text: #4fb3b3;
+    --budget-accent-text: #4fa6a6; /* same as accent — passes on dark canvas */
+    --budget-breathing-low: #c9a24b;
+    --budget-breathing-low-text: #c9a24b;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}

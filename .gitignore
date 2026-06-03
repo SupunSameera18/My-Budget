@@ -12,10 +12,22 @@
 
 # testing
 /coverage
+/playwright-report
+/test-results
+/playwright/.cache
+
+# supabase (local stack temp + generated)
+supabase/.branches
+supabase/.temp
 
 # next.js
 /.next/
 /out/
+
+# serwist (generated service worker artifacts)
+/public/sw.js
+/public/workbox-*.js
+/public/swe-worker-*.js
 
 # production
 /build
