@@ -22,6 +22,8 @@ export enum ErrorCode {
   TransactionCreateFailed = "transaction_create_failed",
   // ↓ Added by Story 1.11
   BreathingRoomFetchFailed = "breathing_room_fetch_failed",
+  // ↓ Added by Story 2.2
+  TransferCreateFailed = "transfer_create_failed",
 }
 
 export type AppError = {

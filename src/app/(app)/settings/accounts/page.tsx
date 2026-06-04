@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { AccountCard } from "@/features/accounts/components/AccountCard";
 import { CreateAccountForm } from "@/features/accounts/components/CreateAccountForm";
+import { InternalTransferForm } from "@/features/accounts/components/InternalTransferForm";
 import type { Account } from "@/features/accounts/schema";
 
 type AccountWithCount = Account & { transactions: { count: number }[] };
@@ -18,6 +19,8 @@ export default async function AccountsPage() {
     ...(a as AccountWithCount),
     hasHistory: ((a as AccountWithCount).transactions[0]?.count ?? 0) > 0,
   }));
+
+  const currency = activeAccounts[0]?.currency ?? "USD";
 
   const { data: archivedRaw } = await supabase
     .from("accounts")
@@ -77,7 +80,7 @@ export default async function AccountsPage() {
       )}
 
       {/* Create account form */}
-      <section aria-labelledby="create-account-heading">
+      <section aria-labelledby="create-account-heading" className="mb-8">
         <h2
           id="create-account-heading"
           className="mb-4 text-base font-semibold text-ink-primary"
@@ -85,6 +88,17 @@ export default async function AccountsPage() {
           Add account
         </h2>
         <CreateAccountForm />
+      </section>
+
+      {/* Record a transfer */}
+      <section aria-labelledby="transfer-heading">
+        <h2
+          id="transfer-heading"
+          className="mb-4 text-base font-semibold text-ink-primary"
+        >
+          Record a transfer
+        </h2>
+        <InternalTransferForm accounts={activeAccounts} currency={currency} />
       </section>
     </div>
   );
