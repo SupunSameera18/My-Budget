@@ -1,9 +1,14 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/supabase/require-user";
 import { ErrorCode, err, ok, type Result } from "@/lib/errors";
-import { createAccountSchema, type Account } from "@/features/accounts/schema";
+import {
+  createAccountSchema,
+  updateAccountSchema,
+  type Account,
+} from "@/features/accounts/schema";
 
 export async function createAccount(
   formData: FormData,
@@ -61,6 +66,7 @@ export async function createAccount(
       );
     }
 
+    revalidatePath("/settings/accounts");
     return ok(data as Account);
   } catch {
     return err(
@@ -86,5 +92,124 @@ export async function getAccounts(): Promise<Result<Account[]>> {
     return ok((data ?? []) as Account[]);
   } catch {
     return err(ErrorCode.AccountFetchFailed, "Failed to load accounts.");
+  }
+}
+
+export async function updateAccount(
+  id: string,
+  formData: FormData,
+): Promise<Result<Account>> {
+  const raw = Object.fromEntries(formData);
+  const parsed = updateAccountSchema.safeParse(raw);
+
+  if (!parsed.success) {
+    const first = parsed.error.issues[0];
+    return err(
+      ErrorCode.AccountUpdateFailed,
+      first?.message ?? "Invalid data",
+      String(first?.path[0] ?? ""),
+    );
+  }
+
+  try {
+    const auth = await requireUser();
+    if (!auth) return err(ErrorCode.AccountUpdateFailed, "Not authenticated");
+    const { supabase } = auth;
+
+    const { data, error } = await supabase
+      .from("accounts")
+      .update({ name: parsed.data.name, type: parsed.data.type })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error || !data) {
+      return err(
+        ErrorCode.AccountUpdateFailed,
+        "Failed to update account. Please try again.",
+      );
+    }
+
+    revalidatePath("/settings/accounts");
+    return ok(data as Account);
+  } catch {
+    return err(ErrorCode.AccountUpdateFailed, "An unexpected error occurred.");
+  }
+}
+
+export async function archiveAccount(id: string): Promise<Result<void>> {
+  try {
+    const auth = await requireUser();
+    if (!auth) return err(ErrorCode.AccountArchiveFailed, "Not authenticated");
+    const { supabase } = auth;
+
+    const { error } = await supabase
+      .from("accounts")
+      .update({ archived_at: new Date().toISOString() })
+      .eq("id", id);
+
+    if (error) {
+      return err(
+        ErrorCode.AccountArchiveFailed,
+        "Failed to archive account. Please try again.",
+      );
+    }
+
+    revalidatePath("/settings/accounts");
+    revalidatePath("/transactions/new");
+    return ok();
+  } catch {
+    return err(ErrorCode.AccountArchiveFailed, "An unexpected error occurred.");
+  }
+}
+
+export async function unarchiveAccount(id: string): Promise<Result<void>> {
+  try {
+    const auth = await requireUser();
+    if (!auth) return err(ErrorCode.AccountArchiveFailed, "Not authenticated");
+    const { supabase } = auth;
+
+    const { error } = await supabase
+      .from("accounts")
+      .update({ archived_at: null })
+      .eq("id", id);
+
+    if (error) {
+      return err(
+        ErrorCode.AccountArchiveFailed,
+        "Failed to unarchive account. Please try again.",
+      );
+    }
+
+    revalidatePath("/settings/accounts");
+    revalidatePath("/transactions/new");
+    return ok();
+  } catch {
+    return err(ErrorCode.AccountArchiveFailed, "An unexpected error occurred.");
+  }
+}
+
+export async function deleteAccount(id: string): Promise<Result<void>> {
+  try {
+    const auth = await requireUser();
+    if (!auth) return err(ErrorCode.AccountDeleteFailed, "Not authenticated");
+    const { supabase } = auth;
+
+    const { error } = await supabase.rpc("rpc_delete_account", {
+      p_account_id: id,
+    });
+
+    if (error) {
+      const msg = error.message?.includes("transaction history")
+        ? "Cannot delete — this account has transaction history. Archive it instead."
+        : "Failed to delete account. Please try again.";
+      return err(ErrorCode.AccountDeleteFailed, msg);
+    }
+
+    revalidatePath("/settings/accounts");
+    revalidatePath("/transactions/new");
+    return ok();
+  } catch {
+    return err(ErrorCode.AccountDeleteFailed, "An unexpected error occurred.");
   }
 }
