@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { Account } from "@/features/accounts/schema";
+import type { Subcategory } from "@/features/categories/schema";
 
 export const logTransactionSchema = z.object({
   account_id: z.string().uuid("Select an account"),
@@ -20,6 +21,8 @@ export const logTransactionSchema = z.object({
     .trim()
     .max(280, "Note must be 280 characters or fewer")
     .optional(),
+  // Optional subcategory — select emits "" when placeholder chosen; treat as absent
+  subcategory_id: z.union([z.string().uuid(), z.literal("")]).optional(),
 });
 
 export type LogTransactionInput = z.infer<typeof logTransactionSchema>;
@@ -49,4 +52,8 @@ export type TransactionFormData = {
   categories: TransactionCategory[];
   currency: string;
   defaultAccountId: string | null;
+  subcategoriesEnabled: boolean;
+  subcategories: Subcategory[];
 };
+
+export type { Subcategory };

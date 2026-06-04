@@ -40,11 +40,22 @@ export async function getTransactionFormData(): Promise<
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("currency")
+      .select("currency, subcategories_enabled")
       .eq("user_id", user.id)
       .single();
 
     const currency = profile?.currency ?? "USD";
+    const subcategoriesEnabled = profile?.subcategories_enabled ?? false;
+
+    let subcategories: { id: string; name: string; category_id: string }[] = [];
+    if (subcategoriesEnabled) {
+      const { data: subcatsData } = await supabase
+        .from("subcategories")
+        .select("id, name, category_id")
+        .is("archived_at", null)
+        .order("created_at", { ascending: true });
+      subcategories = subcatsData ?? [];
+    }
 
     const { data: lastTxn } = await supabase
       .from("transactions")
@@ -61,6 +72,8 @@ export async function getTransactionFormData(): Promise<
       categories: (categories ?? []) as TransactionFormData["categories"],
       currency,
       defaultAccountId,
+      subcategoriesEnabled,
+      subcategories: subcategories as TransactionFormData["subcategories"],
     });
   } catch {
     return err(
@@ -87,6 +100,11 @@ export async function logTransaction(
 
   const amountMinor = Math.round(parseFloat(parsed.data.amount_display) * 100);
 
+  const subcategoryId =
+    parsed.data.subcategory_id && parsed.data.subcategory_id !== ""
+      ? parsed.data.subcategory_id
+      : null;
+
   try {
     const auth = await requireUser();
     if (!auth) {
@@ -106,6 +124,7 @@ export async function logTransaction(
       p_amount_minor: amountMinor,
       p_date: parsed.data.date,
       p_note: parsed.data.note ?? null,
+      p_subcategory_id: subcategoryId,
     });
 
     if (rpcError) {

@@ -30,6 +30,13 @@ export enum ErrorCode {
   CategoryUpdateFailed = "category_update_failed",
   CategoryArchiveFailed = "category_archive_failed",
   CategoryDeleteFailed = "category_delete_failed",
+  // ↓ Added by Story 2.5
+  SubcategoryCreateFailed = "subcategory_create_failed",
+  SubcategoryFetchFailed = "subcategory_fetch_failed",
+  SubcategoryUpdateFailed = "subcategory_update_failed",
+  SubcategoryArchiveFailed = "subcategory_archive_failed",
+  SubcategoryDeleteFailed = "subcategory_delete_failed",
+  SubcategoryToggleFailed = "subcategory_toggle_failed",
 }
 
 export type AppError = {

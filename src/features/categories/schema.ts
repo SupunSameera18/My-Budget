@@ -39,3 +39,32 @@ export type Category = {
   created_at: string;
   updated_at: string;
 };
+
+// ↓ Added by Story 2.5
+export type Subcategory = {
+  id: string;
+  user_id: string;
+  category_id: string;
+  name: string;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+const subcategoryNameSchema = z
+  .string()
+  .trim()
+  .min(1, "Name is required")
+  .max(50, "Name must be 50 characters or fewer");
+
+export const createSubcategorySchema = z.object({
+  name: subcategoryNameSchema,
+});
+
+export type CreateSubcategoryInput = z.infer<typeof createSubcategorySchema>;
+
+export const updateSubcategorySchema = z.object({
+  name: subcategoryNameSchema,
+});
+
+export type UpdateSubcategoryInput = z.infer<typeof updateSubcategorySchema>;

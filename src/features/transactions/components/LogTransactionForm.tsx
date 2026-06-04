@@ -9,7 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Account } from "@/features/accounts/schema";
-import type { TransactionCategory } from "@/features/transactions/schema";
+import type {
+  TransactionCategory,
+  Subcategory,
+} from "@/features/transactions/schema";
 import { ErrorCode, type AppError } from "@/lib/errors";
 
 interface LogTransactionFormProps {
@@ -17,6 +20,8 @@ interface LogTransactionFormProps {
   categories: TransactionCategory[];
   defaultAccountId: string | null;
   currency: string;
+  subcategoriesEnabled: boolean;
+  subcategories: Subcategory[];
 }
 
 export function LogTransactionForm({
@@ -24,10 +29,13 @@ export function LogTransactionForm({
   categories,
   defaultAccountId,
   currency,
+  subcategoriesEnabled,
+  subcategories,
 }: LogTransactionFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [appError, setAppError] = useState<AppError | null>(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const formRef = useRef<HTMLFormElement>(null);
   const isOnline = useOnlineStatus();
 
@@ -37,6 +45,9 @@ export function LogTransactionForm({
 
   const expenseCategories = categories.filter((c) => c.type === "expense");
   const incomeCategories = categories.filter((c) => c.type === "income");
+  const availableSubcategories = subcategoriesEnabled
+    ? subcategories.filter((s) => s.category_id === selectedCategoryId)
+    : [];
 
   function submitForm(form: HTMLFormElement) {
     setAppError(null);
@@ -117,6 +128,7 @@ export function LogTransactionForm({
           required
           defaultValue=""
           disabled={isPending}
+          onChange={(e) => setSelectedCategoryId(e.target.value)}
           className="flex h-[44px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
         >
           <option value="" disabled>
@@ -145,6 +157,34 @@ export function LogTransactionForm({
           <p className="text-xs text-destructive">{appError.message}</p>
         )}
       </div>
+
+      {/* Subcategory (optional, shown when toggle is on and category has subcategories) */}
+      {availableSubcategories.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <Label
+            htmlFor="subcategory_id"
+            className="text-xs font-bold text-ink-primary"
+          >
+            Subcategory{" "}
+            <span className="font-normal text-ink-secondary">(optional)</span>
+          </Label>
+          <select
+            key={selectedCategoryId}
+            id="subcategory_id"
+            name="subcategory_id"
+            defaultValue=""
+            disabled={isPending}
+            className="flex h-[44px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+          >
+            <option value="">None</option>
+            {availableSubcategories.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Account */}
       <div className="flex flex-col gap-1.5">
