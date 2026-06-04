@@ -7,6 +7,7 @@ import { ErrorCode, err, ok, type Result } from "@/lib/errors";
 import {
   createAccountSchema,
   updateAccountSchema,
+  internalTransferSchema,
   type Account,
 } from "@/features/accounts/schema";
 
@@ -211,5 +212,55 @@ export async function deleteAccount(id: string): Promise<Result<void>> {
     return ok();
   } catch {
     return err(ErrorCode.AccountDeleteFailed, "An unexpected error occurred.");
+  }
+}
+
+export async function createInternalTransfer(
+  formData: FormData,
+): Promise<Result<void>> {
+  const raw = Object.fromEntries(formData);
+  const parsed = internalTransferSchema.safeParse(raw);
+
+  if (!parsed.success) {
+    const first = parsed.error.issues[0];
+    return err(
+      ErrorCode.TransferCreateFailed,
+      first?.message ?? "Invalid transfer data",
+      String(first?.path[0] ?? ""),
+    );
+  }
+
+  const amountMinor = Math.round(parseFloat(parsed.data.amount) * 100);
+
+  try {
+    const auth = await requireUser();
+    if (!auth) return err(ErrorCode.TransferCreateFailed, "Not authenticated");
+    const { supabase } = auth;
+
+    const { error } = await supabase.rpc("rpc_internal_transfer", {
+      p_from_account_id: parsed.data.from_account_id,
+      p_to_account_id: parsed.data.to_account_id,
+      p_amount_minor: amountMinor,
+      p_date: parsed.data.date,
+      p_note: parsed.data.note || null,
+    });
+
+    if (error) {
+      const msg = error.message?.includes("same")
+        ? "Source and destination accounts must be different."
+        : error.message?.includes("not found") ||
+            error.message?.includes("archived")
+          ? "One or both accounts could not be found. Please refresh and try again."
+          : "Failed to record transfer. Please try again.";
+      return err(ErrorCode.TransferCreateFailed, msg);
+    }
+
+    revalidatePath("/settings/accounts");
+    return ok();
+  } catch {
+    return err(
+      ErrorCode.TransferCreateFailed,
+      "An unexpected error occurred. Please try again.",
+    );
   }
 }

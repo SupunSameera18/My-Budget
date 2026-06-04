@@ -2,9 +2,14 @@ import { describe, it, expect } from "vitest";
 import {
   createAccountSchema,
   updateAccountSchema,
+  internalTransferSchema,
   ACCOUNT_TYPES,
   ACCOUNT_TYPE_LABELS,
 } from "./schema";
+
+// RFC 4122 variant-1 UUIDs: 4th group must start with 8/9/a/b
+const VALID_UUID_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const VALID_UUID_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
 describe("createAccountSchema", () => {
   it("accepts a valid account", () => {
@@ -98,6 +103,105 @@ describe("updateAccountSchema", () => {
     });
     expect(result.success).toBe(false);
     expect(result.error?.issues[0].path[0]).toBe("type");
+  });
+});
+
+describe("internalTransferSchema", () => {
+  it("accepts a valid internal transfer with all fields", () => {
+    const result = internalTransferSchema.safeParse({
+      from_account_id: VALID_UUID_A,
+      to_account_id: VALID_UUID_B,
+      amount: "50.00",
+      date: "2026-06-04",
+      note: "Rent prepayment",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts a valid transfer without note (note is optional)", () => {
+    const result = internalTransferSchema.safeParse({
+      from_account_id: VALID_UUID_A,
+      to_account_id: VALID_UUID_B,
+      amount: "100.00",
+      date: "2026-06-04",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects same from_account_id and to_account_id with path [to_account_id]", () => {
+    const result = internalTransferSchema.safeParse({
+      from_account_id: VALID_UUID_A,
+      to_account_id: VALID_UUID_A,
+      amount: "50.00",
+      date: "2026-06-04",
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0].path[0]).toBe("to_account_id");
+  });
+
+  it("rejects amount of '0' (must be > 0)", () => {
+    const result = internalTransferSchema.safeParse({
+      from_account_id: VALID_UUID_A,
+      to_account_id: VALID_UUID_B,
+      amount: "0",
+      date: "2026-06-04",
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0].path[0]).toBe("amount");
+  });
+
+  it("rejects negative amount (fails regex)", () => {
+    const result = internalTransferSchema.safeParse({
+      from_account_id: VALID_UUID_A,
+      to_account_id: VALID_UUID_B,
+      amount: "-10",
+      date: "2026-06-04",
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0].path[0]).toBe("amount");
+  });
+
+  it("rejects non-numeric amount", () => {
+    const result = internalTransferSchema.safeParse({
+      from_account_id: VALID_UUID_A,
+      to_account_id: VALID_UUID_B,
+      amount: "abc",
+      date: "2026-06-04",
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0].path[0]).toBe("amount");
+  });
+
+  it("rejects missing from_account_id", () => {
+    const result = internalTransferSchema.safeParse({
+      to_account_id: VALID_UUID_B,
+      amount: "50.00",
+      date: "2026-06-04",
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0].path[0]).toBe("from_account_id");
+  });
+
+  it("rejects missing to_account_id", () => {
+    const result = internalTransferSchema.safeParse({
+      from_account_id: VALID_UUID_A,
+      amount: "50.00",
+      date: "2026-06-04",
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0].path[0]).toBe("to_account_id");
+  });
+
+  it("rejects note over 255 characters", () => {
+    const result = internalTransferSchema.safeParse({
+      from_account_id: VALID_UUID_A,
+      to_account_id: VALID_UUID_B,
+      amount: "50.00",
+      date: "2026-06-04",
+      note: "a".repeat(256),
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0].path[0]).toBe("note");
   });
 });
 
