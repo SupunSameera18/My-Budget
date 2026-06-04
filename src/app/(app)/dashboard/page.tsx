@@ -17,9 +17,15 @@ export default async function DashboardPage() {
   // profileResult.ok === false (DB error) → showChecklist = false (safe fallback).
   const showChecklist =
     profileResult.ok && !profileResult.data.checklist_completed_at;
+  const displayName = profileResult.ok
+    ? (profileResult.data.display_name ?? null)
+    : null;
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4 p-4">
+      <p className="text-xl font-bold text-ink-primary">
+        Hi {displayName ?? "there"}!
+      </p>
       <BreathingRoomCard />
       {showChecklist && <ChecklistCard />}
     </div>

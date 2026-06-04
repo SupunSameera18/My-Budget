@@ -6,7 +6,7 @@ export default function CategoriesPage() {
     <div className="mx-auto flex w-full max-w-md flex-col gap-8 p-6 pt-12">
       <div>
         <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-secondary">
-          Step 3 of 3
+          Step 4 of 4
         </p>
         <h1 className="text-2xl font-bold text-ink-primary">
           Your categories are ready.

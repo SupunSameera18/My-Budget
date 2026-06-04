@@ -15,7 +15,7 @@ export async function getDashboardProfile(): Promise<Result<DashboardProfile>> {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("user_id, checklist_completed_at")
+    .select("user_id, display_name, checklist_completed_at")
     .eq("user_id", user.id)
     .single();
 

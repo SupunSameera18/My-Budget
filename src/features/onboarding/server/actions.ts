@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ErrorCode, err, ok, type Result } from "@/lib/errors";
 import {
+  nameStepSchema,
   currencyStepSchema,
   type OnboardingProfile,
 } from "@/features/onboarding/schema";
@@ -23,7 +24,9 @@ export async function getOnboardingProfile(): Promise<
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("user_id, currency, onboarding_step, onboarding_completed_at")
+    .select(
+      "user_id, display_name, currency, onboarding_step, onboarding_completed_at",
+    )
     .eq("user_id", user.id)
     .single();
 
@@ -34,10 +37,10 @@ export async function getOnboardingProfile(): Promise<
   return ok(data as OnboardingProfile);
 }
 
-export async function saveCurrencyStep(formData: FormData): Promise<void> {
-  const raw = { currency: formData.get("currency") };
-  const parsed = currencyStepSchema.safeParse(raw);
-  if (!parsed.success) return; // <select> contains only valid codes; invalid input is a bypass
+export async function saveNameStep(formData: FormData): Promise<void> {
+  const raw = { display_name: formData.get("display_name") };
+  const parsed = nameStepSchema.safeParse(raw);
+  if (!parsed.success) return;
 
   const supabase = await createClient();
   const {
@@ -45,14 +48,36 @@ export async function saveCurrencyStep(formData: FormData): Promise<void> {
   } = await supabase.auth.getUser();
   if (!user) return;
 
-  // Guard: only advance if still on step 1 (prevents backward step reset via deep-link)
+  // Guard: only advance if still on step 1
   const { error } = await supabase
     .from("profiles")
-    .update({ currency: parsed.data.currency, onboarding_step: 2 })
+    .update({ display_name: parsed.data.display_name, onboarding_step: 2 })
     .eq("user_id", user.id)
     .lte("onboarding_step", 1);
 
-  if (error) return; // DB failure — don't advance
+  if (error) return;
+  redirect("/onboarding/currency");
+}
+
+export async function saveCurrencyStep(formData: FormData): Promise<void> {
+  const raw = { currency: formData.get("currency") };
+  const parsed = currencyStepSchema.safeParse(raw);
+  if (!parsed.success) return;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  // Guard: only advance if still on step 2 (prevents backward step reset via deep-link)
+  const { error } = await supabase
+    .from("profiles")
+    .update({ currency: parsed.data.currency, onboarding_step: 3 })
+    .eq("user_id", user.id)
+    .lte("onboarding_step", 2);
+
+  if (error) return;
   redirect("/onboarding/account");
 }
 
@@ -60,7 +85,7 @@ export async function createFirstAccountAndAdvance(
   formData: FormData,
 ): Promise<void> {
   const result = await createAccount(formData);
-  if (!result.ok) return; // Validation failed: stay on page (thin seam — no inline error display)
+  if (!result.ok) return;
 
   const supabase = await createClient();
   const {
@@ -68,14 +93,14 @@ export async function createFirstAccountAndAdvance(
   } = await supabase.auth.getUser();
   if (!user) return;
 
-  // Guard: only advance if still on step 2 (prevents double-submit step regression)
+  // Guard: only advance if still on step 3
   const { error } = await supabase
     .from("profiles")
-    .update({ onboarding_step: 3 })
+    .update({ onboarding_step: 4 })
     .eq("user_id", user.id)
-    .lte("onboarding_step", 2);
+    .lte("onboarding_step", 3);
 
-  if (error) return; // DB failure — don't advance
+  if (error) return;
   redirect("/onboarding/categories");
 }
 
@@ -86,16 +111,16 @@ export async function completeOnboarding(): Promise<void> {
   } = await supabase.auth.getUser();
   if (!user) return;
 
-  // Guard: only complete if still on step 3 (idempotency — prevents double-submit)
+  // Guard: only complete if still on step 4 (idempotency — prevents double-submit)
   const { error } = await supabase
     .from("profiles")
     .update({
-      onboarding_step: 4,
+      onboarding_step: 5,
       onboarding_completed_at: new Date().toISOString(),
     })
     .eq("user_id", user.id)
-    .lte("onboarding_step", 3);
+    .lte("onboarding_step", 4);
 
-  if (error) return; // DB failure — don't redirect
+  if (error) return;
   redirect("/onboarding/complete");
 }

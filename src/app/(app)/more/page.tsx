@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/features/auth/server/actions";
 import { LogOut } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default async function MorePage() {
   const supabase = await createClient();
@@ -18,6 +19,10 @@ export default async function MorePage() {
           <span className="font-medium text-ink-primary">{user.email}</span>
         </p>
       )}
+
+      <div className="mb-2">
+        <ThemeToggle />
+      </div>
 
       <form action={signOut}>
         <button

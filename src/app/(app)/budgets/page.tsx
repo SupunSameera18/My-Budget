@@ -6,9 +6,7 @@ export default function BudgetsPage() {
       <h1 className="mb-6 text-xl font-bold text-ink-primary">Budgets</h1>
       <EmptyState
         heading="No budgets yet"
-        body="Set up a budget to track your spending against a limit."
-        actionLabel="Log a transaction"
-        actionHref="/transactions/new"
+        body="Budgets let you set spending limits per category. Coming in a future update."
       />
     </div>
   );

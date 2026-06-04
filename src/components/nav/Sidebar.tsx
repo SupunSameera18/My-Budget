@@ -16,6 +16,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { signOut } from "@/features/auth/server/actions";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const NAV_ITEMS = [
   { label: "Home", href: "/dashboard", icon: House },
@@ -70,7 +71,8 @@ export function Sidebar() {
         </nav>
       </div>
 
-      <div className="mt-auto border-t border-hairline px-3 py-3">
+      <div className="mt-auto flex flex-col gap-1 border-t border-hairline px-3 py-3">
+        <ThemeToggle />
         <form action={signOut}>
           <button
             type="submit"

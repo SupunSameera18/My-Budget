@@ -29,12 +29,21 @@ export const CURRENCY_CODES = SUPPORTED_CURRENCIES.map(
   (c) => c.code,
 ) as unknown as [CurrencyCode, ...CurrencyCode[]];
 
+export const nameStepSchema = z.object({
+  display_name: z
+    .string()
+    .trim()
+    .min(1, "Enter your name")
+    .max(50, "Name must be 50 characters or fewer"),
+});
+
 export const currencyStepSchema = z.object({
   currency: z.enum(CURRENCY_CODES),
 });
 
 export type OnboardingProfile = {
   user_id: string;
+  display_name: string | null;
   currency: string;
   onboarding_step: number;
   onboarding_completed_at: string | null;

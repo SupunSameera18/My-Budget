@@ -20,6 +20,7 @@ export type ChecklistParams = {
 
 export type DashboardProfile = {
   user_id: string;
+  display_name: string | null;
   checklist_completed_at: string | null;
 };
 
