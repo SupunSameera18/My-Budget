@@ -24,6 +24,12 @@ export enum ErrorCode {
   BreathingRoomFetchFailed = "breathing_room_fetch_failed",
   // ↓ Added by Story 2.2
   TransferCreateFailed = "transfer_create_failed",
+  // ↓ Added by Story 2.4
+  CategoryCreateFailed = "category_create_failed",
+  CategoryFetchFailed = "category_fetch_failed",
+  CategoryUpdateFailed = "category_update_failed",
+  CategoryArchiveFailed = "category_archive_failed",
+  CategoryDeleteFailed = "category_delete_failed",
 }
 
 export type AppError = {
