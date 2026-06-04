@@ -58,6 +58,23 @@ export const internalTransferSchema = z
 
 export type InternalTransferInput = z.infer<typeof internalTransferSchema>;
 
+export const TRANSFER_DIRECTIONS = ["in", "out"] as const;
+export type TransferDirection = (typeof TRANSFER_DIRECTIONS)[number];
+
+export const externalTransferSchema = z.object({
+  account_id: z.string().uuid("Select an account"),
+  direction: z.enum(["in", "out"], { message: "Select a direction" }),
+  amount: z
+    .string()
+    .trim()
+    .regex(/^\d+(\.\d{0,2})?$/, "Enter a valid amount (e.g. 100.00)")
+    .refine((v) => parseFloat(v) > 0, "Amount must be greater than 0"),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a valid date"),
+  note: z.string().max(255, "Note must be 255 characters or fewer").optional(),
+});
+
+export type ExternalTransferInput = z.infer<typeof externalTransferSchema>;
+
 export type Transfer = {
   id: string;
   user_id: string;

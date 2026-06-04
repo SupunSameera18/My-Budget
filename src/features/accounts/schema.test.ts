@@ -3,8 +3,10 @@ import {
   createAccountSchema,
   updateAccountSchema,
   internalTransferSchema,
+  externalTransferSchema,
   ACCOUNT_TYPES,
   ACCOUNT_TYPE_LABELS,
+  TRANSFER_DIRECTIONS,
 } from "./schema";
 
 // RFC 4122 variant-1 UUIDs: 4th group must start with 8/9/a/b
@@ -202,6 +204,101 @@ describe("internalTransferSchema", () => {
     });
     expect(result.success).toBe(false);
     expect(result.error?.issues[0].path[0]).toBe("note");
+  });
+});
+
+describe("externalTransferSchema", () => {
+  it("accepts a valid external transfer in with all fields", () => {
+    const result = externalTransferSchema.safeParse({
+      account_id: VALID_UUID_A,
+      direction: "in",
+      amount: "200.00",
+      date: "2026-06-04",
+      note: "Loan repayment",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts a valid external transfer out without note", () => {
+    const result = externalTransferSchema.safeParse({
+      account_id: VALID_UUID_A,
+      direction: "out",
+      amount: "50.00",
+      date: "2026-06-04",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects invalid direction with path [direction]", () => {
+    const result = externalTransferSchema.safeParse({
+      account_id: VALID_UUID_A,
+      direction: "up",
+      amount: "50.00",
+      date: "2026-06-04",
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0].path[0]).toBe("direction");
+  });
+
+  it("rejects amount '0' (must be > 0) with path [amount]", () => {
+    const result = externalTransferSchema.safeParse({
+      account_id: VALID_UUID_A,
+      direction: "in",
+      amount: "0",
+      date: "2026-06-04",
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0].path[0]).toBe("amount");
+  });
+
+  it("rejects negative amount (fails regex) with path [amount]", () => {
+    const result = externalTransferSchema.safeParse({
+      account_id: VALID_UUID_A,
+      direction: "out",
+      amount: "-10",
+      date: "2026-06-04",
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0].path[0]).toBe("amount");
+  });
+
+  it("rejects non-numeric amount with path [amount]", () => {
+    const result = externalTransferSchema.safeParse({
+      account_id: VALID_UUID_A,
+      direction: "in",
+      amount: "abc",
+      date: "2026-06-04",
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0].path[0]).toBe("amount");
+  });
+
+  it("rejects missing account_id with path [account_id]", () => {
+    const result = externalTransferSchema.safeParse({
+      direction: "in",
+      amount: "50.00",
+      date: "2026-06-04",
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0].path[0]).toBe("account_id");
+  });
+
+  it("rejects note over 255 characters with path [note]", () => {
+    const result = externalTransferSchema.safeParse({
+      account_id: VALID_UUID_A,
+      direction: "in",
+      amount: "50.00",
+      date: "2026-06-04",
+      note: "a".repeat(256),
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0].path[0]).toBe("note");
+  });
+});
+
+describe("TRANSFER_DIRECTIONS", () => {
+  it("contains exactly 'in' and 'out'", () => {
+    expect([...TRANSFER_DIRECTIONS].sort()).toEqual(["in", "out"]);
   });
 });
 
