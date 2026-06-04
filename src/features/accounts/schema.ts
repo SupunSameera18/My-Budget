@@ -25,6 +25,17 @@ export const createAccountSchema = z.object({
 
 export type CreateAccountInput = z.infer<typeof createAccountSchema>;
 
+export const updateAccountSchema = z.object({
+  name: z
+    .string()
+    .min(1, "Name is required")
+    .max(50, "Name must be 50 characters or fewer")
+    .trim(),
+  type: z.enum(ACCOUNT_TYPES),
+});
+
+export type UpdateAccountInput = z.infer<typeof updateAccountSchema>;
+
 // DB row type (mirrors generated types — kept in sync with database.types.ts)
 export type Account = {
   id: string;

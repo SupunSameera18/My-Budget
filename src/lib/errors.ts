@@ -8,6 +8,10 @@ export enum ErrorCode {
   // ↓ Added by Story 1.7
   AccountCreateFailed = "account_create_failed",
   AccountFetchFailed = "account_fetch_failed",
+  // ↓ Added by Story 2.1
+  AccountUpdateFailed = "account_update_failed",
+  AccountArchiveFailed = "account_archive_failed",
+  AccountDeleteFailed = "account_delete_failed",
   // ↓ Added by Story 1.8
   ProfileFetchFailed = "profile_fetch_failed",
   CurrencySaveFailed = "currency_save_failed",
