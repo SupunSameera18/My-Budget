@@ -14,7 +14,14 @@ export default async function NewTransactionPage() {
     );
   }
 
-  const { accounts, categories, currency, defaultAccountId } = result.data;
+  const {
+    accounts,
+    categories,
+    currency,
+    defaultAccountId,
+    subcategoriesEnabled,
+    subcategories,
+  } = result.data;
 
   if (accounts.length === 0) {
     return (
@@ -42,6 +49,8 @@ export default async function NewTransactionPage() {
         categories={categories}
         defaultAccountId={defaultAccountId}
         currency={currency}
+        subcategoriesEnabled={subcategoriesEnabled}
+        subcategories={subcategories}
       />
     </div>
   );
