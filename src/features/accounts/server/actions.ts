@@ -8,6 +8,7 @@ import {
   createAccountSchema,
   updateAccountSchema,
   internalTransferSchema,
+  externalTransferSchema,
   type Account,
 } from "@/features/accounts/schema";
 
@@ -251,6 +252,55 @@ export async function createInternalTransfer(
         : error.message?.includes("not found") ||
             error.message?.includes("archived")
           ? "One or both accounts could not be found. Please refresh and try again."
+          : "Failed to record transfer. Please try again.";
+      return err(ErrorCode.TransferCreateFailed, msg);
+    }
+
+    revalidatePath("/settings/accounts");
+    return ok();
+  } catch {
+    return err(
+      ErrorCode.TransferCreateFailed,
+      "An unexpected error occurred. Please try again.",
+    );
+  }
+}
+
+export async function createExternalTransfer(
+  formData: FormData,
+): Promise<Result<void>> {
+  const raw = Object.fromEntries(formData);
+  const parsed = externalTransferSchema.safeParse(raw);
+
+  if (!parsed.success) {
+    const first = parsed.error.issues[0];
+    return err(
+      ErrorCode.TransferCreateFailed,
+      first?.message ?? "Invalid transfer data",
+      String(first?.path[0] ?? ""),
+    );
+  }
+
+  const amountMinor = Math.round(parseFloat(parsed.data.amount) * 100);
+
+  try {
+    const auth = await requireUser();
+    if (!auth) return err(ErrorCode.TransferCreateFailed, "Not authenticated");
+    const { supabase } = auth;
+
+    const { error } = await supabase.rpc("rpc_external_transfer", {
+      p_account_id: parsed.data.account_id,
+      p_direction: parsed.data.direction,
+      p_amount_minor: amountMinor,
+      p_date: parsed.data.date,
+      p_note: parsed.data.note || null,
+    });
+
+    if (error) {
+      const msg =
+        error.message?.includes("not found") ||
+        error.message?.includes("archived")
+          ? "Account could not be found. Please refresh and try again."
           : "Failed to record transfer. Please try again.";
       return err(ErrorCode.TransferCreateFailed, msg);
     }

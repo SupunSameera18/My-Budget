@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AccountCard } from "@/features/accounts/components/AccountCard";
 import { CreateAccountForm } from "@/features/accounts/components/CreateAccountForm";
 import { InternalTransferForm } from "@/features/accounts/components/InternalTransferForm";
+import { ExternalTransferForm } from "@/features/accounts/components/ExternalTransferForm";
 import type { Account } from "@/features/accounts/schema";
 
 type AccountWithCount = Account & { transactions: { count: number }[] };
@@ -91,7 +92,7 @@ export default async function AccountsPage() {
       </section>
 
       {/* Record a transfer */}
-      <section aria-labelledby="transfer-heading">
+      <section aria-labelledby="transfer-heading" className="mb-8">
         <h2
           id="transfer-heading"
           className="mb-4 text-base font-semibold text-ink-primary"
@@ -99,6 +100,17 @@ export default async function AccountsPage() {
           Record a transfer
         </h2>
         <InternalTransferForm accounts={activeAccounts} currency={currency} />
+      </section>
+
+      {/* External transfer */}
+      <section aria-labelledby="external-transfer-heading">
+        <h2
+          id="external-transfer-heading"
+          className="mb-4 text-base font-semibold text-ink-primary"
+        >
+          External transfer
+        </h2>
+        <ExternalTransferForm accounts={activeAccounts} />
       </section>
     </div>
   );
