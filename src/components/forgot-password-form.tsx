@@ -1,7 +1,10 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { resetPassword } from "@/features/auth/server/actions";
+import {
+  resetPassword,
+  resetPasswordWithOtp,
+} from "@/features/auth/server/actions";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -16,81 +19,151 @@ import Link from "next/link";
 import { useTransition, useState } from "react";
 import type { AppError } from "@/lib/errors";
 
+type Step = "request" | "enter_code";
+
+type FieldErrors = {
+  email?: string;
+  otp?: string;
+  password?: string;
+  confirmPassword?: string;
+};
+
 export function ForgotPasswordForm({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<"div">) {
   const [isPending, startTransition] = useTransition();
-  const [success, setSuccess] = useState(false);
+  const [step, setStep] = useState<Step>("request");
+  const [sentEmail, setSentEmail] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [appError, setAppError] = useState<AppError | null>(null);
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function handleRequestCode(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    setFieldErrors({});
     setAppError(null);
     const formData = new FormData(e.currentTarget);
+    const email = (formData.get("email") as string | null) ?? "";
     startTransition(async () => {
       const result = await resetPassword(formData);
       if (result.ok) {
-        setSuccess(true);
+        setSentEmail(email);
+        setStep("enter_code");
       } else {
-        setAppError(result.error);
+        if (result.error.field) {
+          setFieldErrors({ [result.error.field]: result.error.message });
+        } else {
+          setAppError(result.error);
+        }
       }
     });
   }
 
-  return (
-    <div className={cn("flex flex-col gap-6", className)} {...props}>
-      {success ? (
+  function handleResetWithOtp(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setFieldErrors({});
+    setAppError(null);
+    const formData = new FormData(e.currentTarget);
+    startTransition(async () => {
+      const result = await resetPasswordWithOtp(formData);
+      if (!result.ok) {
+        if (result.error.field) {
+          setFieldErrors({ [result.error.field]: result.error.message });
+        } else {
+          setAppError(result.error);
+        }
+      }
+    });
+  }
+
+  if (step === "enter_code") {
+    return (
+      <div className={cn("flex flex-col gap-6", className)} {...props}>
         <Card>
           <CardHeader>
             <CardTitle className="text-2xl text-ink-primary">
-              Check your inbox
-            </CardTitle>
-            <CardDescription>Password reset link sent</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-ink-secondary">
-              If that email is registered, you&apos;ll receive a reset link
-              shortly. Check your spam folder if it doesn&apos;t arrive.
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl text-ink-primary">
-              Reset password
+              Enter your code
             </CardTitle>
             <CardDescription>
-              Enter your email and we&apos;ll send you a reset link.
+              A 6-character code was sent to{" "}
+              <span className="font-medium text-ink-primary">{sentEmail}</span>.
+              It expires in 1 hour.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} noValidate>
+            <form onSubmit={handleResetWithOtp} noValidate>
+              <input type="hidden" name="email" value={sentEmail} />
               <div className="flex flex-col gap-5">
                 <div className="flex flex-col gap-1.5">
                   <Label
-                    htmlFor="email"
+                    htmlFor="otp"
                     className="text-xs font-bold text-ink-primary"
                   >
-                    Email
+                    Code from email
                   </Label>
                   <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
+                    id="otp"
+                    name="otp"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    placeholder="123456"
                     required
-                    className="min-h-[44px]"
+                    className="min-h-[44px] tracking-widest"
                   />
-                  {appError?.field === "email" && (
+                  {fieldErrors.otp && (
                     <p className="text-xs text-destructive">
-                      {appError.message}
+                      {fieldErrors.otp}
                     </p>
                   )}
                 </div>
 
-                {appError && !appError.field && (
+                <div className="flex flex-col gap-1.5">
+                  <Label
+                    htmlFor="password"
+                    className="text-xs font-bold text-ink-primary"
+                  >
+                    New password
+                  </Label>
+                  <Input
+                    id="password"
+                    name="password"
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    className="min-h-[44px]"
+                  />
+                  {fieldErrors.password && (
+                    <p className="text-xs text-destructive">
+                      {fieldErrors.password}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label
+                    htmlFor="confirmPassword"
+                    className="text-xs font-bold text-ink-primary"
+                  >
+                    Confirm new password
+                  </Label>
+                  <Input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    className="min-h-[44px]"
+                  />
+                  {fieldErrors.confirmPassword && (
+                    <p className="text-xs text-destructive">
+                      {fieldErrors.confirmPassword}
+                    </p>
+                  )}
+                </div>
+
+                {appError && (
                   <p className="text-sm text-destructive">{appError.message}</p>
                 )}
 
@@ -99,23 +172,92 @@ export function ForgotPasswordForm({
                   className="hover:bg-brand-accent-strong/90 min-h-[44px] w-full rounded-md bg-brand-accent-strong font-bold text-white"
                   disabled={isPending}
                 >
-                  {isPending ? "Sending…" : "Send reset link"}
+                  {isPending ? "Saving…" : "Reset password"}
                 </Button>
               </div>
 
               <div className="mt-4 text-center text-sm text-ink-secondary">
-                Remember your password?{" "}
-                <Link
-                  href="/auth/login"
+                Didn&apos;t receive a code?{" "}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep("request");
+                    setFieldErrors({});
+                    setAppError(null);
+                  }}
                   className="font-medium text-ink-primary underline underline-offset-4"
                 >
-                  Sign in
-                </Link>
+                  Send again
+                </button>
               </div>
             </form>
           </CardContent>
         </Card>
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn("flex flex-col gap-6", className)} {...props}>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-2xl text-ink-primary">
+            Reset password
+          </CardTitle>
+          <CardDescription>
+            Enter your email and we&apos;ll send you a reset code.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleRequestCode} noValidate>
+            <div className="flex flex-col gap-5">
+              <div className="flex flex-col gap-1.5">
+                <Label
+                  htmlFor="email"
+                  className="text-xs font-bold text-ink-primary"
+                >
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  className="min-h-[44px]"
+                />
+                {fieldErrors.email && (
+                  <p className="text-xs text-destructive">
+                    {fieldErrors.email}
+                  </p>
+                )}
+              </div>
+
+              {appError && (
+                <p className="text-sm text-destructive">{appError.message}</p>
+              )}
+
+              <Button
+                type="submit"
+                className="hover:bg-brand-accent-strong/90 min-h-[44px] w-full rounded-md bg-brand-accent-strong font-bold text-white"
+                disabled={isPending}
+              >
+                {isPending ? "Sending…" : "Send code"}
+              </Button>
+            </div>
+
+            <div className="mt-4 text-center text-sm text-ink-secondary">
+              Remember your password?{" "}
+              <Link
+                href="/auth/login"
+                className="font-medium text-ink-primary underline underline-offset-4"
+              >
+                Sign in
+              </Link>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }

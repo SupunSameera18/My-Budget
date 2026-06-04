@@ -42,7 +42,7 @@ export async function ChecklistCard() {
           <li key={item.id}>
             <Link
               href={item.href}
-              className="flex min-h-[44px] items-center justify-between rounded-lg bg-surface-inset px-4 py-2 text-sm font-medium text-ink-primary hover:bg-surface-raised active:opacity-80"
+              className="flex min-h-[44px] items-center justify-between rounded-lg bg-surface-inset px-4 py-2 text-sm font-medium text-ink-primary transition-shadow hover:shadow-sm active:opacity-80"
             >
               <span
                 className={item.done ? "text-ink-secondary line-through" : ""}

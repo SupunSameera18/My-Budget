@@ -13,7 +13,9 @@ import {
   Bell,
   Users,
   Settings,
+  LogOut,
 } from "lucide-react";
+import { signOut } from "@/features/auth/server/actions";
 
 const NAV_ITEMS = [
   { label: "Home", href: "/dashboard", icon: House },
@@ -66,6 +68,18 @@ export function Sidebar() {
             );
           })}
         </nav>
+      </div>
+
+      <div className="mt-auto border-t border-hairline px-3 py-3">
+        <form action={signOut}>
+          <button
+            type="submit"
+            className="flex min-h-[44px] w-full items-center gap-3 rounded-md px-3 text-sm text-ink-secondary transition-colors hover:bg-surface-inset hover:text-ink-primary"
+          >
+            <LogOut strokeWidth={1.75} className="h-5 w-5 shrink-0" />
+            Sign out
+          </button>
+        </form>
       </div>
     </aside>
   );

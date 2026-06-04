@@ -50,7 +50,12 @@ export async function BreathingRoomCard() {
           Nothing tracked yet this month.
         </p>
         <p className="mt-1 text-sm text-ink-secondary">
-          Tap + to log your first transaction.
+          <span className="md:hidden">
+            Tap + to log your first transaction.
+          </span>
+          <span className="hidden md:inline">
+            Log a transaction to track your spending.
+          </span>
         </p>
       </section>
     );

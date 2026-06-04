@@ -8,6 +8,7 @@ import {
   signUpSchema,
   resetPasswordSchema,
   updatePasswordSchema,
+  resetPasswordWithOtpSchema,
 } from "@/features/auth/schema";
 
 export async function signIn(formData: FormData): Promise<Result<void>> {
@@ -149,6 +150,48 @@ export async function updatePassword(
   });
 
   if (error) {
+    return err(
+      ErrorCode.UpdatePasswordFailed,
+      "Failed to update password. Please try again.",
+    );
+  }
+
+  redirect("/");
+}
+
+export async function resetPasswordWithOtp(
+  formData: FormData,
+): Promise<Result<void>> {
+  const raw = Object.fromEntries(formData);
+  const parsed = resetPasswordWithOtpSchema.safeParse(raw);
+  if (!parsed.success) {
+    const first = parsed.error.issues[0];
+    if (!first) return err(ErrorCode.UpdatePasswordFailed, "Invalid request.");
+    return err(
+      ErrorCode.UpdatePasswordFailed,
+      first.message,
+      String(first.path[0] ?? ""),
+    );
+  }
+
+  const supabase = await createClient();
+  const { error: verifyError } = await supabase.auth.verifyOtp({
+    email: parsed.data.email,
+    token: parsed.data.otp,
+    type: "recovery",
+  });
+  if (verifyError) {
+    return err(
+      ErrorCode.UpdatePasswordFailed,
+      "Invalid or expired code. Request a new one.",
+      "otp",
+    );
+  }
+
+  const { error: updateError } = await supabase.auth.updateUser({
+    password: parsed.data.password,
+  });
+  if (updateError) {
     return err(
       ErrorCode.UpdatePasswordFailed,
       "Failed to update password. Please try again.",
