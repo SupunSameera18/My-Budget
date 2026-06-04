@@ -22,7 +22,9 @@ export async function ChecklistCard() {
     familyMemberCount: 0, // wired in Story 7.2
   });
 
-  // markChecklistComplete() is NOT called here — wired in Story 7.2 when all 4 items are done.
+  // The X button (below) dismisses the checklist now via markChecklistComplete().
+  // Auto-dismiss when all 4 items are genuinely done is wired in Story 7.2, once the
+  // budget/goal/family counts above stop being hardcoded 0 (only transactionCount is real today).
 
   return (
     <section
