@@ -1,16 +1,13 @@
 import Link from "next/link";
 import { ChevronRight, X } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/supabase/require-user";
 import { deriveChecklistState } from "@/features/dashboard/checklist";
 import { markChecklistComplete } from "@/features/dashboard/server/actions";
 
 export async function ChecklistCard() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return null;
+  const auth = await requireUser();
+  if (!auth) return null;
+  const { supabase, user } = auth;
 
   // Fetch real transaction count for the "Log your first transaction" item.
   const { count: transactionCount } = await supabase

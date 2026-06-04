@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/supabase/require-user";
 import { ErrorCode, err, ok, type Result } from "@/lib/errors";
 import {
   nameStepSchema,
@@ -13,14 +13,9 @@ import { createAccount } from "@/features/accounts/server/actions";
 export async function getOnboardingProfile(): Promise<
   Result<OnboardingProfile>
 > {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return err(ErrorCode.ProfileFetchFailed, "Not authenticated");
-  }
+  const auth = await requireUser();
+  if (!auth) return err(ErrorCode.ProfileFetchFailed, "Not authenticated");
+  const { supabase, user } = auth;
 
   const { data, error } = await supabase
     .from("profiles")
@@ -42,11 +37,9 @@ export async function saveNameStep(formData: FormData): Promise<void> {
   const parsed = nameStepSchema.safeParse(raw);
   if (!parsed.success) return;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return;
+  const auth = await requireUser();
+  if (!auth) return;
+  const { supabase, user } = auth;
 
   // Guard: only advance if still on step 1
   const { error } = await supabase
@@ -64,11 +57,9 @@ export async function saveCurrencyStep(formData: FormData): Promise<void> {
   const parsed = currencyStepSchema.safeParse(raw);
   if (!parsed.success) return;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return;
+  const auth = await requireUser();
+  if (!auth) return;
+  const { supabase, user } = auth;
 
   // Guard: only advance if still on step 2 (prevents backward step reset via deep-link)
   const { error } = await supabase
@@ -87,11 +78,9 @@ export async function createFirstAccountAndAdvance(
   const result = await createAccount(formData);
   if (!result.ok) return;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return;
+  const auth = await requireUser();
+  if (!auth) return;
+  const { supabase, user } = auth;
 
   // Guard: only advance if still on step 3
   const { error } = await supabase
@@ -105,11 +94,9 @@ export async function createFirstAccountAndAdvance(
 }
 
 export async function completeOnboarding(): Promise<void> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return;
+  const auth = await requireUser();
+  if (!auth) return;
+  const { supabase, user } = auth;
 
   // Guard: only complete if still on step 4 (idempotency — prevents double-submit)
   const { error } = await supabase

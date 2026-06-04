@@ -1,22 +1,21 @@
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/supabase/require-user";
 import { signOut } from "@/features/auth/server/actions";
 import { LogOut } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default async function MorePage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const auth = await requireUser();
 
   return (
     <div className="mx-auto max-w-2xl p-4">
       <h1 className="mb-6 text-xl font-bold text-ink-primary">More</h1>
 
-      {user?.email && (
+      {auth?.user.email && (
         <p className="mb-6 text-sm text-ink-secondary">
           Signed in as{" "}
-          <span className="font-medium text-ink-primary">{user.email}</span>
+          <span className="font-medium text-ink-primary">
+            {auth?.user.email}
+          </span>
         </p>
       )}
 

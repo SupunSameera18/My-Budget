@@ -1,13 +1,11 @@
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/supabase/require-user";
 import { formatMoney } from "@/lib/format";
 import { currentMonthBoundaries } from "@/lib/period";
 
 export async function BreathingRoomCard() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+  const auth = await requireUser();
+  if (!auth) return null;
+  const { supabase, user } = auth;
 
   // Currency for display — defaults to USD on profile fetch failure
   const { data: profile } = await supabase

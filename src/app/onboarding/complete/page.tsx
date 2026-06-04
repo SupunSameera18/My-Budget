@@ -1,14 +1,10 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/supabase/require-user";
 import { CompleteClient } from "./CompleteClient";
 
 export default async function CompletePage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const auth = await requireUser();
+  if (!auth) redirect("/auth/login");
 
-  if (!user) redirect("/auth/login");
-
-  return <CompleteClient userId={user.id} />;
+  return <CompleteClient userId={auth.user.id} />;
 }

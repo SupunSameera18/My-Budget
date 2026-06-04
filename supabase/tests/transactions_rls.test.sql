@@ -1,4 +1,4 @@
--- pgTAP test: transactions table structure and RLS enforcement (SELECT + INSERT + UPDATE + DELETE denied)
+-- pgTAP test: transactions table structure and RLS enforcement (SELECT + INSERT + UPDATE + DELETE denied by privilege)
 begin;
 select plan(12);
 
@@ -146,27 +146,26 @@ with upd as (
 select ok(count(*) = 0, 'user1 cannot update user2 transactions (UPDATE RLS enforced)')
 from upd;
 
--- ── 11. Pre-condition: owner (user1) has transactions (prevents a vacuous DELETE pass) ─
+-- ── 11. Pre-condition: user1 has transactions (anti-vacuous guard for DELETE test) ─
+-- Switch to postgres so the privilege-revoked authenticated role does not block the count.
+set local role postgres;
 select ok(
   (select count(*) > 0 from public.transactions
    where user_id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'),
-  'user1 has transactions (pre-condition for owner DELETE test)'
+  'user1 has transactions (pre-condition for DELETE privilege test)'
 );
+set local role authenticated;
 
--- ── 12. Owner DELETE is silently denied (no DELETE policy → RLS default-deny) ──────
--- NOTE: Supabase's default ACL grants the DELETE *table privilege* to `authenticated`
--- on every public table, so a missing DELETE policy does NOT raise 42501 — RLS simply
--- filters the delete to 0 rows. Assert that behaviour, not a privilege error.
-with del as (
-  delete from public.transactions
-  where user_id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'
-  returning 1
-)
-select ok(
-  count(*) = 0,
-  'owner cannot delete their own transactions (no DELETE policy — RLS silently blocks, 0 rows)'
-)
-from del;
+-- ── 12. DELETE is forbidden — privilege revoked from authenticated role ─────────────
+-- Migration 0008 revoked DELETE from anon/authenticated at the table-privilege level.
+-- Unlike the old RLS-only posture (0 rows silently), the privilege denial now raises 42501.
+select throws_ok(
+  $$ delete from public.transactions
+     where user_id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee' $$,
+  '42501',
+  NULL::text,
+  'authenticated role cannot delete transactions (DELETE privilege revoked)'
+);
 
 select * from finish();
 rollback;

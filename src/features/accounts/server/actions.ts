@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/supabase/require-user";
 import { ErrorCode, err, ok, type Result } from "@/lib/errors";
 import { createAccountSchema, type Account } from "@/features/accounts/schema";
 
@@ -19,70 +20,71 @@ export async function createAccount(
     );
   }
 
-  // Convert decimal string to integer minor units (2 decimal places for all supported currencies in v1)
   const openingBalanceMinor = Math.round(
     parseFloat(parsed.data.openingBalance) * 100,
   );
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  try {
+    const auth = await requireUser();
+    if (!auth) return err(ErrorCode.AccountCreateFailed, "Not authenticated");
+    const { supabase, user } = auth;
 
-  if (!user) {
-    return err(ErrorCode.AccountCreateFailed, "Not authenticated");
-  }
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("currency")
+      .eq("user_id", user.id)
+      .single();
 
-  // Fetch currency from profile (set during onboarding step 1)
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("currency")
-    .eq("user_id", user.id)
-    .single();
+    if (profileError || !profile) {
+      return err(
+        ErrorCode.AccountCreateFailed,
+        "Failed to load currency setting. Please try again.",
+      );
+    }
 
-  if (profileError || !profile) {
+    const { data, error } = await supabase
+      .from("accounts")
+      .insert({
+        user_id: user.id,
+        name: parsed.data.name,
+        type: parsed.data.type,
+        actual_balance_minor: openingBalanceMinor,
+        currency: profile.currency,
+      })
+      .select()
+      .single();
+
+    if (error || !data) {
+      return err(
+        ErrorCode.AccountCreateFailed,
+        "Failed to create account. Please try again.",
+      );
+    }
+
+    return ok(data as Account);
+  } catch {
     return err(
       ErrorCode.AccountCreateFailed,
-      "Failed to load currency setting. Please try again.",
+      "An unexpected error occurred. Please try again.",
     );
   }
-
-  const currency = profile.currency;
-
-  const { data, error } = await supabase
-    .from("accounts")
-    .insert({
-      user_id: user.id,
-      name: parsed.data.name,
-      type: parsed.data.type,
-      actual_balance_minor: openingBalanceMinor,
-      currency,
-    })
-    .select()
-    .single();
-
-  if (error || !data) {
-    return err(
-      ErrorCode.AccountCreateFailed,
-      "Failed to create account. Please try again.",
-    );
-  }
-
-  return ok(data as Account);
 }
 
 export async function getAccounts(): Promise<Result<Account[]>> {
-  const supabase = await createClient();
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("accounts")
+      .select("*")
+      .is("archived_at", null)
+      .order("created_at", { ascending: true });
 
-  const { data, error } = await supabase
-    .from("accounts")
-    .select("*")
-    .is("archived_at", null)
-    .order("created_at", { ascending: true });
+    if (error) {
+      return err(ErrorCode.AccountFetchFailed, "Failed to load accounts.");
+    }
 
-  if (error) {
+    return ok((data ?? []) as Account[]);
+  } catch {
     return err(ErrorCode.AccountFetchFailed, "Failed to load accounts.");
   }
-
-  return ok((data ?? []) as Account[]);
 }

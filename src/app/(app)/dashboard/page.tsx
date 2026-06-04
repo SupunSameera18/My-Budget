@@ -1,16 +1,12 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/supabase/require-user";
 import { ChecklistCard } from "@/features/dashboard/ChecklistCard";
 import { BreathingRoomCard } from "@/features/dashboard/BreathingRoomCard";
 import { getDashboardProfile } from "@/features/dashboard/server/actions";
 
 export default async function DashboardPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/auth/login");
+  const auth = await requireUser();
+  if (!auth) redirect("/auth/login");
 
   const profileResult = await getDashboardProfile();
   // Show checklist only when fetch succeeds and checklist has not been completed.
