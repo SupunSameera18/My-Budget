@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { ErrorCode, err, ok, type Result } from "@/lib/errors";
 import {
@@ -202,7 +203,23 @@ export async function resetPasswordWithOtp(
 }
 
 export async function signInWithGoogle(): Promise<Result<{ url: string }>> {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
+  // Build redirectTo from the ACTUAL request origin, not NEXT_PUBLIC_SITE_URL.
+  // The PKCE code verifier is stored as a cookie on the host the flow starts on
+  // (e.g. localhost). If we redirect back to a different host (e.g. 127.0.0.1
+  // from the env var), that cookie isn't visible at the callback and the code
+  // exchange silently fails — bouncing the user back to /auth/login. Using the
+  // request origin keeps the whole OAuth flow on one consistent host.
+  const headerStore = await headers();
+  const origin = headerStore.get("origin");
+  const host = headerStore.get("host");
+  const forwardedProto = headerStore.get("x-forwarded-proto");
+  const siteUrl = (
+    origin ??
+    (host
+      ? `${forwardedProto ?? "http"}://${host}`
+      : process.env.NEXT_PUBLIC_SITE_URL)
+  )?.replace(/\/$/, "");
+
   if (!siteUrl) {
     return err(ErrorCode.OAuthFailed, "OAuth is temporarily unavailable.");
   }

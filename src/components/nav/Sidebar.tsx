@@ -41,9 +41,9 @@ export function Sidebar() {
   return (
     <aside
       data-testid="sidebar"
-      className="hidden w-56 shrink-0 flex-col border-r border-hairline bg-surface-raised md:flex"
+      className="hidden h-full w-56 shrink-0 flex-col border-r border-hairline bg-surface-raised md:flex"
     >
-      <div className="px-3 py-4">
+      <div className="flex-1 overflow-y-auto px-3 py-4">
         <p className="mb-2 px-3 text-sm font-semibold text-ink-primary">
           My Budget
         </p>
@@ -71,7 +71,7 @@ export function Sidebar() {
         </nav>
       </div>
 
-      <div className="mt-auto flex flex-col gap-1 border-t border-hairline px-3 py-3">
+      <div className="flex shrink-0 flex-col gap-1 border-t border-hairline px-3 py-3">
         <ThemeToggle />
         <form action={signOut}>
           <button
