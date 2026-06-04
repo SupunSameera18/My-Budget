@@ -11,6 +11,12 @@ export default function SettingsPage() {
         >
           Accounts
         </Link>
+        <Link
+          href="/settings/categories"
+          className="flex min-h-[44px] items-center rounded-lg bg-card px-4 text-sm text-ink-primary shadow-sm hover:bg-surface-inset"
+        >
+          Categories
+        </Link>
       </nav>
     </div>
   );
