@@ -5,8 +5,12 @@ import { requireUser } from "@/lib/supabase/require-user";
 import { ErrorCode, err, ok, type Result } from "@/lib/errors";
 import {
   logTransactionSchema,
+  editTransactionSchema,
   type TransactionFormData,
+  type EditTransactionFormData,
+  type ActivityTrailEntry,
 } from "@/features/transactions/schema";
+import { z } from "zod";
 import { getAccounts } from "@/features/accounts/server/actions";
 import { currentMonthBoundaries } from "@/lib/period";
 import { dedupeRecentNotes } from "@/lib/note-suggestions";
@@ -64,6 +68,7 @@ export async function getTransactionFormData(): Promise<
       .from("transactions")
       .select("account_id")
       .eq("user_id", user.id)
+      .is("archived_at", null)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -76,7 +81,8 @@ export async function getTransactionFormData(): Promise<
       .select("amount_minor, type")
       .eq("user_id", user.id)
       .gte("date", start)
-      .lte("date", end);
+      .lte("date", end)
+      .is("archived_at", null);
 
     const incomeSum = (monthTxns ?? [])
       .filter((t) => t.type === "income")
@@ -204,10 +210,210 @@ export async function getSuggestedNotes(categoryId: string): Promise<string[]> {
       .select("note, created_at")
       .eq("user_id", user.id) // explicit user_id filter (defense-in-depth)
       .eq("category_id", categoryId)
+      .is("archived_at", null)
       .not("note", "is", null)
       .order("created_at", { ascending: false })
       .limit(50); // fetch enough to dedup to 5 distinct
     return dedupeRecentNotes(data ?? []);
+  } catch {
+    return [];
+  }
+}
+
+export async function getTransaction(
+  id: string,
+): Promise<Result<EditTransactionFormData>> {
+  try {
+    const auth = await requireUser();
+    if (!auth)
+      return err(ErrorCode.TransactionFetchFailed, "Not authenticated");
+    const { supabase, user } = auth;
+
+    const { data: transaction, error: txnError } = await supabase
+      .from("transactions")
+      .select(
+        "id, user_id, account_id, category_id, subcategory_id, amount_minor, date, note, type, created_at, updated_at, archived_at",
+      )
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .is("archived_at", null)
+      .maybeSingle();
+
+    if (txnError) {
+      return err(
+        ErrorCode.TransactionFetchFailed,
+        "Failed to load transaction",
+      );
+    }
+    if (!transaction) {
+      return err(ErrorCode.TransactionFetchFailed, "Transaction not found");
+    }
+
+    const accountsResult = await getAccounts();
+    if (!accountsResult.ok) {
+      return err(ErrorCode.TransactionFetchFailed, "Failed to load accounts");
+    }
+
+    const { data: categories, error: catError } = await supabase
+      .from("categories")
+      .select("id, name, type")
+      .is("archived_at", null)
+      .order("type", { ascending: true })
+      .order("name", { ascending: true });
+
+    if (catError) {
+      return err(ErrorCode.TransactionFetchFailed, "Failed to load categories");
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("currency, subcategories_enabled")
+      .eq("user_id", user.id)
+      .single();
+
+    const currency = profile?.currency ?? "USD";
+    const subcategoriesEnabled = profile?.subcategories_enabled ?? false;
+
+    let subcategories: { id: string; name: string; category_id: string }[] = [];
+    if (subcategoriesEnabled) {
+      const { data: subcatsData } = await supabase
+        .from("subcategories")
+        .select("id, name, category_id")
+        .eq("user_id", user.id)
+        .is("archived_at", null)
+        .order("created_at", { ascending: true });
+      subcategories = subcatsData ?? [];
+    }
+
+    return ok({
+      transaction: transaction as EditTransactionFormData["transaction"],
+      accounts: accountsResult.data,
+      categories: (categories ?? []) as EditTransactionFormData["categories"],
+      currency,
+      subcategoriesEnabled,
+      subcategories: subcategories as EditTransactionFormData["subcategories"],
+    });
+  } catch {
+    return err(
+      ErrorCode.TransactionFetchFailed,
+      "An unexpected error occurred. Please try again.",
+    );
+  }
+}
+
+export async function editTransaction(
+  transactionId: string,
+  formData: FormData,
+): Promise<Result<void>> {
+  const raw = Object.fromEntries(formData);
+  const parsed = editTransactionSchema.safeParse(raw);
+
+  if (!parsed.success) {
+    const first = parsed.error.issues[0];
+    return err(
+      ErrorCode.TransactionUpdateFailed,
+      first?.message ?? "Invalid transaction data",
+      String(first?.path[0] ?? ""),
+    );
+  }
+
+  try {
+    const auth = await requireUser();
+    if (!auth)
+      return err(ErrorCode.TransactionUpdateFailed, "Not authenticated");
+    const { supabase } = auth;
+
+    const amountMinor = Math.round(
+      parseFloat(parsed.data.amount_display) * 100,
+    );
+    const subcategoryId =
+      parsed.data.subcategory_id && parsed.data.subcategory_id !== ""
+        ? parsed.data.subcategory_id
+        : null;
+
+    const { error: rpcError } = await supabase.rpc("rpc_edit_transaction", {
+      p_transaction_id: transactionId,
+      p_account_id: parsed.data.account_id,
+      p_category_id: parsed.data.category_id,
+      p_amount_minor: amountMinor,
+      p_date: parsed.data.date,
+      p_note: parsed.data.note ?? null,
+      p_subcategory_id: subcategoryId,
+    });
+
+    if (rpcError) {
+      const msg =
+        rpcError.code === "P0001"
+          ? rpcError.message
+          : "Failed to update transaction. Please try again.";
+      return err(ErrorCode.TransactionUpdateFailed, msg);
+    }
+
+    revalidatePath("/dashboard");
+    revalidatePath("/transactions");
+    revalidatePath("/transactions/" + transactionId);
+    return ok();
+  } catch {
+    return err(
+      ErrorCode.TransactionUpdateFailed,
+      "An unexpected error occurred. Please try again.",
+    );
+  }
+}
+
+export async function deleteTransaction(
+  transactionId: string,
+): Promise<Result<void>> {
+  try {
+    const idParse = z.string().uuid().safeParse(transactionId);
+    if (!idParse.success) {
+      return err(ErrorCode.TransactionDeleteFailed, "Invalid transaction id");
+    }
+    const auth = await requireUser();
+    if (!auth)
+      return err(ErrorCode.TransactionDeleteFailed, "Not authenticated");
+    const { supabase } = auth;
+
+    const { error: rpcError } = await supabase.rpc("rpc_delete_transaction", {
+      p_transaction_id: transactionId,
+    });
+
+    if (rpcError) {
+      const msg =
+        rpcError.code === "P0001"
+          ? rpcError.message
+          : "Failed to delete transaction. Please try again.";
+      return err(ErrorCode.TransactionDeleteFailed, msg);
+    }
+
+    revalidatePath("/dashboard");
+    revalidatePath("/transactions");
+    return ok();
+  } catch {
+    return err(
+      ErrorCode.TransactionDeleteFailed,
+      "An unexpected error occurred. Please try again.",
+    );
+  }
+}
+
+export async function getActivityTrail(
+  transactionId: string,
+): Promise<ActivityTrailEntry[]> {
+  try {
+    if (!transactionId) return [];
+    const auth = await requireUser();
+    if (!auth) return [];
+    const { supabase, user } = auth;
+    const { data } = await supabase
+      .from("activity_trail")
+      .select(
+        "id, user_id, transaction_id, change_type, changed_fields, created_at",
+      )
+      .eq("transaction_id", transactionId)
+      .eq("user_id", user.id) // explicit user_id filter (defense-in-depth §9)
+      .order("created_at", { ascending: false });
+    return (data ?? []) as ActivityTrailEntry[];
   } catch {
     return [];
   }
