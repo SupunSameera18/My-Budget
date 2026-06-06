@@ -2,7 +2,11 @@
 
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { logTransaction } from "@/features/transactions/server/actions";
+import {
+  getSuggestedNotes,
+  logTransaction,
+} from "@/features/transactions/server/actions";
+import { getDefaultNotePrompt } from "@/lib/note-suggestions";
 import { OfflineRetryBanner } from "@/components/feedback/OfflineRetryBanner";
 import { useOnlineStatus } from "@/lib/hooks/useOnlineStatus";
 import { Button } from "@/components/ui/button";
@@ -52,6 +56,7 @@ export function LogSheet({
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [selectedSubcategoryId, setSelectedSubcategoryId] = useState("");
   const [note, setNote] = useState("");
+  const [suggestions, setSuggestions] = useState<string[]>([]);
 
   const amountMinor =
     amountDisplay === "0" || amountDisplay === "" || amountDisplay === "0."
@@ -68,9 +73,31 @@ export function LogSheet({
     ? subcategories.filter((s) => s.category_id === selectedCategoryId)
     : [];
 
+  const selectedCategoryName =
+    categories.find((c) => c.id === selectedCategoryId)?.name ?? "";
+  const notePrompt = getDefaultNotePrompt(selectedCategoryName);
+
   useEffect(() => {
     setSelectedSubcategoryId("");
   }, [selectedCategoryId]);
+
+  useEffect(() => {
+    if (!selectedCategoryId || !isOnline) {
+      setSuggestions([]);
+      return;
+    }
+    let cancelled = false;
+    getSuggestedNotes(selectedCategoryId)
+      .then((notes) => {
+        if (!cancelled) setSuggestions(notes);
+      })
+      .catch(() => {
+        if (!cancelled) setSuggestions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCategoryId, isOnline]);
 
   function buildFormData(): FormData {
     const fd = new FormData();
@@ -292,6 +319,38 @@ export function LogSheet({
         </div>
       )}
 
+      {/* Suggestion chips + ARIA live region */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      >
+        {suggestions.length > 0
+          ? `${suggestions.length} suggestion${suggestions.length > 1 ? "s" : ""} available`
+          : ""}
+      </div>
+      {suggestions.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <p className="text-xs font-bold text-ink-primary">
+            Previous notes{" "}
+            <span className="font-normal text-ink-secondary">(tap to use)</span>
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {suggestions.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setNote(s)}
+                className="hover:bg-surface-inset/70 min-h-[44px] rounded-lg border border-hairline bg-surface-inset px-3 py-2 text-sm text-ink-primary transition-colors active:scale-95"
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Note */}
       <div className="flex flex-col gap-1.5">
         <label htmlFor="note" className="text-xs font-bold text-ink-primary">
@@ -305,6 +364,7 @@ export function LogSheet({
           autoComplete="off"
           value={note}
           onChange={(e) => setNote(e.target.value)}
+          placeholder={suggestions.length === 0 ? (notePrompt ?? "") : ""}
           className="min-h-[44px]"
         />
       </div>
