@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import type { Subcategory } from "@/features/categories/schema";
@@ -11,6 +11,17 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/features/transactions/server/actions", () => ({
   logTransaction: vi.fn(),
+  getSuggestedNotes: vi.fn(),
+}));
+
+vi.mock("@/lib/note-suggestions", () => ({
+  getDefaultNotePrompt: vi.fn(),
+  dedupeRecentNotes: vi.fn((rows: Array<{ note: string | null }>) =>
+    rows
+      .filter((r) => r.note !== null)
+      .map((r) => r.note as string)
+      .slice(0, 5),
+  ),
 }));
 
 vi.mock("@/lib/hooks/useOnlineStatus", () => ({
@@ -22,7 +33,11 @@ vi.mock("@/components/feedback/OfflineRetryBanner", () => ({
 }));
 
 import { LogSheet } from "./LogSheet";
-import { logTransaction } from "@/features/transactions/server/actions";
+import {
+  logTransaction,
+  getSuggestedNotes,
+} from "@/features/transactions/server/actions";
+import { getDefaultNotePrompt } from "@/lib/note-suggestions";
 import { useOnlineStatus } from "@/lib/hooks/useOnlineStatus";
 
 const mockAccounts: Account[] = [
@@ -69,6 +84,8 @@ const baseProps = {
 beforeEach(() => {
   vi.resetAllMocks();
   (useOnlineStatus as Mock).mockReturnValue(true);
+  (getSuggestedNotes as Mock).mockResolvedValue([]);
+  (getDefaultNotePrompt as Mock).mockReturnValue(null);
 });
 
 describe("LogSheet — step 1", () => {
@@ -227,5 +244,57 @@ describe("LogSheet — offline guard", () => {
     await userEvent.click(screen.getByRole("button", { name: /continue/i }));
     await userEvent.click(screen.getByRole("button", { name: "Groceries" }));
     expect(screen.getByRole("button", { name: /^save$/i })).toBeDisabled();
+  });
+});
+
+describe("LogSheet — note suggestions", () => {
+  async function goToStep2() {
+    render(<LogSheet {...baseProps} />);
+    await userEvent.click(screen.getByRole("button", { name: "5" }));
+    await userEvent.click(screen.getByRole("button", { name: /continue/i }));
+  }
+
+  it("renders suggestion chips when getSuggestedNotes returns notes", async () => {
+    (getSuggestedNotes as Mock).mockResolvedValueOnce(["Coffee", "Latte"]);
+    await goToStep2();
+    await userEvent.click(screen.getByRole("button", { name: "Groceries" }));
+    await act(async () => {});
+    expect(screen.getByRole("button", { name: "Coffee" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Latte" })).toBeInTheDocument();
+  });
+
+  it("tapping a suggestion chip sets the note field value", async () => {
+    (getSuggestedNotes as Mock).mockResolvedValueOnce(["Coffee"]);
+    await goToStep2();
+    await userEvent.click(screen.getByRole("button", { name: "Groceries" }));
+    await act(async () => {});
+    await userEvent.click(screen.getByRole("button", { name: "Coffee" }));
+    expect(screen.getByLabelText(/note/i)).toHaveValue("Coffee");
+  });
+
+  it("renders no chips when getSuggestedNotes returns []", async () => {
+    await goToStep2();
+    await userEvent.click(screen.getByRole("button", { name: "Groceries" }));
+    await act(async () => {});
+    expect(screen.queryByText(/previous notes/i)).toBeNull();
+  });
+
+  it("does not call getSuggestedNotes when offline", async () => {
+    (useOnlineStatus as Mock).mockReturnValue(false);
+    await goToStep2();
+    await userEvent.click(screen.getByRole("button", { name: "Groceries" }));
+    await act(async () => {});
+    expect(getSuggestedNotes).not.toHaveBeenCalled();
+  });
+
+  it("shows note placeholder from getDefaultNotePrompt when no suggestions", async () => {
+    (getDefaultNotePrompt as Mock).mockReturnValue("Where did you eat?");
+    await goToStep2();
+    await userEvent.click(screen.getByRole("button", { name: "Groceries" }));
+    await act(async () => {});
+    expect(screen.getByLabelText(/note/i)).toHaveAttribute(
+      "placeholder",
+      "Where did you eat?",
+    );
   });
 });

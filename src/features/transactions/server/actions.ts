@@ -9,6 +9,7 @@ import {
 } from "@/features/transactions/schema";
 import { getAccounts } from "@/features/accounts/server/actions";
 import { currentMonthBoundaries } from "@/lib/period";
+import { dedupeRecentNotes } from "@/lib/note-suggestions";
 
 export async function getTransactionFormData(): Promise<
   Result<TransactionFormData>
@@ -189,5 +190,24 @@ export async function logTransaction(
       ErrorCode.TransactionCreateFailed,
       "An unexpected error occurred. Please try again.",
     );
+  }
+}
+
+export async function getSuggestedNotes(categoryId: string): Promise<string[]> {
+  try {
+    const auth = await requireUser();
+    if (!auth) return [];
+    const { supabase, user } = auth;
+    const { data } = await supabase
+      .from("transactions")
+      .select("note, created_at")
+      .eq("user_id", user.id) // explicit user_id filter (defense-in-depth)
+      .eq("category_id", categoryId)
+      .not("note", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(50); // fetch enough to dedup to 5 distinct
+    return dedupeRecentNotes(data ?? []);
+  } catch {
+    return [];
   }
 }
