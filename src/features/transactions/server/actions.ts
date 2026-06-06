@@ -195,6 +195,7 @@ export async function logTransaction(
 
 export async function getSuggestedNotes(categoryId: string): Promise<string[]> {
   try {
+    if (!categoryId) return [];
     const auth = await requireUser();
     if (!auth) return [];
     const { supabase, user } = auth;

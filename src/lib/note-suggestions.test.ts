@@ -18,6 +18,10 @@ describe("dedupeRecentNotes", () => {
     expect(dedupeRecentNotes([{ note: "" }, { note: "" }])).toEqual([]);
   });
 
+  it("returns [] when all notes are whitespace-only", () => {
+    expect(dedupeRecentNotes([{ note: "   " }, { note: "\t" }])).toEqual([]);
+  });
+
   it("deduplicates preserving recency order", () => {
     const rows = [{ note: "A" }, { note: "B" }, { note: "A" }, { note: "C" }];
     expect(dedupeRecentNotes(rows)).toEqual(["A", "B", "C"]);

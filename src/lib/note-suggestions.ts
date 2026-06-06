@@ -20,7 +20,7 @@ export function dedupeRecentNotes(
   const seen = new Set<string>();
   const result: string[] = [];
   for (const row of rows) {
-    if (row.note !== null && row.note !== "" && !seen.has(row.note)) {
+    if (row.note !== null && row.note.trim() !== "" && !seen.has(row.note)) {
       seen.add(row.note);
       result.push(row.note);
     }
