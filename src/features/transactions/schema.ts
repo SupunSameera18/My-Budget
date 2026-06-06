@@ -54,6 +54,7 @@ export type TransactionFormData = {
   defaultAccountId: string | null;
   subcategoriesEnabled: boolean;
   subcategories: Subcategory[];
+  currentBreathingRoomMinor: number;
 };
 
 export type { Subcategory };

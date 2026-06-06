@@ -1,7 +1,9 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/supabase/require-user";
 import { ChecklistCard } from "@/features/dashboard/ChecklistCard";
 import { BreathingRoomCard } from "@/features/dashboard/BreathingRoomCard";
+import { LogSuccessToast } from "@/features/dashboard/LogSuccessToast";
 import { getDashboardProfile } from "@/features/dashboard/server/actions";
 
 export default async function DashboardPage() {
@@ -19,6 +21,9 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4 p-4">
+      <Suspense fallback={null}>
+        <LogSuccessToast />
+      </Suspense>
       <p className="text-xl font-bold text-ink-primary">
         Hi {displayName ?? "there"}!
       </p>

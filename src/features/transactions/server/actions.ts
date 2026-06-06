@@ -8,6 +8,7 @@ import {
   type TransactionFormData,
 } from "@/features/transactions/schema";
 import { getAccounts } from "@/features/accounts/server/actions";
+import { currentMonthBoundaries } from "@/lib/period";
 
 export async function getTransactionFormData(): Promise<
   Result<TransactionFormData>
@@ -52,6 +53,7 @@ export async function getTransactionFormData(): Promise<
       const { data: subcatsData } = await supabase
         .from("subcategories")
         .select("id, name, category_id")
+        .eq("user_id", user.id)
         .is("archived_at", null)
         .order("created_at", { ascending: true });
       subcategories = subcatsData ?? [];
@@ -67,6 +69,22 @@ export async function getTransactionFormData(): Promise<
 
     const defaultAccountId = lastTxn?.account_id ?? accounts[0]?.id ?? null;
 
+    const { start, end } = currentMonthBoundaries();
+    const { data: monthTxns } = await supabase
+      .from("transactions")
+      .select("amount_minor, type")
+      .eq("user_id", user.id)
+      .gte("date", start)
+      .lte("date", end);
+
+    const incomeSum = (monthTxns ?? [])
+      .filter((t) => t.type === "income")
+      .reduce((s, t) => s + t.amount_minor, 0);
+    const expenseSum = (monthTxns ?? [])
+      .filter((t) => t.type === "expense")
+      .reduce((s, t) => s + t.amount_minor, 0);
+    const currentBreathingRoomMinor = incomeSum - expenseSum;
+
     return ok({
       accounts,
       categories: (categories ?? []) as TransactionFormData["categories"],
@@ -74,6 +92,7 @@ export async function getTransactionFormData(): Promise<
       defaultAccountId,
       subcategoriesEnabled,
       subcategories: subcategories as TransactionFormData["subcategories"],
+      currentBreathingRoomMinor,
     });
   } catch {
     return err(
@@ -159,6 +178,7 @@ export async function logTransaction(
 
     revalidatePath("/dashboard");
     revalidatePath("/transactions/new");
+    revalidatePath("/transactions");
     return ok();
     // Client navigates to /dashboard via router.push() — NOT a server-side redirect().
     // Rationale: calling redirect() in a Server Action leaves the Result type undefined on
