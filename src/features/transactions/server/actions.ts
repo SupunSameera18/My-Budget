@@ -9,6 +9,9 @@ import {
   type TransactionFormData,
   type EditTransactionFormData,
   type ActivityTrailEntry,
+  type TransactionListFilters,
+  type TransactionListData,
+  type TransactionListItem,
 } from "@/features/transactions/schema";
 import { z } from "zod";
 import { getAccounts } from "@/features/accounts/server/actions";
@@ -398,6 +401,125 @@ export async function deleteTransaction(
   } catch {
     return err(
       ErrorCode.TransactionDeleteFailed,
+      "An unexpected error occurred. Please try again.",
+    );
+  }
+}
+
+export async function getTransactionList(
+  filters: TransactionListFilters = {},
+): Promise<Result<TransactionListData>> {
+  try {
+    const auth = await requireUser();
+    if (!auth)
+      return err(ErrorCode.TransactionFetchFailed, "Not authenticated");
+    const { supabase, user } = auth;
+
+    // Validate filter params — invalid values silently fall back to no-filter
+    const validAccountId = z.string().uuid().safeParse(filters.account_id)
+      .success
+      ? filters.account_id
+      : undefined;
+    const validCategoryId = z.string().uuid().safeParse(filters.category_id)
+      .success
+      ? filters.category_id
+      : undefined;
+    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+    const validFrom = datePattern.test(filters.from ?? "")
+      ? filters.from
+      : undefined;
+    const validTo = datePattern.test(filters.to ?? "") ? filters.to : undefined;
+
+    // Build transaction query
+    let txnQuery = supabase
+      .from("transactions")
+      .select(
+        "id, account_id, category_id, amount_minor, date, note, type, created_at, accounts ( name ), categories ( name, type )",
+      )
+      .eq("user_id", user.id) // explicit (§9 defense-in-depth)
+      .is("archived_at", null) // active only
+      .order("date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(500);
+
+    if (validAccountId) txnQuery = txnQuery.eq("account_id", validAccountId);
+    if (validCategoryId) txnQuery = txnQuery.eq("category_id", validCategoryId);
+    if (validFrom) txnQuery = txnQuery.gte("date", validFrom);
+    if (validTo) txnQuery = txnQuery.lte("date", validTo);
+
+    const { data: txnData, error: txnError } = await txnQuery;
+    if (txnError) {
+      return err(
+        ErrorCode.TransactionFetchFailed,
+        "Failed to load transactions",
+      );
+    }
+
+    const items: TransactionListItem[] = (txnData ?? []).map((row) => ({
+      id: row.id,
+      account_id: row.account_id,
+      category_id: row.category_id,
+      amount_minor: row.amount_minor,
+      date: row.date,
+      note: row.note,
+      type: row.type as "income" | "expense",
+      created_at: row.created_at,
+      account_name:
+        (row.accounts as unknown as { name: string } | null)?.name ?? "Unknown",
+      category_name:
+        (row.categories as unknown as { name: string; type: string } | null)
+          ?.name ?? "Unknown",
+    }));
+
+    // Accounts for filter dropdown
+    let accountsQuery = supabase
+      .from("accounts")
+      .select("id, name, archived_at")
+      .eq("user_id", user.id)
+      .order("name");
+    if (!filters.showArchivedAccounts) {
+      accountsQuery = accountsQuery.is("archived_at", null);
+    }
+    const { data: accountsData, error: accountsError } = await accountsQuery;
+    if (accountsError)
+      console.error(
+        "[getTransactionList] accounts query failed:",
+        accountsError.message,
+      );
+
+    // Categories for filter dropdown
+    let catsQuery = supabase
+      .from("categories")
+      .select("id, name, type, archived_at")
+      .eq("user_id", user.id)
+      .order("type")
+      .order("name");
+    if (!filters.showArchivedCategories) {
+      catsQuery = catsQuery.is("archived_at", null);
+    }
+    const { data: catsData, error: catsError } = await catsQuery;
+    if (catsError)
+      console.error(
+        "[getTransactionList] categories query failed:",
+        catsError.message,
+      );
+
+    // Profile for currency
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("currency")
+      .eq("user_id", user.id)
+      .single();
+
+    return ok({
+      items,
+      accounts: (accountsData ?? []) as TransactionListData["accounts"],
+      categories: (catsData ?? []) as TransactionListData["categories"],
+      currency: profile?.currency ?? "USD",
+    });
+  } catch {
+    return err(
+      ErrorCode.TransactionFetchFailed,
       "An unexpected error occurred. Please try again.",
     );
   }
