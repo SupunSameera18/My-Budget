@@ -20,6 +20,10 @@ export enum ErrorCode {
   ChecklistUpdateFailed = "checklist_update_failed",
   // ↓ Added by Story 1.10
   TransactionCreateFailed = "transaction_create_failed",
+  // ↓ Added by Story 3.3
+  TransactionUpdateFailed = "transaction_update_failed",
+  TransactionDeleteFailed = "transaction_delete_failed",
+  TransactionFetchFailed = "transaction_fetch_failed",
   // ↓ Added by Story 1.11
   BreathingRoomFetchFailed = "breathing_room_fetch_failed",
   // ↓ Added by Story 2.2
