@@ -102,3 +102,46 @@ export type EditTransactionFormData = {
   subcategoriesEnabled: boolean;
   subcategories: Subcategory[];
 };
+
+// ---- Transaction list & filter (Story 3.4) ----
+
+export type TransactionListItem = {
+  id: string;
+  account_id: string;
+  category_id: string;
+  amount_minor: number;
+  date: string;
+  note: string | null;
+  type: "income" | "expense";
+  created_at: string;
+  account_name: string;
+  category_name: string;
+};
+
+export type TransactionListFilters = {
+  account_id?: string;
+  category_id?: string;
+  from?: string;
+  to?: string;
+  showArchivedAccounts?: boolean;
+  showArchivedCategories?: boolean;
+};
+
+export type TransactionListFilterAccount = Pick<
+  Account,
+  "id" | "name" | "archived_at"
+>;
+
+export type TransactionListFilterCategory = {
+  id: string;
+  name: string;
+  type: "income" | "expense";
+  archived_at: string | null;
+};
+
+export type TransactionListData = {
+  items: TransactionListItem[];
+  accounts: TransactionListFilterAccount[];
+  categories: TransactionListFilterCategory[];
+  currency: string;
+};
