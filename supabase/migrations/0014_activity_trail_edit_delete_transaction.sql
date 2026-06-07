@@ -122,10 +122,17 @@ begin
   end if;
 
   -- Derive old category type (for reverse delta).
+  -- archived_at IS NULL: archived category returns NULL type → CASE silently treats income as expense,
+  -- corrupting the balance. Guard the same way rpc_log_transaction guards the new-category lookup.
   select type into v_old_cat_type
   from public.categories
-  where id = v_old_category_id
-    and user_id = v_user_id;
+  where id          = v_old_category_id
+    and user_id     = v_user_id
+    and archived_at is null;
+
+  if v_old_cat_type is null then
+    raise exception 'Original category not found, not owned, or archived';
+  end if;
 
   -- Derive new category type (validates ownership + active status).
   select type into v_new_cat_type
@@ -178,8 +185,13 @@ begin
     -- Different account: reverse on old account, apply on new account.
     update public.accounts
     set actual_balance_minor = actual_balance_minor + v_reverse_delta
-    where id      = v_old_account_id
-      and user_id = v_user_id;
+    where id          = v_old_account_id
+      and user_id     = v_user_id
+      and archived_at is null;
+
+    if not found then
+      raise exception 'Original account not found, not owned, or archived';
+    end if;
 
     update public.accounts
     set actual_balance_minor = actual_balance_minor + v_new_delta
@@ -246,9 +258,12 @@ begin
         jsonb_build_object('old', v_old_subcategory_id, 'new', p_subcategory_id));
   end if;
 
-  -- Write activity trail entry (append-only, in the same DB transaction).
-  insert into public.activity_trail (user_id, transaction_id, change_type, changed_fields)
-  values (v_user_id, p_transaction_id, 'edit', v_changed_fields);
+  -- Write activity trail entry only when at least one field changed (AC3: edit entries must
+  -- record actual changes; {} is reserved for delete entries).
+  if v_changed_fields != '{}'::jsonb then
+    insert into public.activity_trail (user_id, transaction_id, change_type, changed_fields)
+    values (v_user_id, p_transaction_id, 'edit', v_changed_fields);
+  end if;
 end;
 $$;
 
@@ -295,10 +310,17 @@ begin
   end if;
 
   -- Derive category type for balance reversal.
+  -- archived_at IS NULL: archived category returns NULL type → CASE silently misclassifies,
+  -- corrupting the balance reversal.
   select type into v_cat_type
   from public.categories
-  where id = v_category_id
-    and user_id = v_user_id;
+  where id          = v_category_id
+    and user_id     = v_user_id
+    and archived_at is null;
+
+  if v_cat_type is null then
+    raise exception 'Category not found, not owned, or archived';
+  end if;
 
   -- Reverse delta: undo the original balance contribution.
   v_reverse_delta := case when v_cat_type = 'income'
@@ -306,11 +328,16 @@ begin
                           else  v_amount_minor end;
 
   -- Reverse account balance.
-  -- Explicit user_id filter (defense-in-depth).
+  -- Explicit user_id + archived_at IS NULL (defense-in-depth; guard silent no-op on archived account).
   update public.accounts
   set actual_balance_minor = actual_balance_minor + v_reverse_delta
-  where id      = v_account_id
-    and user_id = v_user_id;
+  where id          = v_account_id
+    and user_id     = v_user_id
+    and archived_at is null;
+
+  if not found then
+    raise exception 'Account not found, not owned, or archived';
+  end if;
 
   -- Soft-delete the transaction (UPDATE using existing UPDATE grant; no DELETE needed).
   update public.transactions

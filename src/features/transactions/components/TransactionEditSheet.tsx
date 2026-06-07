@@ -78,6 +78,7 @@ export function TransactionEditSheet({
   }
 
   function handleSave() {
+    setLiveMessage("");
     startTransition(async () => {
       const result = await editTransaction(transaction.id, buildFormData());
       if (result.ok) {
@@ -90,6 +91,7 @@ export function TransactionEditSheet({
   }
 
   function handleDelete() {
+    setLiveMessage("");
     startTransition(async () => {
       const result = await deleteTransaction(transaction.id);
       if (result.ok) {
@@ -118,7 +120,7 @@ export function TransactionEditSheet({
       <div className="flex flex-col gap-1.5">
         <label
           htmlFor="amount_display"
-          className="text-xs font-bold text-ink-primary"
+          className="text-xs font-bold text-ink-secondary"
         >
           Amount{" "}
           <span className="font-normal text-ink-secondary">({currency})</span>
@@ -130,7 +132,6 @@ export function TransactionEditSheet({
           value={amountDisplay}
           onChange={(e) => setAmountDisplay(e.target.value)}
           className="min-h-[44px] border border-hairline bg-surface-base text-ink-primary"
-          aria-label="Amount"
         />
       </div>
 
@@ -138,7 +139,7 @@ export function TransactionEditSheet({
       <div className="flex flex-col gap-1.5">
         <label
           htmlFor="account_id"
-          className="text-xs font-bold text-ink-primary"
+          className="text-xs font-bold text-ink-secondary"
         >
           Account
         </label>
@@ -161,7 +162,7 @@ export function TransactionEditSheet({
       <div className="flex flex-col gap-1.5">
         <label
           htmlFor="category_id"
-          className="text-xs font-bold text-ink-primary"
+          className="text-xs font-bold text-ink-secondary"
         >
           Category
         </label>
@@ -201,7 +202,7 @@ export function TransactionEditSheet({
         <div className="flex flex-col gap-1.5">
           <label
             htmlFor="subcategory_id"
-            className="text-xs font-bold text-ink-primary"
+            className="text-xs font-bold text-ink-secondary"
           >
             Subcategory{" "}
             <span className="font-normal text-ink-secondary">(optional)</span>
@@ -227,7 +228,7 @@ export function TransactionEditSheet({
       <div className="flex flex-col gap-1.5">
         <label
           htmlFor="txn_date"
-          className="text-xs font-bold text-ink-primary"
+          className="text-xs font-bold text-ink-secondary"
         >
           Date
         </label>
@@ -243,7 +244,7 @@ export function TransactionEditSheet({
 
       {/* Note */}
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="note" className="text-xs font-bold text-ink-primary">
+        <label htmlFor="note" className="text-xs font-bold text-ink-secondary">
           Note{" "}
           <span className="font-normal text-ink-secondary">(optional)</span>
         </label>
@@ -325,7 +326,10 @@ export function TransactionEditSheet({
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-ink-secondary">
-                    {new Date(entry.created_at).toLocaleString()}
+                    {new Date(entry.created_at).toLocaleString(undefined, {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
                   </span>
                   <span
                     className={`rounded px-1.5 py-0.5 text-xs font-semibold ${

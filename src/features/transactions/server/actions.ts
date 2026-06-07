@@ -305,23 +305,28 @@ export async function editTransaction(
   transactionId: string,
   formData: FormData,
 ): Promise<Result<void>> {
-  const raw = Object.fromEntries(formData);
-  const parsed = editTransactionSchema.safeParse(raw);
-
-  if (!parsed.success) {
-    const first = parsed.error.issues[0];
-    return err(
-      ErrorCode.TransactionUpdateFailed,
-      first?.message ?? "Invalid transaction data",
-      String(first?.path[0] ?? ""),
-    );
-  }
-
   try {
     const auth = await requireUser();
     if (!auth)
       return err(ErrorCode.TransactionUpdateFailed, "Not authenticated");
     const { supabase } = auth;
+
+    const idParse = z.string().uuid().safeParse(transactionId);
+    if (!idParse.success) {
+      return err(ErrorCode.TransactionUpdateFailed, "Invalid transaction id");
+    }
+
+    const raw = Object.fromEntries(formData);
+    const parsed = editTransactionSchema.safeParse(raw);
+
+    if (!parsed.success) {
+      const first = parsed.error.issues[0];
+      return err(
+        ErrorCode.TransactionUpdateFailed,
+        first?.message ?? "Invalid transaction data",
+        String(first?.path[0] ?? ""),
+      );
+    }
 
     const amountMinor = Math.round(
       parseFloat(parsed.data.amount_display) * 100,
@@ -365,14 +370,15 @@ export async function deleteTransaction(
   transactionId: string,
 ): Promise<Result<void>> {
   try {
-    const idParse = z.string().uuid().safeParse(transactionId);
-    if (!idParse.success) {
-      return err(ErrorCode.TransactionDeleteFailed, "Invalid transaction id");
-    }
     const auth = await requireUser();
     if (!auth)
       return err(ErrorCode.TransactionDeleteFailed, "Not authenticated");
     const { supabase } = auth;
+
+    const idParse = z.string().uuid().safeParse(transactionId);
+    if (!idParse.success) {
+      return err(ErrorCode.TransactionDeleteFailed, "Invalid transaction id");
+    }
 
     const { error: rpcError } = await supabase.rpc("rpc_delete_transaction", {
       p_transaction_id: transactionId,
@@ -401,7 +407,8 @@ export async function getActivityTrail(
   transactionId: string,
 ): Promise<ActivityTrailEntry[]> {
   try {
-    if (!transactionId) return [];
+    if (!transactionId || !z.string().uuid().safeParse(transactionId).success)
+      return [];
     const auth = await requireUser();
     if (!auth) return [];
     const { supabase, user } = auth;

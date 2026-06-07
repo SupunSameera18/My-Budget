@@ -212,3 +212,18 @@ describe("TransactionEditSheet — offline state", () => {
     expect(screen.getByText(/you're offline/i)).toBeInTheDocument();
   });
 });
+
+describe("TransactionEditSheet — note clearing", () => {
+  it("omits note from FormData when user clears the note field", async () => {
+    render(<TransactionEditSheet {...baseProps} />);
+    const noteInput = screen.getByLabelText(/note/i);
+    await userEvent.clear(noteInput);
+    await userEvent.click(
+      screen.getByRole("button", { name: /save changes/i }),
+    );
+    await waitFor(() => {
+      const fd: FormData = (editTransaction as Mock).mock.calls[0][1];
+      expect(fd.get("note")).toBeNull();
+    });
+  });
+});
