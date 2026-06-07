@@ -41,6 +41,11 @@ export enum ErrorCode {
   SubcategoryArchiveFailed = "subcategory_archive_failed",
   SubcategoryDeleteFailed = "subcategory_delete_failed",
   SubcategoryToggleFailed = "subcategory_toggle_failed",
+  // ↓ Added by Story 4.1
+  BudgetCreateFailed = "budget_create_failed",
+  BudgetFetchFailed = "budget_fetch_failed",
+  BudgetUpdateFailed = "budget_update_failed",
+  BudgetArchiveFailed = "budget_archive_failed",
 }
 
 export type AppError = {

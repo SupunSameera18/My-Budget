@@ -1,0 +1,42 @@
+interface ProgressBarProps {
+  pctUsed: number;
+  limitMarker?: boolean;
+  className?: string;
+}
+
+export function ProgressBar({
+  pctUsed,
+  limitMarker = false,
+  className,
+}: ProgressBarProps) {
+  const fillWidth = Math.min(100, pctUsed);
+  const isAmber = pctUsed >= 80;
+  const fillStyle: React.CSSProperties = isAmber
+    ? { background: "#C9A24B", width: `${fillWidth}%` }
+    : {
+        background: "linear-gradient(90deg, #4FA6A6, #5FA98C)",
+        width: `${fillWidth}%`,
+      };
+
+  return (
+    <div
+      className={`bg-ink-secondary/10 relative h-2 w-full overflow-hidden rounded-full ${className ?? ""}`}
+    >
+      <div
+        className="h-full rounded-full motion-safe:transition-all"
+        style={fillStyle}
+        role="progressbar"
+        aria-valuenow={Math.round(pctUsed)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label="Budget usage"
+      />
+      {limitMarker && (
+        <div
+          className="bg-ink-secondary/30 absolute inset-y-0 right-0 w-px"
+          aria-hidden="true"
+        />
+      )}
+    </div>
+  );
+}
