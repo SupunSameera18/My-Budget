@@ -77,27 +77,26 @@ SELECT is(
 );
 
 -- ── Test 5: Attacker cannot INSERT into budgets with owner's user_id ──────────
+-- RLS WITH CHECK raises 42501 (insufficient_privilege) — ON CONFLICT DO NOTHING
+-- does NOT suppress RLS violations; use throws_ok instead.
 
-INSERT INTO public.budgets (user_id, name, limit_minor, period_type)
-VALUES ('33333333-3333-4333-8333-333333333333', 'Attack Budget', 100, 'monthly')
-ON CONFLICT DO NOTHING;
-
-SELECT is(
-  (SELECT COUNT(*)::int FROM public.budgets WHERE user_id = '33333333-3333-4333-8333-333333333333' AND name = 'Attack Budget'),
-  0,
-  'Attacker cannot INSERT a budget owned by User 1'
+SELECT throws_ok(
+  $$INSERT INTO public.budgets (user_id, name, limit_minor, period_type)
+    VALUES ('33333333-3333-4333-8333-333333333333', 'Attack Budget', 100, 'monthly')$$,
+  '42501',
+  NULL::text,
+  'Attacker cannot INSERT a budget owned by User 1 (RLS WITH CHECK violation)'
 );
 
 -- ── Test 6: Attacker cannot INSERT into budget_categories for owner's budget ──
+-- RLS WITH CHECK evaluates before conflict detection, so this raises 42501.
 
-INSERT INTO public.budget_categories (budget_id, category_id)
-VALUES ('bbbbbbbb-3333-4333-8333-333333333333', 'cccccccc-3333-4333-8333-333333333333')
-ON CONFLICT DO NOTHING;
-
-SELECT is(
-  (SELECT COUNT(*)::int FROM public.budget_categories WHERE budget_id = 'bbbbbbbb-3333-4333-8333-333333333333'),
-  0,
-  'Attacker cannot INSERT into budget_categories for owner''s budget'
+SELECT throws_ok(
+  $$INSERT INTO public.budget_categories (budget_id, category_id)
+    VALUES ('bbbbbbbb-3333-4333-8333-333333333333', 'cccccccc-3333-4333-8333-333333333333')$$,
+  '42501',
+  NULL::text,
+  'Attacker cannot INSERT into budget_categories for owner''s budget (RLS WITH CHECK violation)'
 );
 
 -- ── Test 7: Negative/zero limit_minor blocked by CHECK constraint ──────────────
