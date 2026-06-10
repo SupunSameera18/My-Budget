@@ -3,12 +3,19 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/supabase/require-user";
 import { ChecklistCard } from "@/features/dashboard/ChecklistCard";
 import { BreathingRoomCard } from "@/features/dashboard/BreathingRoomCard";
+import { LoggingGrid } from "@/features/dashboard/LoggingGrid";
 import { LogSuccessToast } from "@/features/dashboard/LogSuccessToast";
 import { getDashboardProfile } from "@/features/dashboard/server/actions";
 
 function BreathingRoomSkeleton() {
   return (
     <div className="h-36 animate-pulse rounded-xl border border-hairline bg-surface-base" />
+  );
+}
+
+function LoggingGridSkeleton() {
+  return (
+    <div className="h-48 animate-pulse rounded-xl border border-hairline bg-surface-base" />
   );
 }
 
@@ -35,6 +42,9 @@ export default async function DashboardPage() {
       </p>
       <Suspense fallback={<BreathingRoomSkeleton />}>
         <BreathingRoomCard />
+      </Suspense>
+      <Suspense fallback={<LoggingGridSkeleton />}>
+        <LoggingGrid />
       </Suspense>
       {showChecklist && <ChecklistCard />}
     </div>

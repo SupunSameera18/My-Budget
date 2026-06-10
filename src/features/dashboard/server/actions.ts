@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/supabase/require-user";
 import { ErrorCode, err, ok, type Result } from "@/lib/errors";
 import type { DashboardProfile } from "@/features/dashboard/checklist";
-import { currentMonthBoundaries } from "@/lib/period";
+import {
+  currentMonthBoundaries,
+  currentMonthStart,
+  currentMonthEnd,
+} from "@/lib/period";
 import { computeBreathingRoom } from "@/lib/money/breathing-room";
 import { getBudgets } from "@/features/budgets/server/actions";
 
@@ -13,6 +17,14 @@ export type BreathingRoomData = {
   committedSlackMinor: number;
   currency: string;
   hasActivity: boolean;
+};
+
+export type LoggingGridData = {
+  datesWithActivity: string[];
+  todayStr: string;
+  daysInMonth: number;
+  monthYear: string;
+  firstWeekdayOffset: number;
 };
 
 export async function getDashboardProfile(): Promise<Result<DashboardProfile>> {
@@ -150,6 +162,57 @@ export async function getBreathingRoomData(): Promise<
     return err(
       ErrorCode.BreathingRoomFetchFailed,
       "Failed to load breathing room.",
+    );
+  }
+}
+
+export async function getLoggingGridData(): Promise<Result<LoggingGridData>> {
+  try {
+    const auth = await requireUser();
+    if (!auth)
+      return err(ErrorCode.LoggingGridFetchFailed, "Not authenticated.");
+    const { supabase, user } = auth;
+
+    const now = new Date();
+    const start = currentMonthStart(now);
+    const end = currentMonthEnd(now);
+
+    const { data, error } = await supabase
+      .from("transactions")
+      .select("date")
+      .eq("user_id", user.id)
+      .is("archived_at", null)
+      .gte("date", start)
+      .lte("date", end);
+
+    if (error)
+      return err(
+        ErrorCode.LoggingGridFetchFailed,
+        "Failed to load logging grid.",
+      );
+
+    const datesWithActivity = [...new Set((data ?? []).map((r) => r.date))];
+
+    const year = now.getUTCFullYear();
+    const month = now.getUTCMonth(); // 0-indexed
+    const monthStr = String(month + 1).padStart(2, "0");
+    const monthYear = `${year}-${monthStr}`;
+    const todayStr = `${year}-${monthStr}-${String(now.getUTCDate()).padStart(2, "0")}`;
+    const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+    const firstDayDate = new Date(`${year}-${monthStr}-01T00:00:00Z`);
+    const firstWeekdayOffset = (firstDayDate.getUTCDay() + 6) % 7; // Mon=0, Sun=6
+
+    return ok({
+      datesWithActivity,
+      todayStr,
+      daysInMonth,
+      monthYear,
+      firstWeekdayOffset,
+    });
+  } catch {
+    return err(
+      ErrorCode.LoggingGridFetchFailed,
+      "Failed to load logging grid.",
     );
   }
 }
