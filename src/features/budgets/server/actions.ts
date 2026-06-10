@@ -202,6 +202,7 @@ export async function createBudget(
     }
 
     revalidatePath("/budgets");
+    revalidatePath("/dashboard");
     return ok({ id: data as string });
   } catch {
     return err(ErrorCode.BudgetCreateFailed, "An unexpected error occurred.");

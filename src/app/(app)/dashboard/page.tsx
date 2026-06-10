@@ -6,6 +6,12 @@ import { BreathingRoomCard } from "@/features/dashboard/BreathingRoomCard";
 import { LogSuccessToast } from "@/features/dashboard/LogSuccessToast";
 import { getDashboardProfile } from "@/features/dashboard/server/actions";
 
+function BreathingRoomSkeleton() {
+  return (
+    <div className="h-36 animate-pulse rounded-xl border border-hairline bg-surface-base" />
+  );
+}
+
 export default async function DashboardPage() {
   const auth = await requireUser();
   if (!auth) redirect("/auth/login");
@@ -27,7 +33,9 @@ export default async function DashboardPage() {
       <p className="text-xl font-bold text-ink-primary">
         Hi {displayName ?? "there"}!
       </p>
-      <BreathingRoomCard />
+      <Suspense fallback={<BreathingRoomSkeleton />}>
+        <BreathingRoomCard />
+      </Suspense>
       {showChecklist && <ChecklistCard />}
     </div>
   );
