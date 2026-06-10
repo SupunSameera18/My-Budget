@@ -186,6 +186,10 @@ export type Database = {
         };
         Returns: undefined;
       };
+      rpc_apply_macro: {
+        Args: { p_macro_id: string; p_date?: string };
+        Returns: string;
+      };
     };
     Enums: {
       [_ in never]: never;
