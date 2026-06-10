@@ -11,7 +11,11 @@ CREATE TABLE public.budgets (
   period_end    date,
   archived_at   timestamptz,
   created_at    timestamptz DEFAULT now() NOT NULL,
-  updated_at    timestamptz DEFAULT now() NOT NULL
+  updated_at    timestamptz DEFAULT now() NOT NULL,
+  CONSTRAINT budgets_user_name_unique UNIQUE (user_id, name),
+  CONSTRAINT budgets_custom_period_dates_required CHECK (
+    period_type != 'custom' OR (period_start IS NOT NULL AND period_end IS NOT NULL)
+  )
 );
 
 -- budget_categories join table (multi-category budget support)
@@ -31,6 +35,7 @@ CREATE POLICY budgets_select_owner ON public.budgets FOR SELECT USING (user_id =
 CREATE POLICY budgets_insert_owner ON public.budgets FOR INSERT WITH CHECK (user_id = auth.uid());
 CREATE POLICY budgets_update_owner ON public.budgets FOR UPDATE USING (user_id = auth.uid());
 REVOKE DELETE, TRUNCATE ON public.budgets FROM anon, authenticated;
+REVOKE DELETE, TRUNCATE ON public.budget_categories FROM anon, authenticated;
 
 -- RLS on budget_categories (scoped via budgets.user_id)
 ALTER TABLE public.budget_categories ENABLE ROW LEVEL SECURITY;

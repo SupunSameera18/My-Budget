@@ -19,7 +19,7 @@ export const createBudgetSchema = z
       .string()
       .trim()
       .regex(/^\d+(\.\d{0,2})?$/, "Enter a valid amount (e.g. 50.00)")
-      .refine((v) => parseFloat(v) > 0, {
+      .refine((v) => Math.round(parseFloat(v) * 100) >= 1, {
         message: "Amount must be greater than zero",
       }),
     period_type: z.enum(BUDGET_PERIOD_TYPES, {

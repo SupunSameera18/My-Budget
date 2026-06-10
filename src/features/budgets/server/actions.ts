@@ -27,7 +27,7 @@ function computePeriodBoundaries(budget: Budget): {
     case "yearly":
       return currentYearBoundaries();
     case "custom":
-      return { start: budget.period_start!, end: budget.period_end! };
+      return { start: budget.period_start ?? "", end: budget.period_end ?? "" };
   }
 }
 
@@ -87,6 +87,10 @@ export async function getBudgets(): Promise<Result<BudgetWithActual[]>> {
     ]);
 
     if (budgetsResult.error) {
+      return err(ErrorCode.BudgetFetchFailed, "Failed to load budgets.");
+    }
+
+    if (txnsResult.error) {
       return err(ErrorCode.BudgetFetchFailed, "Failed to load budgets.");
     }
 

@@ -30,32 +30,38 @@ export function BudgetForm({ data }: BudgetFormProps) {
     field: string;
     message: string;
   } | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const lastFormDataRef = useRef<FormData | null>(null);
 
   async function handleSubmit(formData: FormData) {
     lastFormDataRef.current = formData;
     setStatusMessage("");
     setFieldError(null);
+    setIsSubmitting(true);
 
-    // Client-side guard: at least one category must be checked
-    if (formData.getAll("category_ids").length === 0) {
-      const msg = "Select at least one category";
-      setStatusMessage(msg);
-      setFieldError({ field: "category_ids", message: msg });
-      return;
-    }
-
-    const result = await createBudget(formData);
-    if (!result.ok) {
-      setStatusMessage(result.error.message);
-      if (result.error.field) {
-        setFieldError({
-          field: result.error.field,
-          message: result.error.message,
-        });
+    try {
+      // Client-side guard: at least one category must be checked
+      if (formData.getAll("category_ids").length === 0) {
+        const msg = "Select at least one category";
+        setStatusMessage(msg);
+        setFieldError({ field: "category_ids", message: msg });
+        return;
       }
-    } else {
-      router.push("/budgets");
+
+      const result = await createBudget(formData);
+      if (!result.ok) {
+        setStatusMessage(result.error.message);
+        if (result.error.field) {
+          setFieldError({
+            field: result.error.field,
+            message: result.error.message,
+          });
+        }
+      } else {
+        router.push("/budgets");
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -231,7 +237,7 @@ export function BudgetForm({ data }: BudgetFormProps) {
         }}
       />
 
-      <SubmitButton>Create Budget</SubmitButton>
+      <SubmitButton disabled={isSubmitting}>Create Budget</SubmitButton>
     </form>
   );
 }

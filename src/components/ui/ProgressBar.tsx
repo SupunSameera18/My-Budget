@@ -1,12 +1,14 @@
 interface ProgressBarProps {
   pctUsed: number;
   limitMarker?: boolean;
+  ariaLabel?: string;
   className?: string;
 }
 
 export function ProgressBar({
   pctUsed,
   limitMarker = false,
+  ariaLabel,
   className,
 }: ProgressBarProps) {
   const fillWidth = Math.min(100, pctUsed);
@@ -26,10 +28,10 @@ export function ProgressBar({
         className="h-full rounded-full motion-safe:transition-all"
         style={fillStyle}
         role="progressbar"
-        aria-valuenow={Math.round(pctUsed)}
+        aria-valuenow={Math.min(100, Math.round(pctUsed))}
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-label="Budget usage"
+        aria-label={ariaLabel ?? "Budget usage"}
       />
       {limitMarker && (
         <div
