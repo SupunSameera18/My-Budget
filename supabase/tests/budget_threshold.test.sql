@@ -4,7 +4,7 @@
 
 BEGIN;
 
-SELECT plan(8);
+SELECT plan(9);
 
 -- ── Setup: auth users, account, category 1, budget 1 (monthly @ 90%) ─────────
 
@@ -193,6 +193,29 @@ SELECT throws_ok(
   NULL::text,
   'UNIQUE constraint rejects duplicate (budget_id, period_start, period_end) insert'
 );
+
+-- ── Test 9: Authenticated role cannot INSERT directly (REVOKE verified) ──────
+
+SET LOCAL "request.jwt.claims" TO '{"sub": "55555555-5555-4555-8555-555555555555"}';
+SET LOCAL ROLE authenticated;
+
+SELECT throws_ok(
+  $$INSERT INTO public.budget_threshold_events
+      (budget_id, user_id, period_start, period_end, pct_used, actual_minor)
+    VALUES (
+      '55555555-5555-4555-8555-000000000010',
+      '55555555-5555-4555-8555-555555555555',
+      CURRENT_DATE,
+      CURRENT_DATE + 1,
+      50.00,
+      5000
+    )$$,
+  '42501',
+  NULL::text,
+  'REVOKE INSERT: authenticated role cannot directly insert into budget_threshold_events'
+);
+
+SET LOCAL ROLE postgres;
 
 SELECT * FROM finish();
 ROLLBACK;
