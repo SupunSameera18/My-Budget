@@ -3,6 +3,8 @@ import {
   currentMonthStart,
   currentMonthEnd,
   currentMonthBoundaries,
+  currentWeekBoundaries,
+  currentYearBoundaries,
 } from "./period";
 
 // Pinned reference dates — eliminates real-clock dependency and month-boundary races
@@ -52,5 +54,48 @@ describe("currentMonthBoundaries", () => {
   it("end day is at least 28", () => {
     const day = parseInt(currentMonthBoundaries().end.split("-")[2], 10);
     expect(day).toBeGreaterThanOrEqual(28);
+  });
+});
+
+// ---- Story 4.1: currentWeekBoundaries + currentYearBoundaries ----
+
+const WED_JUN_10 = new Date(Date.UTC(2026, 5, 10)); // Wednesday 2026-06-10
+const SUN_JUN_14 = new Date(Date.UTC(2026, 5, 14)); // Sunday 2026-06-14 (end of ISO week)
+const MON_JUN_08 = new Date(Date.UTC(2026, 5, 8)); // Monday 2026-06-08 (start of ISO week)
+
+describe("currentWeekBoundaries", () => {
+  it("returns Monday as start for a Wednesday", () => {
+    expect(currentWeekBoundaries(WED_JUN_10).start).toBe("2026-06-08");
+  });
+  it("returns Sunday as end for a Wednesday", () => {
+    expect(currentWeekBoundaries(WED_JUN_10).end).toBe("2026-06-14");
+  });
+  it("handles Sunday correctly — Sunday is the END of an ISO week, not the start", () => {
+    expect(currentWeekBoundaries(SUN_JUN_14).start).toBe("2026-06-08");
+    expect(currentWeekBoundaries(SUN_JUN_14).end).toBe("2026-06-14");
+  });
+  it("handles Monday correctly — Monday is the START of an ISO week", () => {
+    expect(currentWeekBoundaries(MON_JUN_08).start).toBe("2026-06-08");
+    expect(currentWeekBoundaries(MON_JUN_08).end).toBe("2026-06-14");
+  });
+});
+
+const JAN_15_2026 = new Date(Date.UTC(2026, 0, 15));
+const DEC_31_2025 = new Date(Date.UTC(2025, 11, 31));
+
+describe("currentYearBoundaries", () => {
+  it("returns Jan 1 as start", () => {
+    expect(currentYearBoundaries(JAN_15_2026).start).toBe("2026-01-01");
+  });
+  it("returns Dec 31 as end", () => {
+    expect(currentYearBoundaries(JAN_15_2026).end).toBe("2026-12-31");
+  });
+  it("accepts a now override — Dec 31 2025 returns 2025 boundaries", () => {
+    expect(currentYearBoundaries(DEC_31_2025).start).toBe("2025-01-01");
+    expect(currentYearBoundaries(DEC_31_2025).end).toBe("2025-12-31");
+  });
+  it("uses UTC year (YYYY-01-01 / YYYY-12-31 format)", () => {
+    expect(currentYearBoundaries(JAN_15_2026).start).toMatch(/^\d{4}-01-01$/);
+    expect(currentYearBoundaries(JAN_15_2026).end).toMatch(/^\d{4}-12-31$/);
   });
 });
