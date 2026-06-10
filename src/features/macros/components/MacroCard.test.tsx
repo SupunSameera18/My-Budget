@@ -209,6 +209,42 @@ describe("MacroCard", () => {
     expect(screen.getByRole("button", { name: /archive/i })).toBeTruthy();
   });
 
+  it("edit form shows 'No accounts yet' when accounts list is empty and target switched to account", () => {
+    render(
+      <MacroCard
+        macro={goalMacro}
+        currency="USD"
+        accounts={[]}
+        goals={mockGoals}
+        categories={mockCategories}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /edit/i }));
+    const accountRadio = screen
+      .getAllByRole("radio")
+      .find((r) => (r as HTMLInputElement).value === "account")!;
+    fireEvent.click(accountRadio);
+    expect(screen.getByText(/No accounts yet/i)).toBeTruthy();
+  });
+
+  it("edit form shows 'No goals yet' when goals list is empty and target switched to goal", () => {
+    render(
+      <MacroCard
+        macro={accountMacro}
+        currency="USD"
+        accounts={mockAccounts}
+        goals={[]}
+        categories={mockCategories}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /edit/i }));
+    const goalRadio = screen
+      .getAllByRole("radio")
+      .find((r) => (r as HTMLInputElement).value === "goal")!;
+    fireEvent.click(goalRadio);
+    expect(screen.getByText(/No goals yet/i)).toBeTruthy();
+  });
+
   it("ARIA live region has both aria-live and role attributes", () => {
     render(
       <MacroCard

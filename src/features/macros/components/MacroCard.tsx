@@ -169,18 +169,29 @@ export function MacroCard({
               >
                 Select account
               </label>
-              <select
-                id={`macro-account-${macro.id}`}
-                name="account_id"
-                defaultValue={macro.account_id ?? ""}
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-              </select>
+              {accounts.length === 0 ? (
+                <p className="text-sm text-ink-secondary">
+                  No accounts yet — create one at{" "}
+                  <a href="/settings/accounts" className="underline">
+                    Settings › Accounts
+                  </a>
+                </p>
+              ) : (
+                <select
+                  id={`macro-account-${macro.id}`}
+                  name="account_id"
+                  defaultValue={macro.account_id ?? ""}
+                  required
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <option value="">Select an account</option>
+                  {accounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           )}
 
@@ -192,18 +203,29 @@ export function MacroCard({
               >
                 Select goal
               </label>
-              <select
-                id={`macro-goal-${macro.id}`}
-                name="goal_id"
-                defaultValue={macro.goal_id ?? ""}
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                {goals.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name}
-                  </option>
-                ))}
-              </select>
+              {goals.length === 0 ? (
+                <p className="text-sm text-ink-secondary">
+                  No goals yet — create one at{" "}
+                  <a href="/goals" className="underline">
+                    /goals
+                  </a>
+                </p>
+              ) : (
+                <select
+                  id={`macro-goal-${macro.id}`}
+                  name="goal_id"
+                  defaultValue={macro.goal_id ?? ""}
+                  required
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <option value="">Select a goal</option>
+                  {goals.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           )}
 
@@ -317,7 +339,7 @@ export function MacroCard({
           }}
           className="min-h-[44px] flex-1 rounded-md border border-input px-3 text-sm font-medium text-ink-secondary hover:bg-surface-inset disabled:opacity-50"
         >
-          {isPending ? "Archiving…" : "Archive"}
+          Archive
         </button>
       </div>
     </div>

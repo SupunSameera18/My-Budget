@@ -170,7 +170,8 @@ export async function getMacros(): Promise<Result<MacroWithTarget[]>> {
     account_name:
       (m.accounts as unknown as { name: string } | null)?.name ?? null,
     goal_name: (m.goals as unknown as { name: string } | null)?.name ?? null,
-    category_name: (m.categories as unknown as { name: string }).name,
+    category_name:
+      (m.categories as unknown as { name: string } | null)?.name ?? "Unknown",
   }));
 
   return ok(macros);

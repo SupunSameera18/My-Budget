@@ -164,4 +164,19 @@ describe("CreateMacroForm", () => {
     fireEvent.click(goalRadio);
     expect(screen.getByText(/No goals yet/i)).toBeTruthy();
   });
+
+  it("shows inline prompt when no accounts exist and account target selected", () => {
+    render(
+      <CreateMacroForm
+        accounts={[]}
+        goals={mockGoals}
+        categories={mockCategories}
+      />,
+    );
+    const accountRadio = screen.getByLabelText(/account/i, {
+      selector: 'input[type="radio"]',
+    });
+    fireEvent.click(accountRadio);
+    expect(screen.getByText(/No accounts yet/i)).toBeTruthy();
+  });
 });

@@ -138,18 +138,28 @@ export function CreateMacroForm({
           >
             Select account
           </label>
-          <select
-            id="create-macro-account"
-            name="account_id"
-            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          >
-            <option value="">Select an account</option>
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </select>
+          {accounts.length === 0 ? (
+            <p className="text-sm text-ink-secondary">
+              No accounts yet — create one at{" "}
+              <a href="/settings/accounts" className="underline">
+                Settings › Accounts
+              </a>
+            </p>
+          ) : (
+            <select
+              id="create-macro-account"
+              name="account_id"
+              required
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              <option value="">Select an account</option>
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       )}
 
@@ -172,6 +182,7 @@ export function CreateMacroForm({
             <select
               id="create-macro-goal"
               name="goal_id"
+              required
               className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
               <option value="">Select a goal</option>
