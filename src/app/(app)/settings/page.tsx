@@ -17,6 +17,12 @@ export default function SettingsPage() {
         >
           Categories
         </Link>
+        <Link
+          href="/settings/macros"
+          className="flex min-h-[44px] items-center rounded-lg bg-card px-4 text-sm text-ink-primary shadow-sm hover:bg-surface-inset"
+        >
+          Macros
+        </Link>
       </nav>
     </div>
   );

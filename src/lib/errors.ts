@@ -54,6 +54,11 @@ export enum ErrorCode {
   ContributionCreateFailed = "contribution_create_failed",
   // ↓ Added by Story 4.6
   GoalUpdateFailed = "goal_update_failed",
+  // ↓ Added by Story 5.1
+  MacroCreateFailed = "macro_create_failed",
+  MacroUpdateFailed = "macro_update_failed",
+  MacroArchiveFailed = "macro_archive_failed",
+  MacroFetchFailed = "macro_fetch_failed",
 }
 
 export type AppError = {

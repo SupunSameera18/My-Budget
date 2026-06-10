@@ -97,6 +97,8 @@ export type Database = {
           type: string;
           created_at: string;
           updated_at: string;
+          // ↓ Added by Story 5.1
+          macro_application_id: string | null;
         };
         Insert: {
           id?: string;
@@ -109,6 +111,8 @@ export type Database = {
           type: string;
           created_at?: string;
           updated_at?: string;
+          // ↓ Added by Story 5.1
+          macro_application_id?: string | null;
         };
         Update: {
           id?: string;
@@ -121,6 +125,48 @@ export type Database = {
           type?: string;
           created_at?: string;
           updated_at?: string;
+          // ↓ Added by Story 5.1
+          macro_application_id?: string | null;
+        };
+        Relationships: [];
+      };
+      // ↓ Added by Story 5.1
+      macros: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          amount_minor: number;
+          account_id: string | null;
+          goal_id: string | null;
+          category_id: string;
+          last_used_at: string | null;
+          archived_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          name: string;
+          amount_minor: number;
+          account_id?: string | null;
+          goal_id?: string | null;
+          category_id: string;
+          last_used_at?: string | null;
+          archived_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          name?: string;
+          amount_minor?: number;
+          account_id?: string | null;
+          goal_id?: string | null;
+          category_id?: string;
+          last_used_at?: string | null;
+          archived_at?: string | null;
+          created_at?: string;
         };
         Relationships: [];
       };
