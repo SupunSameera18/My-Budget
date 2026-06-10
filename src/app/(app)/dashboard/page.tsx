@@ -5,6 +5,8 @@ import { ChecklistCard } from "@/features/dashboard/ChecklistCard";
 import { BreathingRoomCard } from "@/features/dashboard/BreathingRoomCard";
 import { LoggingGrid } from "@/features/dashboard/LoggingGrid";
 import { LogSuccessToast } from "@/features/dashboard/LogSuccessToast";
+import { DashboardBudgetsCard } from "@/features/dashboard/DashboardBudgetsCard";
+import { DashboardGoalsCard } from "@/features/dashboard/DashboardGoalsCard";
 import { getDashboardProfile } from "@/features/dashboard/server/actions";
 
 function BreathingRoomSkeleton() {
@@ -16,6 +18,18 @@ function BreathingRoomSkeleton() {
 function LoggingGridSkeleton() {
   return (
     <div className="h-48 animate-pulse rounded-xl border border-hairline bg-surface-base" />
+  );
+}
+
+function DashboardBudgetsSkeleton() {
+  return (
+    <div className="h-40 animate-pulse rounded-xl border border-hairline bg-surface-base" />
+  );
+}
+
+function DashboardGoalsSkeleton() {
+  return (
+    <div className="h-40 animate-pulse rounded-xl border border-hairline bg-surface-base" />
   );
 }
 
@@ -45,6 +59,12 @@ export default async function DashboardPage() {
       </Suspense>
       <Suspense fallback={<LoggingGridSkeleton />}>
         <LoggingGrid />
+      </Suspense>
+      <Suspense fallback={<DashboardBudgetsSkeleton />}>
+        <DashboardBudgetsCard />
+      </Suspense>
+      <Suspense fallback={<DashboardGoalsSkeleton />}>
+        <DashboardGoalsCard />
       </Suspense>
       {showChecklist && <ChecklistCard />}
     </div>
