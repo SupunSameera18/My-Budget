@@ -1,8 +1,37 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/supabase/require-user";
 import { ChecklistCard } from "@/features/dashboard/ChecklistCard";
 import { BreathingRoomCard } from "@/features/dashboard/BreathingRoomCard";
+import { LoggingGrid } from "@/features/dashboard/LoggingGrid";
+import { LogSuccessToast } from "@/features/dashboard/LogSuccessToast";
+import { DashboardBudgetsCard } from "@/features/dashboard/DashboardBudgetsCard";
+import { DashboardGoalsCard } from "@/features/dashboard/DashboardGoalsCard";
 import { getDashboardProfile } from "@/features/dashboard/server/actions";
+
+function BreathingRoomSkeleton() {
+  return (
+    <div className="h-36 animate-pulse rounded-xl border border-hairline bg-surface-base" />
+  );
+}
+
+function LoggingGridSkeleton() {
+  return (
+    <div className="h-48 animate-pulse rounded-xl border border-hairline bg-surface-base" />
+  );
+}
+
+function DashboardBudgetsSkeleton() {
+  return (
+    <div className="h-40 animate-pulse rounded-xl border border-hairline bg-surface-base" />
+  );
+}
+
+function DashboardGoalsSkeleton() {
+  return (
+    <div className="h-40 animate-pulse rounded-xl border border-hairline bg-surface-base" />
+  );
+}
 
 export default async function DashboardPage() {
   const auth = await requireUser();
@@ -19,10 +48,24 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4 p-4">
+      <Suspense fallback={null}>
+        <LogSuccessToast />
+      </Suspense>
       <p className="text-xl font-bold text-ink-primary">
         Hi {displayName ?? "there"}!
       </p>
-      <BreathingRoomCard />
+      <Suspense fallback={<BreathingRoomSkeleton />}>
+        <BreathingRoomCard />
+      </Suspense>
+      <Suspense fallback={<LoggingGridSkeleton />}>
+        <LoggingGrid />
+      </Suspense>
+      <Suspense fallback={<DashboardBudgetsSkeleton />}>
+        <DashboardBudgetsCard />
+      </Suspense>
+      <Suspense fallback={<DashboardGoalsSkeleton />}>
+        <DashboardGoalsCard />
+      </Suspense>
       {showChecklist && <ChecklistCard />}
     </div>
   );

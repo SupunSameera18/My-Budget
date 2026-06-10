@@ -1,5 +1,5 @@
 import { getTransactionFormData } from "@/features/transactions/server/actions";
-import { LogTransactionForm } from "@/features/transactions/components/LogTransactionForm";
+import { LogSheet } from "@/features/transactions/components/LogSheet";
 
 export default async function NewTransactionPage() {
   const result = await getTransactionFormData();
@@ -14,7 +14,15 @@ export default async function NewTransactionPage() {
     );
   }
 
-  const { accounts, categories, currency, defaultAccountId } = result.data;
+  const {
+    accounts,
+    categories,
+    currency,
+    defaultAccountId,
+    subcategoriesEnabled,
+    subcategories,
+    currentBreathingRoomMinor,
+  } = result.data;
 
   if (accounts.length === 0) {
     return (
@@ -37,11 +45,14 @@ export default async function NewTransactionPage() {
       <h1 className="mb-6 text-xl font-bold text-ink-primary">
         Log transaction
       </h1>
-      <LogTransactionForm
+      <LogSheet
         accounts={accounts}
         categories={categories}
         defaultAccountId={defaultAccountId}
         currency={currency}
+        subcategoriesEnabled={subcategoriesEnabled}
+        subcategories={subcategories}
+        currentBreathingRoomMinor={currentBreathingRoomMinor}
       />
     </div>
   );

@@ -8,6 +8,10 @@ export enum ErrorCode {
   // ↓ Added by Story 1.7
   AccountCreateFailed = "account_create_failed",
   AccountFetchFailed = "account_fetch_failed",
+  // ↓ Added by Story 2.1
+  AccountUpdateFailed = "account_update_failed",
+  AccountArchiveFailed = "account_archive_failed",
+  AccountDeleteFailed = "account_delete_failed",
   // ↓ Added by Story 1.8
   ProfileFetchFailed = "profile_fetch_failed",
   CurrencySaveFailed = "currency_save_failed",
@@ -16,8 +20,40 @@ export enum ErrorCode {
   ChecklistUpdateFailed = "checklist_update_failed",
   // ↓ Added by Story 1.10
   TransactionCreateFailed = "transaction_create_failed",
+  // ↓ Added by Story 3.3
+  TransactionUpdateFailed = "transaction_update_failed",
+  TransactionDeleteFailed = "transaction_delete_failed",
+  TransactionFetchFailed = "transaction_fetch_failed",
   // ↓ Added by Story 1.11
   BreathingRoomFetchFailed = "breathing_room_fetch_failed",
+  // ↓ Added by Story 2.2
+  TransferCreateFailed = "transfer_create_failed",
+  // ↓ Added by Story 2.4
+  CategoryCreateFailed = "category_create_failed",
+  CategoryFetchFailed = "category_fetch_failed",
+  CategoryUpdateFailed = "category_update_failed",
+  CategoryArchiveFailed = "category_archive_failed",
+  CategoryDeleteFailed = "category_delete_failed",
+  // ↓ Added by Story 2.5
+  SubcategoryCreateFailed = "subcategory_create_failed",
+  SubcategoryFetchFailed = "subcategory_fetch_failed",
+  SubcategoryUpdateFailed = "subcategory_update_failed",
+  SubcategoryArchiveFailed = "subcategory_archive_failed",
+  SubcategoryDeleteFailed = "subcategory_delete_failed",
+  SubcategoryToggleFailed = "subcategory_toggle_failed",
+  // ↓ Added by Story 4.1
+  BudgetCreateFailed = "budget_create_failed",
+  BudgetFetchFailed = "budget_fetch_failed",
+  BudgetUpdateFailed = "budget_update_failed",
+  BudgetArchiveFailed = "budget_archive_failed",
+  // ↓ Added by Story 4.4
+  LoggingGridFetchFailed = "logging_grid_fetch_failed",
+  // ↓ Added by Story 4.5
+  GoalCreateFailed = "goal_create_failed",
+  GoalFetchFailed = "goal_fetch_failed",
+  ContributionCreateFailed = "contribution_create_failed",
+  // ↓ Added by Story 4.6
+  GoalUpdateFailed = "goal_update_failed",
 }
 
 export type AppError = {
