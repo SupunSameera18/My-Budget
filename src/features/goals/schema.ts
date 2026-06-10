@@ -24,8 +24,17 @@ export const contributeGoalSchema = z.object({
     .refine((v) => !isNaN(Date.parse(v)), "Invalid date"),
 });
 
+export const editGoalTargetSchema = z.object({
+  goal_id: z.string().uuid("Invalid goal"),
+  target_amount_display: z
+    .string()
+    .min(1, "Target amount is required")
+    .regex(/^\d+(\.\d{1,2})?$/, "Must be a valid decimal amount (e.g. 100.00)"),
+});
+
 export type CreateGoalInput = z.infer<typeof createGoalSchema>;
 export type ContributeGoalInput = z.infer<typeof contributeGoalSchema>;
+export type EditGoalTargetInput = z.infer<typeof editGoalTargetSchema>;
 
 export type GoalWithProgress = {
   id: string;
