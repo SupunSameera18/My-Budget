@@ -48,6 +48,10 @@ export enum ErrorCode {
   BudgetArchiveFailed = "budget_archive_failed",
   // ↓ Added by Story 4.4
   LoggingGridFetchFailed = "logging_grid_fetch_failed",
+  // ↓ Added by Story 4.5
+  GoalCreateFailed = "goal_create_failed",
+  GoalFetchFailed = "goal_fetch_failed",
+  ContributionCreateFailed = "contribution_create_failed",
 }
 
 export type AppError = {
