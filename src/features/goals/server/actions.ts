@@ -57,6 +57,7 @@ export async function createGoal(
     }
 
     revalidatePath("/goals");
+    revalidatePath("/dashboard");
     return ok({ id: data as string });
   } catch {
     return err(ErrorCode.GoalCreateFailed, "An unexpected error occurred.");
@@ -114,6 +115,7 @@ export async function contributeToGoal(formData: FormData): Promise<Result> {
     }
 
     revalidatePath("/goals");
+    revalidatePath("/dashboard");
     return ok();
   } catch {
     return err(
@@ -177,6 +179,7 @@ export async function editGoalTarget(formData: FormData): Promise<Result> {
     }
 
     revalidatePath("/goals");
+    revalidatePath("/dashboard");
     return ok();
   } catch {
     return err(ErrorCode.GoalUpdateFailed, "An unexpected error occurred.");
