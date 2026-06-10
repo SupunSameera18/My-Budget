@@ -1,10 +1,16 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import { ErrorCode } from "@/lib/errors";
+import { revalidatePath } from "next/cache";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/supabase/require-user", () => ({ requireUser: vi.fn() }));
 
-import { createGoal, contributeToGoal, getGoals } from "./actions";
+import {
+  createGoal,
+  contributeToGoal,
+  getGoals,
+  editGoalTarget,
+} from "./actions";
 import { requireUser } from "@/lib/supabase/require-user";
 
 const GOAL_UUID = "aa000000-0001-4000-8000-000000000001";
@@ -294,5 +300,105 @@ describe("getGoals", () => {
     const result = await getGoals();
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe(ErrorCode.GoalFetchFailed);
+  });
+});
+
+describe("editGoalTarget", () => {
+  function makeUpdateSupabase(
+    opts: { data?: unknown[] | null; error?: null | { message: string } } = {},
+  ) {
+    const { data = [{ id: GOAL_UUID }], error = null } = opts;
+    const chain: Record<string, unknown> = {};
+    chain.update = vi.fn().mockReturnValue(chain);
+    chain.eq = vi.fn().mockReturnValue(chain);
+    chain.is = vi.fn().mockReturnValue(chain);
+    chain.select = vi.fn().mockResolvedValue({ data, error });
+    return { from: vi.fn().mockReturnValue(chain), chain };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns ok on happy path and calls revalidatePath('/goals')", async () => {
+    const { from, chain } = makeUpdateSupabase();
+    (requireUser as Mock).mockResolvedValue({
+      supabase: { from },
+      user: { id: USER_ID },
+    });
+
+    const fd = new FormData();
+    fd.set("goal_id", GOAL_UUID);
+    fd.set("target_amount_display", "2000.00");
+
+    const result = await editGoalTarget(fd);
+    expect(result.ok).toBe(true);
+    expect(chain.update).toHaveBeenCalledWith(
+      expect.objectContaining({ target_minor: 200000 }),
+    );
+    expect(chain.eq).toHaveBeenCalledWith("user_id", USER_ID);
+    expect(revalidatePath).toHaveBeenCalledWith("/goals");
+  });
+
+  it("returns GoalUpdateFailed error when requireUser returns null", async () => {
+    (requireUser as Mock).mockResolvedValue(null);
+
+    const fd = new FormData();
+    fd.set("goal_id", GOAL_UUID);
+    fd.set("target_amount_display", "500.00");
+
+    const result = await editGoalTarget(fd);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe(ErrorCode.GoalUpdateFailed);
+  });
+
+  it("returns GoalUpdateFailed when target amount rounds to zero", async () => {
+    (requireUser as Mock).mockResolvedValue({
+      supabase: makeUpdateSupabase(),
+      user: { id: USER_ID },
+    });
+
+    const fd = new FormData();
+    fd.set("goal_id", GOAL_UUID);
+    fd.set("target_amount_display", "0.00");
+
+    const result = await editGoalTarget(fd);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe(ErrorCode.GoalUpdateFailed);
+  });
+
+  it("returns GoalUpdateFailed when goal is not found (0 rows updated)", async () => {
+    const { from } = makeUpdateSupabase({ data: [] });
+    (requireUser as Mock).mockResolvedValue({
+      supabase: { from },
+      user: { id: USER_ID },
+    });
+
+    const fd = new FormData();
+    fd.set("goal_id", GOAL_UUID);
+    fd.set("target_amount_display", "1000.00");
+
+    const result = await editGoalTarget(fd);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe(ErrorCode.GoalUpdateFailed);
+      expect(result.error.message).toMatch(/not found/i);
+    }
+  });
+
+  it("returns GoalUpdateFailed when DB update fails", async () => {
+    const { from } = makeUpdateSupabase({ error: { message: "DB error" } });
+    (requireUser as Mock).mockResolvedValue({
+      supabase: { from },
+      user: { id: USER_ID },
+    });
+
+    const fd = new FormData();
+    fd.set("goal_id", GOAL_UUID);
+    fd.set("target_amount_display", "750.00");
+
+    const result = await editGoalTarget(fd);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe(ErrorCode.GoalUpdateFailed);
   });
 });

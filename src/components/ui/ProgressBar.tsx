@@ -1,6 +1,7 @@
 interface ProgressBarProps {
   pctUsed: number;
   limitMarker?: boolean;
+  noAmber?: boolean;
   ariaLabel?: string;
   className?: string;
 }
@@ -8,11 +9,12 @@ interface ProgressBarProps {
 export function ProgressBar({
   pctUsed,
   limitMarker = false,
+  noAmber,
   ariaLabel,
   className,
 }: ProgressBarProps) {
   const fillWidth = Math.min(100, pctUsed);
-  const isAmber = pctUsed >= 80;
+  const isAmber = !noAmber && pctUsed >= 80;
   const fillStyle: React.CSSProperties = isAmber
     ? { background: "#C9A24B", width: `${fillWidth}%` }
     : {

@@ -51,4 +51,23 @@ describe("ProgressBar", () => {
     const marker = container.querySelector('[aria-hidden="true"]');
     expect(marker).toBeNull();
   });
+
+  it("noAmber={true} at 90% uses teal fill (not amber)", () => {
+    render(<ProgressBar pctUsed={90} noAmber />);
+    const bar = screen.getByRole("progressbar");
+    expect(bar.style.background).toContain("79, 166, 166");
+  });
+
+  it("noAmber={true} at 120% uses teal fill and width capped at 100%", () => {
+    render(<ProgressBar pctUsed={120} noAmber />);
+    const bar = screen.getByRole("progressbar");
+    expect(bar.style.background).toContain("79, 166, 166");
+    expect(bar.style.width).toBe("100%");
+  });
+
+  it("noAmber omitted at 90% uses amber fill (regression guard)", () => {
+    render(<ProgressBar pctUsed={90} />);
+    const bar = screen.getByRole("progressbar");
+    expect(bar.style.background).toContain("201, 162, 75");
+  });
 });

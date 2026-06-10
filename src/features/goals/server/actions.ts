@@ -6,6 +6,7 @@ import { ErrorCode, err, ok, type Result } from "@/lib/errors";
 import {
   createGoalSchema,
   contributeGoalSchema,
+  editGoalTargetSchema,
   type GoalWithProgress,
 } from "@/features/goals/schema";
 
@@ -119,6 +120,66 @@ export async function contributeToGoal(formData: FormData): Promise<Result> {
       ErrorCode.ContributionCreateFailed,
       "An unexpected error occurred.",
     );
+  }
+}
+
+export async function editGoalTarget(formData: FormData): Promise<Result> {
+  try {
+    const auth = await requireUser();
+    if (!auth) return err(ErrorCode.GoalUpdateFailed, "Not authenticated");
+    const { supabase, user } = auth;
+
+    const raw = {
+      goal_id: formData.get("goal_id") as string,
+      target_amount_display: formData.get("target_amount_display") as string,
+    };
+
+    const parsed = editGoalTargetSchema.safeParse(raw);
+    if (!parsed.success) {
+      const first = parsed.error.issues[0];
+      return err(
+        ErrorCode.GoalUpdateFailed,
+        first?.message ?? "Invalid data",
+        String(first?.path[0] ?? ""),
+      );
+    }
+
+    const targetMinor = Math.round(
+      parseFloat(parsed.data.target_amount_display) * 100,
+    );
+    if (targetMinor <= 0) {
+      return err(
+        ErrorCode.GoalUpdateFailed,
+        "Target amount must be greater than zero",
+        "target_amount_display",
+      );
+    }
+
+    const { data, error } = await supabase
+      .from("goals")
+      .update({
+        target_minor: targetMinor,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", parsed.data.goal_id)
+      .eq("user_id", user.id)
+      .is("archived_at", null)
+      .select("id");
+
+    if (error) {
+      return err(ErrorCode.GoalUpdateFailed, "Failed to update goal.");
+    }
+    if (!data || data.length === 0) {
+      return err(
+        ErrorCode.GoalUpdateFailed,
+        "Goal not found or access denied.",
+      );
+    }
+
+    revalidatePath("/goals");
+    return ok();
+  } catch {
+    return err(ErrorCode.GoalUpdateFailed, "An unexpected error occurred.");
   }
 }
 

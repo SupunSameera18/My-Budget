@@ -52,6 +52,8 @@ export enum ErrorCode {
   GoalCreateFailed = "goal_create_failed",
   GoalFetchFailed = "goal_fetch_failed",
   ContributionCreateFailed = "contribution_create_failed",
+  // ↓ Added by Story 4.6
+  GoalUpdateFailed = "goal_update_failed",
 }
 
 export type AppError = {
