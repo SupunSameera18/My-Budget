@@ -170,6 +170,37 @@ export type Database = {
         };
         Relationships: [];
       };
+      // ↓ Added by Story 5.3
+      goal_contributions: {
+        Row: {
+          id: string;
+          goal_id: string;
+          user_id: string;
+          amount_minor: number;
+          date: string;
+          created_at: string;
+          macro_application_id: string | null;
+        };
+        Insert: {
+          id?: string;
+          goal_id: string;
+          user_id: string;
+          amount_minor: number;
+          date?: string;
+          created_at?: string;
+          macro_application_id?: string | null;
+        };
+        Update: {
+          id?: string;
+          goal_id?: string;
+          user_id?: string;
+          amount_minor?: number;
+          date?: string;
+          created_at?: string;
+          macro_application_id?: string | null;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
