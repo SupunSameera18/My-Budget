@@ -1,12 +1,24 @@
 "use server";
 
 import { requireUser } from "@/lib/supabase/require-user";
-import { currentMonthBoundaries } from "@/lib/period";
+import {
+  currentMonthBoundaries,
+  monthBoundaries,
+  last6YearMonths,
+  previousYearMonth,
+} from "@/lib/period";
 import { err, ok, ErrorCode, type Result } from "@/lib/errors";
-import { type ChartPreferences } from "@/features/analytics/schema";
+import {
+  type ChartPreferences,
+  type SpendingByCategoryItem,
+  type MonthlyTotalsItem,
+  type BudgetPerformanceItem,
+  type ThisVsLastMonthItem,
+} from "@/features/analytics/schema";
 import type { HealthScoreResult } from "@/lib/money/health-score";
 import { getGoals } from "@/features/goals/server/actions";
 import type { GoalWithProgress } from "@/features/goals/schema";
+import { getBudgets } from "@/features/budgets/server/actions";
 
 export async function getChartPreferences(): Promise<ChartPreferences> {
   const session = await requireUser();
@@ -195,6 +207,182 @@ export async function getMonthlySummaryData(period: {
       goals,
       healthScore,
     };
+  } catch {
+    return null;
+  }
+}
+
+export async function getCurrency(): Promise<string> {
+  const session = await requireUser();
+  if (!session) return "USD";
+  const { supabase, user } = session;
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("currency")
+      .eq("user_id", user.id)
+      .single();
+    if (error || !data) return "USD";
+    return data.currency ?? "USD";
+  } catch {
+    return "USD";
+  }
+}
+
+export async function getSpendingByCategoryData(period: {
+  start: string;
+  end: string;
+}): Promise<SpendingByCategoryItem[] | null> {
+  const session = await requireUser();
+  if (!session) return null;
+  const { supabase, user } = session;
+  try {
+    const { data, error } = await supabase
+      .from("transactions")
+      .select("amount_minor, category_id, categories(name)")
+      .eq("user_id", user.id)
+      .eq("type", "expense")
+      .gte("date", period.start)
+      .lte("date", period.end)
+      .is("archived_at", null);
+    if (error) return null;
+    const grouped = new Map<string, number>();
+    for (const t of data ?? []) {
+      const name =
+        (t.categories as unknown as { name: string } | null)?.name ??
+        "Uncategorized";
+      grouped.set(name, (grouped.get(name) ?? 0) + t.amount_minor);
+    }
+    return Array.from(grouped.entries())
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 8);
+  } catch {
+    return null;
+  }
+}
+
+export async function getIncomeVsExpensesData(
+  yearMonth: string,
+): Promise<MonthlyTotalsItem[] | null> {
+  const session = await requireUser();
+  if (!session) return null;
+  const { supabase, user } = session;
+  try {
+    const months = last6YearMonths(yearMonth);
+    const start = monthBoundaries(months[0]).start;
+    const end = monthBoundaries(yearMonth).end;
+    const { data, error } = await supabase
+      .from("transactions")
+      .select("amount_minor, date, type")
+      .eq("user_id", user.id)
+      .gte("date", start)
+      .lte("date", end)
+      .is("archived_at", null)
+      .in("type", ["income", "expense"]);
+    if (error) return null;
+    const grouped = new Map(months.map((m) => [m, { income: 0, expense: 0 }]));
+    for (const t of data ?? []) {
+      const m = (t.date as string).slice(0, 7);
+      const g = grouped.get(m);
+      if (!g) continue;
+      if (t.type === "income") g.income += t.amount_minor;
+      else g.expense += t.amount_minor;
+    }
+    return months.map((m) => {
+      const g = grouped.get(m)!;
+      return {
+        month: new Date(m + "-15").toLocaleDateString("en-US", {
+          month: "short",
+          timeZone: "UTC",
+        }),
+        Income: g.income,
+        Savings: Math.max(0, g.income - g.expense),
+        Expenses: g.expense,
+      };
+    });
+  } catch {
+    return null;
+  }
+}
+
+export async function getBudgetPerformanceData(): Promise<
+  BudgetPerformanceItem[] | null
+> {
+  try {
+    const result = await getBudgets();
+    if (!result.ok) return null;
+    return result.data.map((b) => ({
+      name: b.name,
+      Budget: b.limit_minor,
+      Actual: b.actual_minor,
+    }));
+  } catch {
+    return null;
+  }
+}
+
+export async function getThisVsLastMonthData(
+  yearMonth: string,
+): Promise<ThisVsLastMonthItem[] | null> {
+  const session = await requireUser();
+  if (!session) return null;
+  const { supabase, user } = session;
+  try {
+    const prevMonth = previousYearMonth(yearMonth);
+    const current = monthBoundaries(yearMonth);
+    const prev = monthBoundaries(prevMonth);
+
+    const [currentResult, prevResult] = await Promise.all([
+      supabase
+        .from("transactions")
+        .select("amount_minor, category_id, categories(name)")
+        .eq("user_id", user.id)
+        .eq("type", "expense")
+        .gte("date", current.start)
+        .lte("date", current.end)
+        .is("archived_at", null),
+      supabase
+        .from("transactions")
+        .select("amount_minor, category_id, categories(name)")
+        .eq("user_id", user.id)
+        .eq("type", "expense")
+        .gte("date", prev.start)
+        .lte("date", prev.end)
+        .is("archived_at", null),
+    ]);
+
+    if (currentResult.error || prevResult.error) return null;
+
+    const buildMap = (rows: typeof currentResult.data) => {
+      const m = new Map<string, number>();
+      for (const t of rows ?? []) {
+        const name =
+          (t.categories as unknown as { name: string } | null)?.name ??
+          "Uncategorized";
+        m.set(name, (m.get(name) ?? 0) + t.amount_minor);
+      }
+      return m;
+    };
+
+    const currentByCat = buildMap(currentResult.data);
+    const prevByCat = buildMap(prevResult.data);
+
+    const allCategories = new Set([
+      ...currentByCat.keys(),
+      ...prevByCat.keys(),
+    ]);
+
+    const items: ThisVsLastMonthItem[] = Array.from(allCategories).map(
+      (cat) => ({
+        category: cat,
+        "This Month": currentByCat.get(cat) ?? 0,
+        "Last Month": prevByCat.get(cat) ?? 0,
+      }),
+    );
+
+    items.sort((a, b) => b["This Month"] - a["This Month"]);
+    return items.slice(0, 8);
   } catch {
     return null;
   }
