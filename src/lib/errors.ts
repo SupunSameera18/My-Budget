@@ -63,6 +63,8 @@ export enum ErrorCode {
   MacroApplyFailed = "macro_apply_failed",
   // ↓ Added by Story 6.3
   ProfileUpdateFailed = "profile_update_failed",
+  // ↓ Added by Story 6.7
+  DataExportFailed = "data_export_failed",
 }
 
 export type AppError = {
