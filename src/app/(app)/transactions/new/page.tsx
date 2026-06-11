@@ -22,6 +22,7 @@ export default async function NewTransactionPage() {
     subcategoriesEnabled,
     subcategories,
     currentBreathingRoomMinor,
+    macros,
   } = result.data;
 
   if (accounts.length === 0) {
@@ -46,6 +47,7 @@ export default async function NewTransactionPage() {
         Log transaction
       </h1>
       <LogSheet
+        key={Date.now()}
         accounts={accounts}
         categories={categories}
         defaultAccountId={defaultAccountId}
@@ -53,6 +55,7 @@ export default async function NewTransactionPage() {
         subcategoriesEnabled={subcategoriesEnabled}
         subcategories={subcategories}
         currentBreathingRoomMinor={currentBreathingRoomMinor}
+        macros={macros}
       />
     </div>
   );
