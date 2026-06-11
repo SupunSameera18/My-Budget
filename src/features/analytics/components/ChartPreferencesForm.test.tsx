@@ -2,7 +2,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import { ChartPreferencesForm } from "./ChartPreferencesForm";
 import { saveChartPreferences } from "@/features/analytics/server/actions";
-import { ok } from "@/lib/errors";
+import { err, ok, ErrorCode } from "@/lib/errors";
 
 vi.mock("@/features/analytics/server/actions", () => ({
   saveChartPreferences: vi.fn(),
@@ -57,5 +57,21 @@ describe("ChartPreferencesForm", () => {
     render(<ChartPreferencesForm initialPrefs={{}} />);
     const liveRegion = screen.getByRole("status");
     expect(liveRegion).toHaveAttribute("aria-live", "polite");
+  });
+
+  it("reverts checkbox to pre-toggle state when saveChartPreferences fails", async () => {
+    (saveChartPreferences as Mock).mockResolvedValue(
+      err(ErrorCode.ProfileUpdateFailed, "DB error"),
+    );
+    render(<ChartPreferencesForm initialPrefs={{}} />);
+    const checkboxes = screen.getAllByRole("checkbox");
+    expect(checkboxes[0]).toBeChecked(); // initially enabled
+
+    fireEvent.click(checkboxes[0]); // optimistic toggle → unchecked
+
+    await waitFor(() => {
+      // after failed save, should revert to checked
+      expect(checkboxes[0]).toBeChecked();
+    });
   });
 });
