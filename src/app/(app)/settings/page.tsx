@@ -23,6 +23,12 @@ export default function SettingsPage() {
         >
           Macros
         </Link>
+        <Link
+          href="/settings/analytics"
+          className="flex min-h-[44px] items-center rounded-lg bg-card px-4 text-sm text-ink-primary shadow-sm hover:bg-surface-inset"
+        >
+          Analytics
+        </Link>
       </nav>
     </div>
   );

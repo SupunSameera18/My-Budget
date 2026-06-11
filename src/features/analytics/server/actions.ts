@@ -2,9 +2,53 @@
 
 import { requireUser } from "@/lib/supabase/require-user";
 import { currentMonthBoundaries } from "@/lib/period";
+import { err, ok, ErrorCode, type Result } from "@/lib/errors";
+import { type ChartPreferences } from "@/features/analytics/schema";
 import type { HealthScoreResult } from "@/lib/money/health-score";
 import { getGoals } from "@/features/goals/server/actions";
 import type { GoalWithProgress } from "@/features/goals/schema";
+
+export async function getChartPreferences(): Promise<ChartPreferences> {
+  const session = await requireUser();
+  if (!session) return {};
+
+  const { supabase, user } = session;
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("chart_preferences")
+      .eq("user_id", user.id)
+      .single();
+    if (error) return {};
+    return (data?.chart_preferences as ChartPreferences) ?? {};
+  } catch {
+    return {};
+  }
+}
+
+export async function saveChartPreferences(
+  prefs: ChartPreferences,
+): Promise<Result<void>> {
+  const session = await requireUser();
+  if (!session) return err(ErrorCode.ProfileUpdateFailed, "Not authenticated");
+
+  const { supabase, user } = session;
+  try {
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        chart_preferences: prefs,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", user.id);
+
+    if (error) return err(ErrorCode.ProfileUpdateFailed, error.message);
+    return ok();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Unknown error";
+    return err(ErrorCode.ProfileUpdateFailed, msg);
+  }
+}
 
 export async function getHealthScore(period?: {
   start: string;
