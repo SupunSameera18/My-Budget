@@ -1,6 +1,6 @@
 import { requireUser } from "@/lib/supabase/require-user";
 import { signOut } from "@/features/auth/server/actions";
-import { LogOut, Settings } from "lucide-react";
+import { CalendarDays, LogOut, Settings } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -22,6 +22,19 @@ export default async function MorePage() {
 
       <div className="mb-2">
         <ThemeToggle />
+      </div>
+
+      <div className="mb-2">
+        <Link
+          href="/summary"
+          className="flex min-h-[44px] w-full items-center gap-3 rounded-md border border-hairline bg-surface-raised px-4 text-sm text-ink-primary transition-colors hover:bg-surface-inset"
+        >
+          <CalendarDays
+            strokeWidth={1.75}
+            className="h-5 w-5 shrink-0 text-ink-secondary"
+          />
+          Monthly Summary
+        </Link>
       </div>
 
       <div className="mb-2">
