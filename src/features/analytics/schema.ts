@@ -1,3 +1,28 @@
+// Chart data shapes — keys MUST match Tremor's `categories` prop strings exactly
+export type SpendingByCategoryItem = {
+  name: string;
+  value: number;
+};
+
+export type MonthlyTotalsItem = {
+  month: string;
+  Income: number;
+  Savings: number;
+  Expenses: number;
+};
+
+export type BudgetPerformanceItem = {
+  name: string;
+  Budget: number;
+  Actual: number;
+};
+
+export type ThisVsLastMonthItem = {
+  category: string;
+  "This Month": number;
+  "Last Month": number;
+};
+
 export const CHART_TYPES = [
   { key: "spending_by_category", label: "Spending by Category" },
   { key: "income_vs_expenses", label: "Income vs Expenses" },

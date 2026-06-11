@@ -1,5 +1,33 @@
 import { describe, expect, it } from "vitest";
-import { CHART_TYPES, isChartEnabled, type ChartTypeKey } from "./schema";
+import {
+  CHART_TYPES,
+  isChartEnabled,
+  type ChartTypeKey,
+  type SpendingByCategoryItem,
+  type MonthlyTotalsItem,
+} from "./schema";
+
+// ---- Story 6.4: Chart data type compile checks ----
+
+describe("SpendingByCategoryItem type", () => {
+  it("accepts valid item shape (TypeScript compile check)", () => {
+    const item: SpendingByCategoryItem = { name: "Food", value: 5000 };
+    expect(item.name).toBe("Food");
+    expect(item.value).toBe(5000);
+  });
+});
+
+describe("MonthlyTotalsItem type", () => {
+  it("accepts Savings: 0 (never negative — compile check)", () => {
+    const item: MonthlyTotalsItem = {
+      month: "Jan",
+      Income: 100000,
+      Savings: 0,
+      Expenses: 100000,
+    };
+    expect(item.Savings).toBe(0);
+  });
+});
 
 describe("CHART_TYPES", () => {
   it("has exactly 4 entries", () => {
