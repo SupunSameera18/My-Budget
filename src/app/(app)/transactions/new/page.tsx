@@ -47,6 +47,7 @@ export default async function NewTransactionPage() {
         Log transaction
       </h1>
       <LogSheet
+        key={Date.now()}
         accounts={accounts}
         categories={categories}
         defaultAccountId={defaultAccountId}
