@@ -19,7 +19,7 @@ describe("HealthScoreCard", () => {
       confidencePercent: 0,
       hasEnoughData: false,
     });
-    const jsx = await HealthScoreCard();
+    const jsx = await HealthScoreCard({});
     render(jsx!);
     expect(screen.getByText("Keep logging to see your score")).toBeTruthy();
   });
@@ -30,7 +30,7 @@ describe("HealthScoreCard", () => {
       confidencePercent: 74,
       hasEnoughData: true,
     });
-    const jsx = await HealthScoreCard();
+    const jsx = await HealthScoreCard({});
     render(jsx!);
     expect(screen.getByText("89")).toBeTruthy();
   });
@@ -41,7 +41,7 @@ describe("HealthScoreCard", () => {
       confidencePercent: 74,
       hasEnoughData: true,
     });
-    const jsx = await HealthScoreCard();
+    const jsx = await HealthScoreCard({});
     render(jsx!);
     expect(
       screen.getByRole("progressbar", { name: /confidence/i }),
@@ -50,7 +50,7 @@ describe("HealthScoreCard", () => {
 
   it("renders null when getHealthScore returns null", async () => {
     (getHealthScore as Mock).mockResolvedValue(null);
-    const jsx = await HealthScoreCard();
+    const jsx = await HealthScoreCard({});
     expect(jsx).toBeNull();
   });
 
@@ -60,9 +60,16 @@ describe("HealthScoreCard", () => {
       confidencePercent: 0,
       hasEnoughData: false,
     });
-    const jsx = await HealthScoreCard();
+    const jsx = await HealthScoreCard({});
     render(jsx!);
     const bar = screen.getByRole("progressbar", { name: /confidence/i });
     expect(bar.getAttribute("aria-valuenow")).toBe("0");
+  });
+
+  it("passes period prop through to getHealthScore", async () => {
+    (getHealthScore as Mock).mockResolvedValue(null);
+    const period = { start: "2026-05-01", end: "2026-05-31" };
+    await HealthScoreCard({ period });
+    expect(getHealthScore).toHaveBeenCalledWith(period);
   });
 });

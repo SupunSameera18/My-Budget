@@ -5,6 +5,7 @@ import {
   currentMonthBoundaries,
   currentWeekBoundaries,
   currentYearBoundaries,
+  monthBoundaries,
 } from "./period";
 
 // Pinned reference dates — eliminates real-clock dependency and month-boundary races
@@ -77,6 +78,34 @@ describe("currentWeekBoundaries", () => {
   it("handles Monday correctly — Monday is the START of an ISO week", () => {
     expect(currentWeekBoundaries(MON_JUN_08).start).toBe("2026-06-08");
     expect(currentWeekBoundaries(MON_JUN_08).end).toBe("2026-06-14");
+  });
+});
+
+// ---- Story 6.2: monthBoundaries ----
+
+describe("monthBoundaries", () => {
+  it("returns correct boundaries for May 2026 (31 days)", () => {
+    const { start, end } = monthBoundaries("2026-05");
+    expect(start).toBe("2026-05-01");
+    expect(end).toBe("2026-05-31");
+  });
+
+  it("returns correct boundaries for February 2026 (non-leap, 28 days)", () => {
+    const { start, end } = monthBoundaries("2026-02");
+    expect(start).toBe("2026-02-01");
+    expect(end).toBe("2026-02-28");
+  });
+
+  it("returns correct boundaries for February 2024 (leap year, 29 days)", () => {
+    const { start, end } = monthBoundaries("2024-02");
+    expect(start).toBe("2024-02-01");
+    expect(end).toBe("2024-02-29");
+  });
+
+  it("returns correct boundaries for December (31 days)", () => {
+    const { start, end } = monthBoundaries("2026-12");
+    expect(start).toBe("2026-12-01");
+    expect(end).toBe("2026-12-31");
   });
 });
 
