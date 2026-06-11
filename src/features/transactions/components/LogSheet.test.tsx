@@ -14,6 +14,13 @@ vi.mock("@/features/transactions/server/actions", () => ({
   getSuggestedNotes: vi.fn(),
 }));
 
+vi.mock("@/features/macros/server/actions", () => ({
+  applyMacro: vi.fn().mockResolvedValue({
+    ok: true,
+    data: { applicationId: "test-app-id" },
+  }),
+}));
+
 vi.mock("@/lib/note-suggestions", () => ({
   getDefaultNotePrompt: vi.fn(),
   dedupeRecentNotes: vi.fn((rows: Array<{ note: string | null }>) =>
@@ -37,8 +44,10 @@ import {
   logTransaction,
   getSuggestedNotes,
 } from "@/features/transactions/server/actions";
+import { applyMacro } from "@/features/macros/server/actions";
 import { getDefaultNotePrompt } from "@/lib/note-suggestions";
 import { useOnlineStatus } from "@/lib/hooks/useOnlineStatus";
+import type { MacroWithTarget } from "@/features/macros/schema";
 
 const mockAccounts: Account[] = [
   { id: "acc-1", name: "Checking" } as Account,
@@ -81,11 +90,48 @@ const baseProps = {
   currentBreathingRoomMinor: 50000,
 };
 
+const mockMacros: MacroWithTarget[] = [
+  {
+    id: "macro-1",
+    user_id: "u1",
+    name: "Netflix",
+    amount_minor: 1500,
+    account_id: "acc-1",
+    goal_id: null,
+    category_id: "cat-expense",
+    last_used_at: "2026-06-10T10:00:00Z",
+    archived_at: null,
+    created_at: "2026-01-01T00:00:00Z",
+    account_name: "Checking",
+    goal_name: null,
+    category_name: "Entertainment",
+  },
+  {
+    id: "macro-2",
+    user_id: "u1",
+    name: "Spotify",
+    amount_minor: 1000,
+    account_id: "acc-1",
+    goal_id: null,
+    category_id: "cat-expense",
+    last_used_at: null,
+    archived_at: null,
+    created_at: "2026-01-02T00:00:00Z",
+    account_name: "Checking",
+    goal_name: null,
+    category_name: "Entertainment",
+  },
+];
+
 beforeEach(() => {
   vi.resetAllMocks();
   (useOnlineStatus as Mock).mockReturnValue(true);
   (getSuggestedNotes as Mock).mockResolvedValue([]);
   (getDefaultNotePrompt as Mock).mockReturnValue(null);
+  (applyMacro as Mock).mockResolvedValue({
+    ok: true,
+    data: { applicationId: "test-app-id" },
+  });
 });
 
 describe("LogSheet — step 1", () => {
@@ -296,5 +342,161 @@ describe("LogSheet — note suggestions", () => {
       "placeholder",
       "Where did you eat?",
     );
+  });
+});
+
+describe("LogSheet — macro chips", () => {
+  async function goToStep2WithMacros(macros: MacroWithTarget[] = mockMacros) {
+    render(<LogSheet {...baseProps} macros={macros} />);
+    await userEvent.click(screen.getByRole("button", { name: "5" }));
+    await userEvent.click(screen.getByRole("button", { name: /continue/i }));
+  }
+
+  it("Quick Add section is hidden when macros prop is empty", async () => {
+    render(<LogSheet {...baseProps} macros={[]} />);
+    await userEvent.click(screen.getByRole("button", { name: "5" }));
+    await userEvent.click(screen.getByRole("button", { name: /continue/i }));
+    expect(screen.queryByText(/quick add/i)).toBeNull();
+  });
+
+  it("Quick Add section is hidden when macros prop is omitted", async () => {
+    render(<LogSheet {...baseProps} />);
+    await userEvent.click(screen.getByRole("button", { name: "5" }));
+    await userEvent.click(screen.getByRole("button", { name: /continue/i }));
+    expect(screen.queryByText(/quick add/i)).toBeNull();
+  });
+
+  it("renders macro chips with name and formatted amount", async () => {
+    await goToStep2WithMacros();
+    expect(
+      screen.getByRole("button", { name: /netflix/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /spotify/i }),
+    ).toBeInTheDocument();
+    // Netflix chip shows formatted amount (1500 minor = $15.00)
+    expect(
+      screen.getByRole("button", { name: /netflix/i }).textContent,
+    ).toContain("15");
+  });
+
+  it("chips are ordered MRU first (macro with last_used_at appears before null)", async () => {
+    await goToStep2WithMacros();
+    const buttons = screen.getAllByRole("button");
+    const netflixIdx = buttons.findIndex((b) =>
+      b.textContent?.includes("Netflix"),
+    );
+    const spotifyIdx = buttons.findIndex((b) =>
+      b.textContent?.includes("Spotify"),
+    );
+    // Netflix has last_used_at, Spotify has null — Netflix should appear first
+    expect(netflixIdx).toBeLessThan(spotifyIdx);
+  });
+
+  it("tapping a chip sets aria-pressed=true (selected)", async () => {
+    await goToStep2WithMacros();
+    const chip = screen.getByRole("button", { name: /netflix/i });
+    expect(chip).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(chip);
+    expect(chip).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("tapping a selected chip deselects it (aria-pressed=false)", async () => {
+    await goToStep2WithMacros();
+    const chip = screen.getByRole("button", { name: /netflix/i });
+    await userEvent.click(chip);
+    expect(chip).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(chip);
+    expect(chip).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("Quick Add Summary appears when a macro chip is selected", async () => {
+    await goToStep2WithMacros();
+    expect(screen.queryByText(/quick add summary/i)).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: /netflix/i }));
+    expect(screen.getByText(/quick add summary/i)).toBeInTheDocument();
+  });
+
+  it("Save button is enabled when no category selected but a macro chip is selected", async () => {
+    await goToStep2WithMacros();
+    // No category selected — save should be disabled
+    expect(screen.getByRole("button", { name: /^save$/i })).toBeDisabled();
+    // Select a macro chip — save should become enabled
+    await userEvent.click(screen.getByRole("button", { name: /netflix/i }));
+    expect(screen.getByRole("button", { name: /^save$/i })).not.toBeDisabled();
+  });
+
+  it("Save button is disabled when no category AND no macros selected (and online)", async () => {
+    await goToStep2WithMacros();
+    expect(screen.getByRole("button", { name: /^save$/i })).toBeDisabled();
+  });
+
+  it("submitForm calls applyMacro for each selected macro when no category selected", async () => {
+    (logTransaction as Mock).mockResolvedValue({ ok: true, data: undefined });
+    await goToStep2WithMacros();
+    await userEvent.click(screen.getByRole("button", { name: /netflix/i }));
+    await userEvent.click(screen.getByRole("button", { name: /spotify/i }));
+    await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(applyMacro).toHaveBeenCalledTimes(2);
+      expect(logTransaction).not.toHaveBeenCalled();
+    });
+  });
+
+  it("submitForm calls logTransaction and applyMacro when category + macros selected", async () => {
+    (logTransaction as Mock).mockResolvedValue({ ok: true, data: undefined });
+    await goToStep2WithMacros();
+    await userEvent.click(screen.getByRole("button", { name: "Groceries" }));
+    await userEvent.click(screen.getByRole("button", { name: /netflix/i }));
+    await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(logTransaction).toHaveBeenCalledOnce();
+      expect(applyMacro).toHaveBeenCalledOnce();
+    });
+  });
+
+  it("if logTransaction fails, applyMacro is NOT called", async () => {
+    (logTransaction as Mock).mockResolvedValue({
+      ok: false,
+      error: { code: "transaction_create_failed", message: "DB error" },
+    });
+    await goToStep2WithMacros();
+    await userEvent.click(screen.getByRole("button", { name: "Groceries" }));
+    await userEvent.click(screen.getByRole("button", { name: /netflix/i }));
+    await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(logTransaction).toHaveBeenCalledOnce();
+      expect(applyMacro).not.toHaveBeenCalled();
+    });
+  });
+
+  it("goal-targeted macro chip renders goal name as secondary label", async () => {
+    const goalMacro: MacroWithTarget = {
+      id: "macro-goal",
+      user_id: "u1",
+      name: "Vacation Save",
+      amount_minor: 5000,
+      account_id: null,
+      goal_id: "goal-1",
+      category_id: "cat-expense",
+      last_used_at: null,
+      archived_at: null,
+      created_at: "2026-01-01T00:00:00Z",
+      account_name: null,
+      goal_name: "Vacation Fund",
+      category_name: "Savings",
+    };
+    await goToStep2WithMacros([goalMacro]);
+    expect(screen.getByText("Vacation Fund")).toBeInTheDocument();
+  });
+
+  it("account-targeted macro chip does NOT render a secondary label", async () => {
+    await goToStep2WithMacros([mockMacros[0]]);
+    // Only the primary line text should appear — no extra text below chip name/amount
+    expect(screen.queryByText("Checking")).not.toBeInTheDocument();
+    expect(screen.queryByText("Entertainment")).not.toBeInTheDocument();
   });
 });

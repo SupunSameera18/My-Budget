@@ -17,6 +17,7 @@ import { z } from "zod";
 import { getAccounts } from "@/features/accounts/server/actions";
 import { currentMonthBoundaries } from "@/lib/period";
 import { dedupeRecentNotes } from "@/lib/note-suggestions";
+import type { MacroWithTarget } from "@/features/macros/schema";
 
 export async function getTransactionFormData(): Promise<
   Result<TransactionFormData>
@@ -95,6 +96,34 @@ export async function getTransactionFormData(): Promise<
       .reduce((s, t) => s + t.amount_minor, 0);
     const currentBreathingRoomMinor = incomeSum - expenseSum;
 
+    const macrosResult = await supabase
+      .from("macros")
+      .select(
+        "id, name, amount_minor, last_used_at, created_at, account_id, goal_id, category_id, accounts(name), goals(name), categories(name)",
+      )
+      .eq("user_id", user.id)
+      .is("archived_at", null)
+      .order("last_used_at", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: true });
+
+    const macros: MacroWithTarget[] = (macrosResult.data ?? []).map((m) => ({
+      id: m.id,
+      name: m.name,
+      amount_minor: m.amount_minor,
+      last_used_at: m.last_used_at,
+      archived_at: null,
+      created_at: m.created_at,
+      user_id: user.id,
+      account_id: m.account_id,
+      goal_id: m.goal_id,
+      category_id: m.category_id,
+      account_name:
+        (m.accounts as unknown as { name: string } | null)?.name ?? null,
+      goal_name: (m.goals as unknown as { name: string } | null)?.name ?? null,
+      category_name:
+        (m.categories as unknown as { name: string } | null)?.name ?? "",
+    }));
+
     return ok({
       accounts,
       categories: (categories ?? []) as TransactionFormData["categories"],
@@ -103,6 +132,7 @@ export async function getTransactionFormData(): Promise<
       subcategoriesEnabled,
       subcategories: subcategories as TransactionFormData["subcategories"],
       currentBreathingRoomMinor,
+      macros,
     });
   } catch {
     return err(
