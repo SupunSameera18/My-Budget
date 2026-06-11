@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DownloadDataButton } from "@/features/settings/components/DownloadDataButton";
 
 export default function SettingsPage() {
   return (
@@ -30,6 +31,17 @@ export default function SettingsPage() {
           Analytics
         </Link>
       </nav>
+      <section className="mt-6">
+        <h2 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-ink-secondary">
+          Privacy &amp; Data
+        </h2>
+        <div className="rounded-lg bg-card p-4 shadow-sm">
+          <p className="mb-3 text-sm text-ink-secondary">
+            Download all your personal data in JSON format.
+          </p>
+          <DownloadDataButton />
+        </div>
+      </section>
     </div>
   );
 }
