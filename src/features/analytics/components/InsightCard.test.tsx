@@ -41,7 +41,6 @@ describe("InsightCard", () => {
 
   it("positive sentiment card has border-l-income class", () => {
     const { container } = render(<InsightCard insight={positiveInsight} />);
-    expect(container.firstChild?.toString()).toBeDefined();
     expect(container.innerHTML).toContain("border-l-income");
   });
 

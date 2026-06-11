@@ -277,39 +277,17 @@ describe("computeInsights", () => {
   });
 
   it("returns [] when no rules fire", () => {
+    // empty budgets + no spike + income barely up (0.4%) + savings at 10% (< 15% threshold)
     const result = computeInsights({
-      currency: "USD",
-      budgetPerformance: [{ name: "Groceries", Budget: 50000, Actual: 55000 }],
-      thisVsLastMonth: [
-        { category: "Food", "This Month": 110, "Last Month": 100 }, // only 10% up, no spike
-      ],
-      monthlyTotals: [
-        { month: "May", Income: 500000, Savings: 50000, Expenses: 450000 },
-        { month: "Jun", Income: 500000, Savings: 50000, Expenses: 450000 }, // flat income, 10% savings
-      ],
-    });
-    // over-budget fires but all-on-track doesn't; no spike; savings at 10% < 15%; income flat
-    // Over budget fires — so result won't be empty in this seed
-    // Let's use a seed that truly fires nothing
-    const noFire = computeInsights({
-      currency: "USD",
-      budgetPerformance: [{ name: "Groceries", Budget: 50000, Actual: 55000 }], // over budget fires
-      thisVsLastMonth: null,
-      monthlyTotals: null,
-    });
-    // over-budget fires here — let's correct the "no rules fire" test
-    const trulyNone = computeInsights({
       currency: "USD",
       budgetPerformance: [],
       thisVsLastMonth: [],
       monthlyTotals: [
         { month: "May", Income: 500000, Savings: 50000, Expenses: 450000 },
-        { month: "Jun", Income: 502000, Savings: 50200, Expenses: 451800 }, // 0.4% up = no income-up; 10% savings = no strong-savings
+        { month: "Jun", Income: 502000, Savings: 50200, Expenses: 451800 },
       ],
     });
-    expect(trulyNone).toEqual([]);
-    void noFire; // suppress unused var
-    void result;
+    expect(result).toEqual([]);
   });
 
   it("returns cards for rules 1, 4, 5 when seed data triggers all three", () => {
