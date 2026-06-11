@@ -122,4 +122,24 @@ describe("MonthlySummaryContent", () => {
     );
     expect(hasPolite).toBe(true);
   });
+
+  it("applies text-breathing-low-text class to net amount when net is negative", () => {
+    const { container } = render(
+      <MonthlySummaryContent
+        data={{
+          ...BASE_DATA,
+          incomeMinor: 3000,
+          expenseMinor: 5000,
+          netMinor: -2000,
+        }}
+      />,
+    );
+    expect(container.querySelector(".text-breathing-low-text")).not.toBeNull();
+  });
+
+  it("applies text-ink-primary class to net amount when net is positive", () => {
+    const { container } = render(<MonthlySummaryContent data={BASE_DATA} />);
+    const netSection = container.querySelector('[aria-label="Net result"]');
+    expect(netSection?.querySelector(".text-ink-primary")).not.toBeNull();
+  });
 });

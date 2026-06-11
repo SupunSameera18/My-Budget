@@ -21,7 +21,9 @@ export default async function SummaryPage({ searchParams }: PageProps) {
   })();
 
   const isValidMonth =
-    rawMonth && /^\d{4}-\d{2}$/.test(rawMonth) && rawMonth <= currentYearMonth;
+    rawMonth &&
+    /^\d{4}-(?:0[1-9]|1[0-2])$/.test(rawMonth) &&
+    rawMonth <= currentYearMonth;
 
   const selectedMonth = isValidMonth ? rawMonth : currentYearMonth;
   const period = isValidMonth

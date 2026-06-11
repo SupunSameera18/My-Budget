@@ -48,16 +48,15 @@ export function MonthlySummaryContent({ data }: MonthlySummaryContentProps) {
         </p>
       </section>
 
-      {/* Health Score */}
-      <section
-        aria-label="Financial health"
-        className="rounded-xl border border-hairline bg-card p-4 shadow-sm"
-      >
-        <h2 className="mb-2 text-sm font-semibold text-ink-secondary">
-          Financial Health
-        </h2>
-        <HealthScoreDisplay result={healthScore} />
-      </section>
+      {/* Health Score — only rendered when score data is available; HealthScoreDisplay owns its own section landmark */}
+      {healthScore && (
+        <div>
+          <h2 className="mb-2 text-sm font-semibold text-ink-secondary">
+            Financial Health
+          </h2>
+          <HealthScoreDisplay result={healthScore} />
+        </div>
+      )}
 
       {/* Top Spending */}
       <section

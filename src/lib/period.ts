@@ -58,6 +58,9 @@ export function monthBoundaries(yearMonth: string): {
   start: string;
   end: string;
 } {
+  if (!/^\d{4}-(?:0[1-9]|1[0-2])$/.test(yearMonth)) {
+    return currentMonthBoundaries();
+  }
   const [year, month] = yearMonth.split("-").map(Number);
   const fmt = (d: Date) => {
     const y = d.getUTCFullYear();

@@ -84,9 +84,10 @@ export async function getMonthlySummaryData(period: {
         getHealthScore(period),
       ]);
 
-    if (txnsResult.error || budgetsResult.error) return null;
+    if (txnsResult.error || budgetsResult.error || profileResult.error)
+      return null;
 
-    const currency = profileResult.data?.currency ?? "USD";
+    const currency = profileResult.data!.currency;
     const txns = txnsResult.data ?? [];
     const budgetRows = budgetsResult.data ?? [];
 
@@ -98,17 +99,22 @@ export async function getMonthlySummaryData(period: {
       .reduce((sum, t) => sum + t.amount_minor, 0);
     const netMinor = incomeMinor - expenseMinor;
 
-    const catMap = new Map<string, number>();
+    // Group by category_id (not name) to correctly aggregate if two categories share a display name
+    const catMap = new Map<string, { name: string; amountMinor: number }>();
     for (const t of txns.filter((t) => t.type === "expense")) {
       const catName =
         (t.categories as unknown as { name: string } | null)?.name ??
         "Uncategorized";
-      catMap.set(catName, (catMap.get(catName) ?? 0) + t.amount_minor);
+      const existing = catMap.get(t.category_id);
+      catMap.set(t.category_id, {
+        name: catName,
+        amountMinor: (existing?.amountMinor ?? 0) + t.amount_minor,
+      });
     }
-    const topCategories = [...catMap.entries()]
-      .sort((a, b) => b[1] - a[1])
+    const topCategories = [...catMap.values()]
+      .sort((a, b) => b.amountMinor - a.amountMinor)
       .slice(0, 3)
-      .map(([name, amountMinor]) => ({ name, amountMinor }));
+      .map(({ name, amountMinor }) => ({ name, amountMinor }));
 
     const expenseTxns = txns.filter((t) => t.type === "expense");
     const budgets = budgetRows.map((b) => {
