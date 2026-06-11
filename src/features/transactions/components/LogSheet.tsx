@@ -6,6 +6,7 @@ import {
   getSuggestedNotes,
   logTransaction,
 } from "@/features/transactions/server/actions";
+import { applyMacro } from "@/features/macros/server/actions";
 import { getDefaultNotePrompt } from "@/lib/note-suggestions";
 import { OfflineRetryBanner } from "@/components/feedback/OfflineRetryBanner";
 import { useOnlineStatus } from "@/lib/hooks/useOnlineStatus";
@@ -16,6 +17,7 @@ import type {
   TransactionCategory,
   Subcategory,
 } from "@/features/transactions/schema";
+import type { MacroWithTarget } from "@/features/macros/schema";
 import { ErrorCode, type AppError } from "@/lib/errors";
 import { formatMoney } from "@/lib/format";
 import { applyTransactionToBreathingRoom } from "@/lib/money/transaction-preview";
@@ -29,6 +31,7 @@ interface LogSheetProps {
   subcategoriesEnabled: boolean;
   subcategories: Subcategory[];
   currentBreathingRoomMinor: number;
+  macros?: MacroWithTarget[];
 }
 
 export function LogSheet({
@@ -39,6 +42,7 @@ export function LogSheet({
   subcategoriesEnabled,
   subcategories,
   currentBreathingRoomMinor,
+  macros = [],
 }: LogSheetProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -57,6 +61,7 @@ export function LogSheet({
   const [selectedSubcategoryId, setSelectedSubcategoryId] = useState("");
   const [note, setNote] = useState("");
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [selectedMacroIds, setSelectedMacroIds] = useState<string[]>([]);
 
   const amountMinor =
     amountDisplay === "0" || amountDisplay === "" || amountDisplay === "0."
@@ -99,6 +104,12 @@ export function LogSheet({
     };
   }, [selectedCategoryId, isOnline]);
 
+  function toggleMacro(id: string) {
+    setSelectedMacroIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  }
+
   function buildFormData(): FormData {
     const fd = new FormData();
     fd.set("amount_display", amountDisplay);
@@ -114,12 +125,23 @@ export function LogSheet({
     setAppError(null);
     startTransition(async () => {
       try {
-        const result = await logTransaction(buildFormData());
-        if (!result.ok) {
-          setAppError(result.error);
-        } else {
-          router.push("/dashboard?saved=1");
+        if (selectedCategoryId) {
+          const result = await logTransaction(buildFormData());
+          if (!result.ok) {
+            setAppError(result.error);
+            return;
+          }
         }
+
+        for (const macroId of selectedMacroIds) {
+          const result = await applyMacro(macroId, selectedDate);
+          if (!result.ok) {
+            setAppError(result.error);
+            return;
+          }
+        }
+
+        router.push("/dashboard?saved=1");
       } catch {
         setAppError({
           code: ErrorCode.TransactionCreateFailed,
@@ -133,6 +155,16 @@ export function LogSheet({
   function handleRetry() {
     submitForm();
   }
+
+  const sortedMacros = [...macros].sort((a, b) => {
+    if (a.last_used_at && b.last_used_at)
+      return (
+        new Date(b.last_used_at).getTime() - new Date(a.last_used_at).getTime()
+      );
+    if (a.last_used_at) return -1;
+    if (b.last_used_at) return 1;
+    return 0;
+  });
 
   const step1PreviewMinor =
     amountMinor > 0
@@ -236,6 +268,39 @@ export function LogSheet({
       >
         ← Back
       </Button>
+
+      {/* Quick Add macro chips */}
+      {sortedMacros.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-ink-secondary">
+            Quick Add
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {sortedMacros.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                aria-pressed={selectedMacroIds.includes(m.id)}
+                onClick={() => toggleMacro(m.id)}
+                className={`min-h-[44px] rounded-full border px-4 py-2 text-left text-sm font-medium transition-colors ${
+                  selectedMacroIds.includes(m.id)
+                    ? "border-brand-accent bg-brand-accent text-white"
+                    : "hover:bg-surface-inset/70 border-hairline bg-surface-inset text-ink-primary"
+                }`}
+              >
+                <span className="block leading-tight">
+                  {m.name} · {formatMoney(m.amount_minor, currency)}
+                </span>
+                {m.goal_id && m.goal_name && (
+                  <span className="block text-xs leading-tight opacity-70">
+                    {m.goal_name}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Category heading */}
       <h2 className="text-sm font-bold text-ink-primary">Category</h2>
@@ -395,9 +460,34 @@ export function LogSheet({
 
       <OfflineRetryBanner onRetry={handleRetry} disabled={isPending} />
 
+      {/* Quick Add Summary */}
+      {selectedMacroIds.length > 0 && (
+        <div className="rounded-lg border border-hairline bg-card p-3 text-sm">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-secondary">
+            Quick Add Summary
+          </p>
+          {selectedMacroIds.map((id) => {
+            const m = macros.find((m) => m.id === id);
+            if (!m) return null;
+            return (
+              <div key={id} className="flex items-center justify-between">
+                <span className="text-ink-primary">{m.name}</span>
+                <span className="tabular-nums text-ink-secondary">
+                  {formatMoney(m.amount_minor, currency)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <Button
         type="button"
-        disabled={!selectedCategoryId || isPending || !isOnline}
+        disabled={
+          (!selectedCategoryId && selectedMacroIds.length === 0) ||
+          isPending ||
+          !isOnline
+        }
         onClick={submitForm}
         className="min-h-[44px] w-full rounded-md bg-brand-accent-strong font-bold text-white"
       >

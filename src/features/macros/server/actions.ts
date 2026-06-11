@@ -138,6 +138,34 @@ export async function archiveMacro(macroId: string): Promise<Result> {
   return ok();
 }
 
+export async function applyMacro(
+  macroId: string,
+  date: string,
+): Promise<Result<{ applicationId: string }>> {
+  const auth = await requireUser();
+  if (!auth) return err(ErrorCode.MacroApplyFailed, "Not authenticated");
+  const { supabase } = auth;
+
+  const { data, error } = await supabase.rpc("rpc_apply_macro", {
+    p_macro_id: macroId,
+    p_date: date,
+  });
+
+  if (error) {
+    if (error.code === "P0002") {
+      return err(
+        ErrorCode.MacroApplyFailed,
+        "Macro not found or no longer available.",
+      );
+    }
+    return err(ErrorCode.MacroApplyFailed, "Failed to apply macro.");
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/transactions");
+  return ok({ applicationId: data as string });
+}
+
 export async function getMacros(): Promise<Result<MacroWithTarget[]>> {
   const auth = await requireUser();
   if (!auth) return err(ErrorCode.MacroFetchFailed, "Not authenticated");

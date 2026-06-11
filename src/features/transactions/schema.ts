@@ -57,6 +57,7 @@ export type TransactionFormData = {
   subcategoriesEnabled: boolean;
   subcategories: Subcategory[];
   currentBreathingRoomMinor: number;
+  macros: import("@/features/macros/schema").MacroWithTarget[];
 };
 
 export type { Subcategory };
