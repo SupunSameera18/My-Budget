@@ -127,8 +127,14 @@ describe("getAllUserData", () => {
   it("does not fetch DB when requireUser returns null", async () => {
     mockRequireUser.mockResolvedValue(null);
 
-    // When requireUser returns null, the action redirects — which throws in Next.js
-    // We just verify no DB fetches were attempted before the redirect
+    const { getAllUserData } = await import("./actions");
+    // redirect() throws in Next.js — catch it so the test can assert the guard worked
+    try {
+      await getAllUserData();
+    } catch {
+      // expected: Next.js redirect throws
+    }
+
     expect(mockFrom).not.toHaveBeenCalled();
   });
 });

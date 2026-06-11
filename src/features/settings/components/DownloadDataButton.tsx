@@ -8,22 +8,29 @@ export function DownloadDataButton() {
   const [statusMsg, setStatusMsg] = useState("");
 
   const handleClick = () => {
-    setStatusMsg("");
+    setStatusMsg("Preparing your data…");
     startTransition(async () => {
-      setStatusMsg("Preparing your data…");
       const result = await getAllUserData();
       if (!result.ok) {
         setStatusMsg("Export failed");
         return;
       }
-      const json = JSON.stringify(result.data, null, 2);
+      let json: string;
+      try {
+        json = JSON.stringify(result.data, null, 2);
+      } catch {
+        setStatusMsg("Export failed");
+        return;
+      }
       const blob = new Blob([json], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = `my-budget-data-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 100);
       setStatusMsg("Download started");
     });
   };

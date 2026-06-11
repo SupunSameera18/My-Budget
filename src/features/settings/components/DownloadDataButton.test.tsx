@@ -70,5 +70,7 @@ describe("DownloadDataButton", () => {
 
     // While the promise is pending, button shows "Preparing…"
     expect(screen.getByRole("button").textContent).toBe("Preparing…");
+    // ARIA live region must also announce the status
+    expect(screen.getByRole("status").textContent).toBe("Preparing your data…");
   });
 });
