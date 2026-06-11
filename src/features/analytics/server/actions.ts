@@ -14,6 +14,7 @@ import {
   type MonthlyTotalsItem,
   type BudgetPerformanceItem,
   type ThisVsLastMonthItem,
+  type ExportRow,
 } from "@/features/analytics/schema";
 import type { HealthScoreResult } from "@/lib/money/health-score";
 import { getGoals } from "@/features/goals/server/actions";
@@ -316,6 +317,41 @@ export async function getBudgetPerformanceData(): Promise<
       name: b.name,
       Budget: b.limit_minor,
       Actual: b.actual_minor,
+    }));
+  } catch {
+    return null;
+  }
+}
+
+export async function getExportData(period: {
+  start: string;
+  end: string;
+}): Promise<ExportRow[] | null> {
+  const auth = await requireUser();
+  if (!auth) return null;
+  const { supabase, user } = auth;
+  try {
+    const { data, error } = await supabase
+      .from("transactions")
+      .select(
+        "date, amount_minor, type, note, accounts(name), categories(name)",
+      )
+      .eq("user_id", user.id)
+      .gte("date", period.start)
+      .lte("date", period.end)
+      .is("archived_at", null)
+      .order("date", { ascending: true });
+    if (error) return null;
+    return (data ?? []).map((row) => ({
+      date: row.date as string,
+      amount: ((row.amount_minor as number) / 100).toFixed(2),
+      type: row.type as string,
+      category:
+        (row.categories as unknown as { name: string } | null)?.name ??
+        "Uncategorized",
+      account:
+        (row.accounts as unknown as { name: string } | null)?.name ?? "Unknown",
+      note: (row.note as string | null) ?? "",
     }));
   } catch {
     return null;

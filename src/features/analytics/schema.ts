@@ -1,3 +1,12 @@
+export type ExportRow = {
+  date: string; // "YYYY-MM-DD"
+  amount: string; // decimal string, e.g. "50.00" (always positive)
+  type: string; // "income" | "expense"
+  category: string; // category name or "Uncategorized"
+  account: string; // account name or "Unknown"
+  note: string; // empty string if null
+};
+
 // Chart data shapes — keys MUST match Tremor's `categories` prop strings exactly
 export type SpendingByCategoryItem = {
   name: string;

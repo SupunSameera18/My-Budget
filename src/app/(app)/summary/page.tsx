@@ -3,6 +3,8 @@ import { EmptyState } from "@/components/feedback/EmptyState";
 import { getMonthlySummaryData } from "@/features/analytics/server/actions";
 import { MonthSelector } from "@/features/analytics/components/MonthSelector";
 import { MonthlySummaryContent } from "@/features/analytics/components/MonthlySummaryContent";
+import { ExportCsvButton } from "@/features/analytics/components/ExportCsvButton";
+import { ExportPdfButton } from "@/features/analytics/components/ExportPdfButton";
 import { monthBoundaries, currentMonthBoundaries } from "@/lib/period";
 
 interface PageProps {
@@ -52,6 +54,14 @@ export default async function SummaryPage({ searchParams }: PageProps) {
         <MonthSelector selectedMonth={selectedMonth} />
       </Suspense>
       <MonthlySummaryContent data={data} />
+      <div className="flex flex-wrap gap-2">
+        <ExportCsvButton
+          period={period}
+          currency={data.currency}
+          selectedMonth={selectedMonth}
+        />
+        <ExportPdfButton period={period} selectedMonth={selectedMonth} />
+      </div>
     </div>
   );
 }
