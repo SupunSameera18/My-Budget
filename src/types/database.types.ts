@@ -247,6 +247,59 @@ export type Database = {
         };
         Relationships: [];
       };
+      // ↓ Added by Story 7.2
+      invite_codes: {
+        Row: {
+          id: string;
+          family_unit_id: string;
+          creator_id: string;
+          code_hash: string;
+          expires_at: string;
+          used_at: string | null;
+          revoked_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          family_unit_id: string;
+          creator_id: string;
+          code_hash: string;
+          expires_at: string;
+          used_at?: string | null;
+          revoked_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          family_unit_id?: string;
+          creator_id?: string;
+          code_hash?: string;
+          expires_at?: string;
+          used_at?: string | null;
+          revoked_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      // ↓ Added by Story 7.2
+      redemption_attempts: {
+        Row: {
+          id: string;
+          user_id: string;
+          attempted_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          attempted_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          attempted_at?: string;
+        };
+        Relationships: [];
+      };
       // ↓ Added by Story 7.1a
       family_units: {
         Row: {
@@ -313,8 +366,33 @@ export type Database = {
       };
       // ↓ Added by Story 7.1b
       auth_can_view_transaction: {
-        Args: { p_owner_id: string; p_is_shared: boolean; p_created_date: string };
+        Args: {
+          p_owner_id: string;
+          p_is_shared: boolean;
+          p_created_date: string;
+        };
         Returns: boolean;
+      };
+      // ↓ Added by Story 7.2
+      rpc_generate_invite: {
+        Args: { p_code_hash: string; p_expires_at: string };
+        Returns: undefined;
+      };
+      rpc_revoke_invite: {
+        Args: { p_invite_id: string };
+        Returns: undefined;
+      };
+      rpc_preview_invite: {
+        Args: { p_code_hash: string };
+        Returns: string | null;
+      };
+      rpc_redeem_invite: {
+        Args: { p_code_hash: string };
+        Returns: undefined;
+      };
+      rpc_get_family_status: {
+        Args: Record<string, never>;
+        Returns: Record<string, unknown>;
       };
     };
     Enums: {
