@@ -12,7 +12,68 @@ export default {
       fontFamily: {
         sans: ["-apple-system", '"Segoe UI"', "Roboto", "sans-serif"],
       },
+      // Tremor design-system tokens — required for chart axis labels, tooltips, and grid lines
+      fontSize: {
+        "tremor-label": ["0.75rem", { lineHeight: "1rem" }],
+        "tremor-default": ["0.875rem", { lineHeight: "1.25rem" }],
+        "tremor-title": ["1.125rem", { lineHeight: "1.75rem" }],
+        "tremor-metric": ["1.875rem", { lineHeight: "2.25rem" }],
+      },
       colors: {
+        tremor: {
+          brand: {
+            faint: "#eff6ff",
+            muted: "#bfdbfe",
+            subtle: "#60a5fa",
+            DEFAULT: "#3b82f6",
+            emphasis: "#1d4ed8",
+            inverted: "#ffffff",
+          },
+          background: {
+            muted: "#f9fafb",
+            subtle: "#f3f4f6",
+            DEFAULT: "#ffffff",
+            emphasis: "#374151",
+          },
+          border: { DEFAULT: "#e5e7eb" },
+          ring: { DEFAULT: "#e5e7eb" },
+          content: {
+            subtle: "#9ca3af",
+            DEFAULT: "#6b7280",
+            emphasis: "#374151",
+            strong: "#111827",
+            inverted: "#ffffff",
+          },
+          card: "#ffffff",
+          dropdown: "#ffffff",
+        },
+        "dark-tremor": {
+          brand: {
+            faint: "#0B1229",
+            muted: "#172554",
+            subtle: "#1e40af",
+            DEFAULT: "#3b82f6",
+            emphasis: "#60a5fa",
+            inverted: "#030712",
+          },
+          background: {
+            muted: "#131A2B",
+            subtle: "#1f2937",
+            DEFAULT: "#111827",
+            emphasis: "#d1d5db",
+          },
+          border: { DEFAULT: "#374151" },
+          ring: { DEFAULT: "#1f2937" },
+          content: {
+            subtle: "#4b5563",
+            DEFAULT: "#9ca3af",
+            emphasis: "#d1d5db",
+            strong: "#f9fafb",
+            inverted: "#000000",
+          },
+          card: "#1f2937",
+          dropdown: "#1f2937",
+        },
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         card: {
@@ -89,5 +150,15 @@ export default {
       },
     },
   },
+  safelist: [
+    {
+      // Tremor builds chart color classes (fill-teal-500, stroke-rose-500, etc.) via
+      // template literals at runtime — Tailwind's scanner never sees them, so they'd
+      // be purged. This safelist forces all combinations into the bundle.
+      pattern:
+        /^(fill|stroke|bg|text|border|ring)-(teal|indigo|violet|rose|orange|amber|lime|cyan|slate)-(50|100|200|300|400|500|600|700|800|900)$/,
+      variants: ["dark", "hover"],
+    },
+  ],
   plugins: [tailwindcssAnimate],
 } satisfies Config;

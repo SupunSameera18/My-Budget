@@ -99,30 +99,39 @@ export function MonthlySummaryContent({ data }: MonthlySummaryContentProps) {
             body="No budgets set for this period"
           />
         ) : (
-          <ul className="space-y-4">
-            {budgets.map((b) => (
-              <li key={b.id}>
-                <div className="mb-1 flex items-center justify-between">
-                  <span className="text-sm font-medium text-ink-primary">
-                    {b.name}
-                  </span>
-                  <span
-                    className={`text-xs font-semibold ${b.hit ? "text-amber-500" : "text-ink-secondary"}`}
-                  >
-                    {b.hit ? "Over budget" : "On track"}
-                  </span>
-                </div>
-                <ProgressBar
-                  pctUsed={b.pctUsed}
-                  noAmber={false}
-                  ariaLabel={`${b.name} usage`}
-                />
-                <p className="mt-1 text-xs text-ink-secondary">
-                  {formatMoney(b.actualMinor, currency)} of{" "}
-                  {formatMoney(b.limitMinor, currency)}
-                </p>
-              </li>
-            ))}
+          <ul className="divide-y divide-hairline">
+            {budgets.map((b) => {
+              const pct = Math.min(100, Math.round(b.pctUsed));
+              const remainingMinor = b.limitMinor - b.actualMinor;
+              return (
+                <li key={b.id} className="py-3 first:pt-0 last:pb-0">
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="text-sm font-medium text-ink-primary">
+                      {b.name}
+                    </span>
+                    <span className="text-xs font-semibold text-ink-secondary">
+                      {pct}%
+                    </span>
+                  </div>
+                  <ProgressBar
+                    pctUsed={b.pctUsed}
+                    noAmber={false}
+                    ariaLabel={`${b.name} usage`}
+                  />
+                  <div className="mt-1 flex items-center justify-between">
+                    <p className="text-xs text-ink-secondary">
+                      {formatMoney(b.actualMinor, currency)} of{" "}
+                      {formatMoney(b.limitMinor, currency)}
+                    </p>
+                    <p className="text-xs font-medium text-ink-secondary">
+                      {b.hit
+                        ? `${formatMoney(Math.abs(remainingMinor), currency)} over`
+                        : `${formatMoney(remainingMinor, currency)} left`}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

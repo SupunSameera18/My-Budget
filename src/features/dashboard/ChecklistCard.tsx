@@ -9,16 +9,32 @@ export async function ChecklistCard() {
   if (!auth) return null;
   const { supabase, user } = auth;
 
-  // Fetch real transaction count for the "Log your first transaction" item.
-  const { count: transactionCount } = await supabase
-    .from("transactions")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", user.id);
+  const [
+    { count: transactionCount },
+    { count: budgetCount },
+    { count: goalCount },
+  ] = await Promise.all([
+    supabase
+      .from("transactions")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .is("archived_at", null),
+    supabase
+      .from("budgets")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .is("archived_at", null),
+    supabase
+      .from("goals")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .is("archived_at", null),
+  ]);
 
   const items = deriveChecklistState({
     transactionCount: transactionCount ?? 0,
-    budgetCount: 0, // wired in Story 4.1
-    goalCount: 0, // wired in Story 4.5
+    budgetCount: budgetCount ?? 0,
+    goalCount: goalCount ?? 0,
     familyMemberCount: 0, // wired in Story 7.2
   });
 
@@ -53,20 +69,28 @@ export async function ChecklistCard() {
       <ul className="flex flex-col gap-2">
         {items.map((item) => (
           <li key={item.id}>
-            <Link
-              href={item.href}
-              className="flex min-h-[44px] items-center justify-between rounded-lg bg-surface-inset px-4 py-2 text-sm font-medium text-ink-primary transition-all hover:brightness-95 active:brightness-90"
-            >
-              <span
-                className={item.done ? "text-ink-secondary line-through" : ""}
+            {item.done ? (
+              <div className="flex min-h-[44px] items-center justify-between rounded-lg bg-surface-inset px-4 py-2 text-sm font-medium">
+                <span className="text-ink-secondary line-through">
+                  {item.label}
+                </span>
+                <ChevronRight
+                  className="h-4 w-4 shrink-0 text-ink-secondary/40"
+                  strokeWidth={1.75}
+                />
+              </div>
+            ) : (
+              <Link
+                href={item.href}
+                className="flex min-h-[44px] items-center justify-between rounded-lg bg-surface-inset px-4 py-2 text-sm font-medium text-ink-primary transition-all hover:brightness-95 active:brightness-90"
               >
-                {item.label}
-              </span>
-              <ChevronRight
-                className="h-4 w-4 shrink-0 text-ink-secondary"
-                strokeWidth={1.75}
-              />
-            </Link>
+                <span>{item.label}</span>
+                <ChevronRight
+                  className="h-4 w-4 shrink-0 text-ink-secondary"
+                  strokeWidth={1.75}
+                />
+              </Link>
+            )}
           </li>
         ))}
       </ul>

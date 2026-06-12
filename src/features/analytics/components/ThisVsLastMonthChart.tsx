@@ -22,17 +22,22 @@ export function ThisVsLastMonthChart({
     );
   }
 
+  const chartHeight = Math.max(280, data.length * 72);
+
   return (
-    <BarChart
-      data={data}
-      index="category"
-      categories={["This Month", "Last Month"]}
-      colors={["teal", "slate"]}
-      valueFormatter={(v) => formatMoney(v, currency)}
-      showLegend={true}
-      yAxisWidth={80}
-      className="h-64"
-      layout="vertical"
-    />
+    <div style={{ height: chartHeight }}>
+      <BarChart
+        data={data}
+        index="category"
+        categories={["This Month", "Last Month"]}
+        colors={["teal", "slate"]}
+        valueFormatter={(v) => formatMoney(v, currency)}
+        showLegend={true}
+        yAxisWidth={100}
+        barCategoryGap="30%"
+        className="!h-full"
+        layout="vertical"
+      />
+    </div>
   );
 }

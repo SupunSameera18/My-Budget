@@ -64,11 +64,11 @@ export function BudgetReportPdf({
         <View style={styles.section}>
           <Text style={styles.subheading}>Transactions ({rows.length})</Text>
           <View style={styles.tableHeader}>
-            <Text style={styles.colDate}>Date</Text>
-            <Text style={styles.colAmount}>Amount</Text>
-            <Text style={styles.colType}>Type</Text>
-            <Text style={styles.colCategory}>Category</Text>
-            <Text style={styles.colNote}>Note</Text>
+            <Text style={[styles.colDate, styles.colHeaderText]}>Date</Text>
+            <Text style={[styles.colAmount, styles.colHeaderText]}>Amount</Text>
+            <Text style={[styles.colType, styles.colHeaderText]}>Type</Text>
+            <Text style={[styles.colCategory, styles.colHeaderText]}>Category</Text>
+            <Text style={[styles.colNote, styles.colHeaderText]}>Note</Text>
           </View>
           {rows.map((row, i) => (
             <View
@@ -103,9 +103,10 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
     marginBottom: 4,
   },
-  colDate: { width: "15%", fontWeight: "bold" },
-  colAmount: { width: "13%", textAlign: "right", fontWeight: "bold" },
-  colType: { width: "12%" },
+  colDate: { width: "15%" },
+  colAmount: { width: "15%", textAlign: "right", paddingRight: 8 },
+  colType: { width: "12%", paddingLeft: 4 },
   colCategory: { width: "20%" },
   colNote: { flex: 1 },
+  colHeaderText: { fontWeight: "bold" },
 });

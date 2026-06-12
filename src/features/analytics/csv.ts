@@ -19,11 +19,11 @@ export function escapeCsvField(value: string): string {
 
 /**
  * Converts ExportRow[] to a valid RFC 4180 CSV string.
- * Header row: Date, Amount (USD), Type, Category, Account, Note
- * Currency is inserted into the Amount column header.
+ * Header row: Date, Amount ($), Type, Category, Account, Note
  */
 export function generateCsvString(rows: ExportRow[], currency: string): string {
-  const header = `Date,Amount (${currency}),Type,Category,Account,Note`;
+  void currency;
+  const header = `Date,Amount ($),Type,Category,Account,Note`;
   if (rows.length === 0) return header;
 
   const dataLines = rows.map((r) =>
@@ -41,7 +41,12 @@ export function generateCsvString(rows: ExportRow[], currency: string): string {
 }
 
 export function triggerCsvDownload(content: string, filename: string): void {
-  const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+  // UTF-8 BOM (﻿) signals Excel to open as UTF-8 instead of Windows-1252,
+  // which prevents special characters (em dashes, accented letters, etc.) from
+  // appearing as garbled sequences like "â€"".
+  const blob = new Blob(["﻿" + content], {
+    type: "text/csv;charset=utf-8;",
+  });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;

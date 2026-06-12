@@ -19,7 +19,6 @@ import {
 import type { HealthScoreResult } from "@/lib/money/health-score";
 import { getGoals } from "@/features/goals/server/actions";
 import type { GoalWithProgress } from "@/features/goals/schema";
-import { getBudgets } from "@/features/budgets/server/actions";
 
 export async function getChartPreferences(): Promise<ChartPreferences> {
   const session = await requireUser();
@@ -307,17 +306,53 @@ export async function getIncomeVsExpensesData(
   }
 }
 
-export async function getBudgetPerformanceData(): Promise<
-  BudgetPerformanceItem[] | null
-> {
+export async function getBudgetPerformanceData(period: {
+  start: string;
+  end: string;
+}): Promise<BudgetPerformanceItem[] | null> {
   try {
-    const result = await getBudgets();
-    if (!result.ok) return null;
-    return result.data.map((b) => ({
-      name: b.name,
-      Budget: b.limit_minor,
-      Actual: b.actual_minor,
-    }));
+    const auth = await requireUser();
+    if (!auth) return null;
+    const { supabase, user } = auth;
+
+    const [budgetsRes, txnsRes] = await Promise.all([
+      supabase
+        .from("budgets")
+        .select("name, limit_minor, budget_categories(category_id)")
+        .eq("user_id", user.id)
+        .is("archived_at", null),
+      supabase
+        .from("transactions")
+        .select("amount_minor, category_id")
+        .eq("user_id", user.id)
+        .eq("type", "expense")
+        .gte("date", period.start)
+        .lte("date", period.end)
+        .is("archived_at", null),
+    ]);
+
+    if (budgetsRes.error || txnsRes.error) return null;
+
+    const txns = (txnsRes.data ?? []) as {
+      amount_minor: number;
+      category_id: string;
+    }[];
+
+    return (budgetsRes.data ?? []).map((b) => {
+      const catIds = new Set(
+        (
+          (b.budget_categories as { category_id: string }[] | null) ?? []
+        ).map((bc) => bc.category_id),
+      );
+      const actual = txns
+        .filter((t) => catIds.has(t.category_id))
+        .reduce((sum, t) => sum + t.amount_minor, 0);
+      return {
+        name: b.name as string,
+        Budget: b.limit_minor as number,
+        Actual: actual,
+      };
+    });
   } catch {
     return null;
   }

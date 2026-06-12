@@ -18,17 +18,21 @@ export function BudgetPerformanceChart({
     return <p className="text-sm text-ink-secondary">No active budgets.</p>;
   }
 
+  const chartHeight = Math.max(280, data.length * 56);
+
   return (
-    <BarChart
-      data={data}
-      index="name"
-      categories={["Budget", "Actual"]}
-      colors={["teal", "rose"]}
-      valueFormatter={(v) => formatMoney(v, currency)}
-      showLegend={true}
-      yAxisWidth={80}
-      className="h-64"
-      layout="vertical"
-    />
+    <div style={{ height: chartHeight }}>
+      <BarChart
+        data={data}
+        index="name"
+        categories={["Budget", "Actual"]}
+        colors={["teal", "rose"]}
+        valueFormatter={(v) => formatMoney(v, currency)}
+        showLegend={true}
+        yAxisWidth={120}
+        className="!h-full"
+        layout="vertical"
+      />
+    </div>
   );
 }

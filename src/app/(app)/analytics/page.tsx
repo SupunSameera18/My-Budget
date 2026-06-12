@@ -59,7 +59,7 @@ export default async function AnalyticsPage({
         ? getIncomeVsExpensesData(selectedMonth)
         : Promise.resolve(null),
       isChartEnabled(prefs, "budget_performance")
-        ? getBudgetPerformanceData()
+        ? getBudgetPerformanceData(period)
         : Promise.resolve(null),
       isChartEnabled(prefs, "this_vs_last_month")
         ? getThisVsLastMonthData(selectedMonth)

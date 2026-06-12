@@ -29,12 +29,12 @@ describe("escapeCsvField", () => {
 describe("generateCsvString", () => {
   it("returns only the header row when rows is empty", () => {
     const result = generateCsvString([], "USD");
-    expect(result).toBe("Date,Amount (USD),Type,Category,Account,Note");
+    expect(result).toBe("Date,Amount ($),Type,Category,Account,Note");
   });
 
-  it("inserts currency into Amount column header", () => {
+  it("header is the same regardless of currency", () => {
     const result = generateCsvString([], "EUR");
-    expect(result).toContain("Amount (EUR)");
+    expect(result).toBe("Date,Amount ($),Type,Category,Account,Note");
   });
 
   it("returns header + 1 data line for a single row", () => {
@@ -49,7 +49,7 @@ describe("generateCsvString", () => {
     const result = generateCsvString([row], "USD");
     const lines = result.split("\n");
     expect(lines).toHaveLength(2);
-    expect(lines[0]).toBe("Date,Amount (USD),Type,Category,Account,Note");
+    expect(lines[0]).toBe("Date,Amount ($),Type,Category,Account,Note");
     expect(lines[1]).toBe("2026-05-01,50.00,expense,Groceries,Checking,");
   });
 
@@ -79,7 +79,7 @@ describe("generateCsvString", () => {
     expect(result).toContain('"He said, ""hello"""');
   });
 
-  it("amount field is never wrapped in quotes (numeric, no special chars)", () => {
+  it("amount field is a plain decimal string", () => {
     const row: ExportRow = {
       date: "2026-05-15",
       amount: "123.45",
@@ -90,8 +90,6 @@ describe("generateCsvString", () => {
     };
     const result = generateCsvString([row], "USD");
     const dataLine = result.split("\n")[1];
-    // Amount field must appear as plain numeric, not wrapped
     expect(dataLine).toContain(",123.45,");
-    expect(dataLine).not.toContain('"123.45"');
   });
 });
