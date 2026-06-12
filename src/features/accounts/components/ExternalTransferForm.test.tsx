@@ -49,6 +49,13 @@ describe("ExternalTransferForm — no accounts", () => {
 });
 
 describe("ExternalTransferForm — 1+ accounts", () => {
+  it("renders the ARIA live region with role=status", () => {
+    render(<ExternalTransferForm accounts={accounts} />);
+    const liveRegion = screen.getByRole("status");
+    expect(liveRegion).toBeTruthy();
+    expect(liveRegion.getAttribute("aria-live")).toBe("polite");
+  });
+
   it("renders account select, direction select, amount, date, note inputs", () => {
     render(<ExternalTransferForm accounts={accounts} />);
     expect(screen.getByLabelText(/account/i)).toBeInTheDocument();

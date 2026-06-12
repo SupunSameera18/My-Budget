@@ -109,6 +109,7 @@ export function CategoryCard({
             <button
               type="submit"
               disabled={isPending}
+              aria-disabled={isPending}
               className="min-h-[44px] flex-1 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             >
               {isPending ? "Saving…" : "Save"}
@@ -116,6 +117,7 @@ export function CategoryCard({
             <button
               type="button"
               disabled={isPending}
+              aria-disabled={isPending}
               onClick={() => {
                 setIsEditing(false);
                 setError(null);
@@ -148,6 +150,7 @@ export function CategoryCard({
           <button
             type="button"
             disabled={isPending}
+            aria-disabled={isPending}
             onClick={handleDelete}
             className="min-h-[44px] flex-1 rounded-md bg-destructive px-3 text-sm font-semibold text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
           >
@@ -156,6 +159,7 @@ export function CategoryCard({
           <button
             type="button"
             disabled={isPending}
+            aria-disabled={isPending}
             onClick={() => {
               setShowDeleteConfirm(false);
               setError(null);
@@ -194,6 +198,7 @@ export function CategoryCard({
             <button
               type="button"
               disabled={isPending}
+              aria-disabled={isPending}
               onClick={() => {
                 setIsEditing(true);
                 setError(null);
@@ -205,6 +210,7 @@ export function CategoryCard({
             <button
               type="button"
               disabled={isPending}
+              aria-disabled={isPending}
               onClick={handleArchive}
               className="min-h-[44px] flex-1 rounded-md border border-input px-3 text-sm font-medium text-ink-secondary hover:bg-surface-inset disabled:opacity-50"
             >
@@ -218,6 +224,7 @@ export function CategoryCard({
             <button
               type="button"
               disabled={isPending}
+              aria-disabled={isPending}
               onClick={handleUnarchive}
               className="min-h-[44px] flex-1 rounded-md border border-input px-3 text-sm font-medium text-ink-primary hover:bg-surface-inset disabled:opacity-50"
             >
@@ -227,6 +234,7 @@ export function CategoryCard({
               <button
                 type="button"
                 disabled={isPending}
+                aria-disabled={isPending}
                 onClick={() => {
                   setShowDeleteConfirm(true);
                   setError(null);

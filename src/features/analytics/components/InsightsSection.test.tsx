@@ -19,9 +19,11 @@ const mockInsights: InsightData[] = [
 ];
 
 describe("InsightsSection", () => {
-  it("renders nothing (returns null) when insights array is empty", () => {
-    const { container } = render(<InsightsSection insights={[]} />);
-    expect(container.firstChild).toBeNull();
+  it("renders an empty section (live region pre-registered) when insights array is empty", () => {
+    render(<InsightsSection insights={[]} />);
+    const section = screen.getByRole("region", { name: "Insights" });
+    expect(section).toBeTruthy();
+    expect(section.children.length).toBe(0);
   });
 
   it("renders one InsightCard per item when insights has entries", () => {
