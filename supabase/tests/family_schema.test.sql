@@ -7,7 +7,7 @@
 
 BEGIN;
 
-SELECT plan(24);
+SELECT plan(31);
 
 -- ── 1–4: family_units table shape ────────────────────────────────────────────
 
@@ -42,7 +42,50 @@ SELECT is(
 SELECT has_column('public', 'family_members', 'joined_at', 'family_members.joined_at exists');
 SELECT col_not_null('public', 'family_members', 'joined_at', 'joined_at is NOT NULL');
 
--- ── 17–19: transactions.is_shared column ─────────────────────────────────────
+-- Column type assertions (AC7: "correct columns, types, NOT NULL")
+-- Using information_schema — col_type_is() unavailable in this pgTAP version (same
+-- limitation as col_default; see dev-learnings §18 debug log).
+SELECT is(
+  (SELECT data_type FROM information_schema.columns
+   WHERE table_schema = 'public' AND table_name = 'family_members'
+     AND column_name = 'family_unit_id'),
+  'uuid',
+  'family_members.family_unit_id type is uuid'
+);
+SELECT is(
+  (SELECT data_type FROM information_schema.columns
+   WHERE table_schema = 'public' AND table_name = 'family_members'
+     AND column_name = 'join_date'),
+  'date',
+  'family_members.join_date type is date (not timestamptz)'
+);
+SELECT is(
+  (SELECT data_type FROM information_schema.columns
+   WHERE table_schema = 'public' AND table_name = 'family_members'
+     AND column_name = 'hide_personal'),
+  'boolean',
+  'family_members.hide_personal type is boolean'
+);
+
+-- Structural UNIQUE assertion (AC7: "UNIQUE on (family_unit_id, user_id)")
+-- Counts how many of the expected columns appear in any UNIQUE constraint on this table.
+-- Result = 2 means both columns are covered by a single UNIQUE constraint.
+SELECT is(
+  (SELECT COUNT(*)::int
+   FROM information_schema.key_column_usage kcu
+   JOIN information_schema.table_constraints tc
+     ON kcu.constraint_name = tc.constraint_name
+     AND kcu.table_schema  = tc.table_schema
+     AND kcu.table_name    = tc.table_name
+   WHERE tc.table_schema   = 'public'
+     AND tc.table_name     = 'family_members'
+     AND tc.constraint_type = 'UNIQUE'
+     AND kcu.column_name IN ('family_unit_id', 'user_id')),
+  2,
+  'family_members UNIQUE constraint covers (family_unit_id, user_id)'
+);
+
+-- ── transactions.is_shared column ────────────────────────────────────────────
 
 SELECT has_column('public', 'transactions', 'is_shared', 'transactions.is_shared exists');
 SELECT col_not_null('public', 'transactions', 'is_shared', 'is_shared is NOT NULL');
@@ -53,8 +96,15 @@ SELECT is(
   'false',
   'is_shared defaults to false'
 );
+SELECT is(
+  (SELECT data_type FROM information_schema.columns
+   WHERE table_schema = 'public' AND table_name = 'transactions'
+     AND column_name = 'is_shared'),
+  'boolean',
+  'transactions.is_shared type is boolean'
+);
 
--- ── 20–21: ≤2 members trigger (runs as postgres to bypass RLS) ───────────────
+-- ── ≤2 members trigger (runs as postgres to bypass RLS) ──────────────────────
 
 SET LOCAL ROLE postgres;
 
@@ -135,6 +185,25 @@ SELECT is(
    WHERE user_id = 'dddddddd-dddd-4ddd-8ddd-000000000001'),
   0,
   'Bob cannot SELECT alice''s family_members row (RLS blocks cross-user read)'
+);
+
+-- ── RLS cross-user SELECT blocked on family_units ─────────────────────────────
+-- Alice is a member of both units (0010 + 0011); she should see 2 rows.
+-- Carol is seeded in auth.users but never added to any unit; she should see 0.
+SET LOCAL "request.jwt.claims" TO '{"sub": "dddddddd-dddd-4ddd-8ddd-000000000001"}';
+
+SELECT is(
+  (SELECT COUNT(*)::int FROM public.family_units),
+  2,
+  'Anti-vacuous: alice can SELECT her 2 family_units rows (member of both)'
+);
+
+SET LOCAL "request.jwt.claims" TO '{"sub": "dddddddd-dddd-4ddd-8ddd-000000000003"}';
+
+SELECT is(
+  (SELECT COUNT(*)::int FROM public.family_units),
+  0,
+  'Carol (non-member) cannot SELECT any family_units rows (RLS blocks)'
 );
 
 SELECT * FROM finish();

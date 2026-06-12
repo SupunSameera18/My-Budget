@@ -26,8 +26,12 @@ CREATE TABLE public.family_members (
 -- A multi-row CHECK constraint is not reliable in Postgres (evaluated per-row,
 -- not per-statement). A BEFORE INSERT trigger is the correct enforcement point.
 -- Raises ERRCODE 23514 so server actions can branch on .code === "23514".
+-- SECURITY DEFINER required: without it the trigger runs as the calling authenticated
+-- user and the SELECT COUNT(*) is filtered by the family_members RLS policy
+-- (user_id = auth.uid()), which sees only the inserting user's own rows — always 0
+-- for a new member — making the ≤2 limit completely non-functional in production.
 CREATE OR REPLACE FUNCTION public.check_family_size()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
   IF (
     SELECT COUNT(*)
