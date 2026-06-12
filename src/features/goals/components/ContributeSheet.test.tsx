@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { ok, err, ErrorCode } from "@/lib/errors";
 
@@ -96,5 +96,36 @@ describe("ContributeSheet", () => {
     render(<ContributeSheet {...defaultProps} onOpenChange={onOpenChange} />);
     fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("Escape key calls onOpenChange(false) when not submitting", () => {
+    const onOpenChange = vi.fn();
+    render(<ContributeSheet {...defaultProps} onOpenChange={onOpenChange} />);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("Escape key does NOT close when isSubmitting (never-resolving action)", async () => {
+    const onOpenChange = vi.fn();
+    (contributeToGoal as Mock).mockImplementation(() => new Promise(() => {}));
+    render(<ContributeSheet {...defaultProps} onOpenChange={onOpenChange} />);
+    await act(async () => {
+      fireEvent.submit(document.querySelector("form")!);
+    });
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+  });
+
+  it("does not attach keydown listener when open=false", () => {
+    const onOpenChange = vi.fn();
+    render(
+      <ContributeSheet
+        {...defaultProps}
+        open={false}
+        onOpenChange={onOpenChange}
+      />,
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onOpenChange).not.toHaveBeenCalled();
   });
 });

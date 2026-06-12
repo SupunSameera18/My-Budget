@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { OfflineRetryBanner } from "@/components/feedback/OfflineRetryBanner";
 import { contributeToGoal } from "@/features/goals/server/actions";
@@ -24,6 +24,35 @@ export function ContributeSheet({
   const [statusMessage, setStatusMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const amountRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !isSubmitting) {
+        onOpenChange(false);
+        return;
+      }
+      if (e.key === "Tab" && dialogRef.current) {
+        const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        );
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last?.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first?.focus();
+        }
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open, isSubmitting, onOpenChange]);
 
   async function handleSubmit(formData: FormData) {
     setStatusMessage("");
@@ -63,6 +92,7 @@ export function ContributeSheet({
 
       {/* Sheet panel — bottom drawer */}
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="contribute-sheet-title"
@@ -132,6 +162,7 @@ export function ContributeSheet({
           )}
 
           <OfflineRetryBanner
+            disabled={isSubmitting}
             onRetry={() => {
               if (amountRef.current) {
                 const fd = new FormData();

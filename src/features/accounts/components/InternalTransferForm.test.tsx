@@ -55,6 +55,13 @@ describe("InternalTransferForm — fewer than 2 accounts", () => {
 });
 
 describe("InternalTransferForm — 2+ accounts", () => {
+  it("renders the ARIA live region with role=status", () => {
+    render(<InternalTransferForm accounts={accounts} currency="USD" />);
+    const liveRegion = screen.getByRole("status");
+    expect(liveRegion).toBeTruthy();
+    expect(liveRegion.getAttribute("aria-live")).toBe("polite");
+  });
+
   it("renders from/to selects and amount, date, note inputs", () => {
     render(<InternalTransferForm accounts={accounts} currency="USD" />);
     expect(screen.getByLabelText(/from account/i)).toBeInTheDocument();
