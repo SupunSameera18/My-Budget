@@ -65,6 +65,17 @@ export enum ErrorCode {
   ProfileUpdateFailed = "profile_update_failed",
   // ↓ Added by Story 6.7
   DataExportFailed = "data_export_failed",
+  // ↓ Added by Story 7.2
+  InviteGenerateFailed = "invite_generate_failed",
+  InviteRevokeFailed = "invite_revoke_failed",
+  InviteNotFound = "invite_not_found",
+  InviteRateLimitExceeded = "invite_rate_limit_exceeded",
+  FamilyFull = "family_full",
+  AlreadyInFamily = "already_in_family",
+  InviteOwnCode = "invite_own_code",
+  InviteRedeemFailed = "invite_redeem_failed",
+  InvitePreviewFailed = "invite_preview_failed",
+  FamilyStatusFetchFailed = "family_status_fetch_failed",
 }
 
 export type AppError = {
