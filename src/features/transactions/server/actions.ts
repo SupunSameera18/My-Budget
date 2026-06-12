@@ -461,16 +461,21 @@ export async function getTransactionList(
     const validTo = datePattern.test(filters.to ?? "") ? filters.to : undefined;
 
     // Build transaction query
+    // In family mode: omit user_id filter so RLS predicate (7.1b) handles cross-user visibility.
+    // In single-user mode: keep user_id filter for performance (narrower index scan).
     let txnQuery = supabase
       .from("transactions")
       .select(
-        "id, account_id, category_id, amount_minor, date, note, type, created_at, accounts ( name ), categories ( name, type )",
+        "id, account_id, category_id, amount_minor, date, note, type, is_shared, created_at, accounts ( name ), categories ( name, type )",
       )
-      .eq("user_id", user.id) // explicit (§9 defense-in-depth)
       .is("archived_at", null) // active only
       .order("date", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(500);
+
+    if (!filters.isFamilyMode) {
+      txnQuery = txnQuery.eq("user_id", user.id);
+    }
 
     if (validAccountId) txnQuery = txnQuery.eq("account_id", validAccountId);
     if (validCategoryId) txnQuery = txnQuery.eq("category_id", validCategoryId);
@@ -493,6 +498,7 @@ export async function getTransactionList(
       date: row.date,
       note: row.note,
       type: row.type as "income" | "expense",
+      is_shared: row.is_shared ?? false,
       created_at: row.created_at,
       account_name:
         (row.accounts as unknown as { name: string } | null)?.name ?? "Unknown",
@@ -546,6 +552,7 @@ export async function getTransactionList(
       accounts: (accountsData ?? []) as TransactionListData["accounts"],
       categories: (catsData ?? []) as TransactionListData["categories"],
       currency: profile?.currency ?? "USD",
+      familyUnitId: filters.familyUnitId,
     });
   } catch {
     return err(

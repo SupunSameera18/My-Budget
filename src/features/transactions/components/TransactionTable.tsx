@@ -1,18 +1,42 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { EmptyState } from "@/components/feedback/EmptyState";
+import { SharedBadge } from "@/features/family/components/SharedBadge";
+import { useFamilyRealtime } from "@/features/family/hooks/useFamilyRealtime";
 import { formatMoney } from "@/lib/format";
 import type { TransactionListItem } from "@/features/transactions/schema";
 
 interface TransactionTableProps {
   items: TransactionListItem[];
   currency: string;
+  isFamilyMode?: boolean;
+  familyUnitId?: string | null;
 }
 
-export function TransactionTable({ items, currency }: TransactionTableProps) {
+export function TransactionTable({
+  items,
+  currency,
+  isFamilyMode = false,
+  familyUnitId = null,
+}: TransactionTableProps) {
   const router = useRouter();
+  const { lastEventAt } = useFamilyRealtime(isFamilyMode ? familyUnitId : null);
+
+  // Suppress live announcement for Realtime-driven re-renders (AC 16).
+  // User-initiated changes announce normally; Realtime cache invalidations are silent.
+  const [suppressLiveAnnouncement, setSuppressLiveAnnouncement] =
+    useState(false);
+
+  useEffect(() => {
+    if (lastEventAt === 0) return;
+    setSuppressLiveAnnouncement(true);
+    router.refresh();
+    const timer = setTimeout(() => setSuppressLiveAnnouncement(false), 5000);
+    return () => clearTimeout(timer);
+  }, [lastEventAt, router]);
 
   const liveText =
     items.length === 0
@@ -23,7 +47,7 @@ export function TransactionTable({ items, currency }: TransactionTableProps) {
     <>
       {/* ARIA live region — always present from initial render (§9) */}
       <p role="status" aria-live="polite" className="sr-only">
-        {liveText}
+        {suppressLiveAnnouncement ? "" : liveText}
       </p>
 
       {items.length === 0 ? (
@@ -75,7 +99,13 @@ export function TransactionTable({ items, currency }: TransactionTableProps) {
                       {item.note ?? ""}
                     </td>
                     <td className="px-3 py-3 capitalize text-ink-secondary">
-                      {item.type}
+                      <span className="flex items-center gap-1.5">
+                        {item.type}
+                        <SharedBadge
+                          isFamilyMode={isFamilyMode}
+                          isShared={item.is_shared}
+                        />
+                      </span>
                     </td>
                     <td className="py-3 pl-3 pr-4 text-right font-semibold [font-variant-numeric:tabular-nums]">
                       <span
@@ -103,10 +133,10 @@ export function TransactionTable({ items, currency }: TransactionTableProps) {
                   href={`/transactions/${item.id}`}
                   className="hover:bg-surface-muted flex items-center gap-3 rounded-md bg-surface-base px-4 py-3"
                 >
-                  {/* Type-badge reserved position — hidden in single-user mode (E7 will show it) */}
-                  <span
-                    className="hidden h-6 w-6 shrink-0"
-                    aria-hidden="true"
+                  {/* Shared badge position (hidden via null return when not applicable) */}
+                  <SharedBadge
+                    isFamilyMode={isFamilyMode}
+                    isShared={item.is_shared}
                   />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium text-ink-primary">

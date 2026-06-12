@@ -114,6 +114,7 @@ export type TransactionListItem = {
   date: string;
   note: string | null;
   type: "income" | "expense";
+  is_shared: boolean;
   created_at: string;
   account_name: string;
   category_name: string;
@@ -126,6 +127,8 @@ export type TransactionListFilters = {
   to?: string;
   showArchivedAccounts?: boolean;
   showArchivedCategories?: boolean;
+  isFamilyMode?: boolean;
+  familyUnitId?: string;
 };
 
 export type TransactionListFilterAccount = Pick<
@@ -145,4 +148,5 @@ export type TransactionListData = {
   accounts: TransactionListFilterAccount[];
   categories: TransactionListFilterCategory[];
   currency: string;
+  familyUnitId?: string;
 };
