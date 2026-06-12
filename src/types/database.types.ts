@@ -142,6 +142,40 @@ export type Database = {
         };
         Relationships: [];
       };
+      // ↓ Added by Story 4.5 (is_shared added by Story 7.1b)
+      goals: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          target_minor: number;
+          archived_at: string | null;
+          created_at: string;
+          updated_at: string;
+          is_shared: boolean;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          name: string;
+          target_minor: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          is_shared?: boolean;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          name?: string;
+          target_minor?: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          is_shared?: boolean;
+        };
+        Relationships: [];
+      };
       // ↓ Added by Story 5.1
       macros: {
         Row: {
@@ -276,6 +310,11 @@ export type Database = {
       rpc_apply_macro: {
         Args: { p_macro_id: string; p_date?: string };
         Returns: string;
+      };
+      // ↓ Added by Story 7.1b
+      auth_can_view_transaction: {
+        Args: { p_owner_id: string; p_is_shared: boolean; p_created_date: string };
+        Returns: boolean;
       };
     };
     Enums: {
