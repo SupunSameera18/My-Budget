@@ -105,6 +105,8 @@ export type Database = {
           updated_at: string;
           // ↓ Added by Story 5.1
           macro_application_id: string | null;
+          // ↓ Added by Story 7.1a
+          is_shared: boolean;
         };
         Insert: {
           id?: string;
@@ -119,6 +121,8 @@ export type Database = {
           updated_at?: string;
           // ↓ Added by Story 5.1
           macro_application_id?: string | null;
+          // ↓ Added by Story 7.1a
+          is_shared?: boolean;
         };
         Update: {
           id?: string;
@@ -133,6 +137,8 @@ export type Database = {
           updated_at?: string;
           // ↓ Added by Story 5.1
           macro_application_id?: string | null;
+          // ↓ Added by Story 7.1a
+          is_shared?: boolean;
         };
         Relationships: [];
       };
@@ -204,6 +210,50 @@ export type Database = {
           date?: string;
           created_at?: string;
           macro_application_id?: string | null;
+        };
+        Relationships: [];
+      };
+      // ↓ Added by Story 7.1a
+      family_units: {
+        Row: {
+          id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      // ↓ Added by Story 7.1a
+      family_members: {
+        Row: {
+          id: string;
+          family_unit_id: string;
+          user_id: string;
+          join_date: string;
+          hide_personal: boolean;
+          joined_at: string;
+        };
+        Insert: {
+          id?: string;
+          family_unit_id: string;
+          user_id: string;
+          join_date: string;
+          hide_personal?: boolean;
+          joined_at?: string;
+        };
+        Update: {
+          id?: string;
+          family_unit_id?: string;
+          user_id?: string;
+          join_date?: string;
+          hide_personal?: boolean;
+          joined_at?: string;
         };
         Relationships: [];
       };
