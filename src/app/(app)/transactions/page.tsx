@@ -3,6 +3,7 @@ import { z } from "zod";
 import { TransactionFilters } from "@/features/transactions/components/TransactionFilters";
 import { TransactionTable } from "@/features/transactions/components/TransactionTable";
 import { getTransactionList } from "@/features/transactions/server/actions";
+import { getFamilyStatus } from "@/features/family/server/actions";
 import type { TransactionListFilters } from "@/features/transactions/schema";
 
 export default async function TransactionsPage({
@@ -17,7 +18,14 @@ export default async function TransactionsPage({
     showArchivedCategories?: string;
   }>;
 }) {
-  const params = await searchParams;
+  const [params, familyStatus] = await Promise.all([
+    searchParams,
+    getFamilyStatus(),
+  ]);
+
+  const isFamilyMode = familyStatus.status === "in_family";
+  const familyUnitId =
+    familyStatus.status === "in_family" ? familyStatus.familyUnitId : undefined;
 
   const datePattern = /^\d{4}-\d{2}-\d{2}$/;
   const filters: TransactionListFilters = {
@@ -31,6 +39,8 @@ export default async function TransactionsPage({
     to: datePattern.test(params.to ?? "") ? params.to : undefined,
     showArchivedAccounts: params.showArchivedAccounts === "1",
     showArchivedCategories: params.showArchivedCategories === "1",
+    isFamilyMode,
+    familyUnitId,
   };
 
   const result = await getTransactionList(filters);
@@ -50,7 +60,12 @@ export default async function TransactionsPage({
         />
       </Suspense>
 
-      <TransactionTable items={listData.items} currency={listData.currency} />
+      <TransactionTable
+        items={listData.items}
+        currency={listData.currency}
+        isFamilyMode={isFamilyMode}
+        familyUnitId={familyUnitId ?? null}
+      />
     </div>
   );
 }
