@@ -24,6 +24,7 @@ export function ExternalTransferForm({ accounts }: ExternalTransferFormProps) {
 
   const [isPending, startTransition] = useTransition();
   const [appError, setAppError] = useState<AppError | null>(null);
+  const [statusMessage, setStatusMessage] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
   const isOnline = useOnlineStatus();
 
@@ -37,21 +38,26 @@ export function ExternalTransferForm({ accounts }: ExternalTransferFormProps) {
 
   function submitForm(form: HTMLFormElement) {
     setAppError(null);
+    setStatusMessage("");
     const formData = new FormData(form);
     startTransition(async () => {
       try {
         const result = await createExternalTransfer(formData);
         if (!result.ok) {
           setAppError(result.error);
+          setStatusMessage(result.error.message);
         } else {
+          setStatusMessage("Transfer recorded");
           form.reset();
         }
       } catch {
+        const msg =
+          "Could not save — please check your connection and try again.";
         setAppError({
           code: ErrorCode.TransferCreateFailed,
-          message:
-            "Could not save — please check your connection and try again.",
+          message: msg,
         });
+        setStatusMessage(msg);
       }
     });
   }
@@ -72,6 +78,10 @@ export function ExternalTransferForm({ accounts }: ExternalTransferFormProps) {
 
   return (
     <>
+      {/* ARIA live region — always present so screen reader pre-registers it */}
+      <p role="status" aria-live="polite" className="sr-only">
+        {statusMessage}
+      </p>
       <p className="mb-4 text-sm text-ink-secondary">
         Use this for balance adjustments like loan repayments or gift deposits.
         For money that counts as income or spending, log a Transaction instead.

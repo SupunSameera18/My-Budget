@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, unstable_noStore as noStore } from "next/cache";
 import { requireUser } from "@/lib/supabase/require-user";
 import { ErrorCode, err, ok, type Result } from "@/lib/errors";
 import {
@@ -189,6 +189,7 @@ export async function editGoalTarget(formData: FormData): Promise<Result> {
 export async function getGoals(): Promise<
   Result<{ goals: GoalWithProgress[]; currency: string }>
 > {
+  noStore();
   try {
     const auth = await requireUser();
     if (!auth) return err(ErrorCode.GoalFetchFailed, "Not authenticated");

@@ -5,6 +5,10 @@ import {
   currentMonthBoundaries,
   currentWeekBoundaries,
   currentYearBoundaries,
+  monthBoundaries,
+  currentYearMonth,
+  previousYearMonth,
+  last6YearMonths,
 } from "./period";
 
 // Pinned reference dates — eliminates real-clock dependency and month-boundary races
@@ -77,6 +81,90 @@ describe("currentWeekBoundaries", () => {
   it("handles Monday correctly — Monday is the START of an ISO week", () => {
     expect(currentWeekBoundaries(MON_JUN_08).start).toBe("2026-06-08");
     expect(currentWeekBoundaries(MON_JUN_08).end).toBe("2026-06-14");
+  });
+});
+
+// ---- Story 6.2: monthBoundaries ----
+
+describe("monthBoundaries", () => {
+  it("returns correct boundaries for May 2026 (31 days)", () => {
+    const { start, end } = monthBoundaries("2026-05");
+    expect(start).toBe("2026-05-01");
+    expect(end).toBe("2026-05-31");
+  });
+
+  it("returns correct boundaries for February 2026 (non-leap, 28 days)", () => {
+    const { start, end } = monthBoundaries("2026-02");
+    expect(start).toBe("2026-02-01");
+    expect(end).toBe("2026-02-28");
+  });
+
+  it("returns correct boundaries for February 2024 (leap year, 29 days)", () => {
+    const { start, end } = monthBoundaries("2024-02");
+    expect(start).toBe("2024-02-01");
+    expect(end).toBe("2024-02-29");
+  });
+
+  it("returns correct boundaries for December (31 days)", () => {
+    const { start, end } = monthBoundaries("2026-12");
+    expect(start).toBe("2026-12-01");
+    expect(end).toBe("2026-12-31");
+  });
+});
+
+// ---- Story 6.4: currentYearMonth, previousYearMonth, last6YearMonths ----
+
+describe("currentYearMonth", () => {
+  it("returns a string matching YYYY-MM format", () => {
+    expect(currentYearMonth()).toMatch(/^\d{4}-\d{2}$/);
+  });
+
+  it("returns the correct year-month for a pinned date", () => {
+    const jun15 = new Date(Date.UTC(2026, 5, 15));
+    expect(currentYearMonth(jun15)).toBe("2026-06");
+  });
+
+  it("returns correct value at year boundary (Dec 31 UTC)", () => {
+    const dec31 = new Date(Date.UTC(2025, 11, 31));
+    expect(currentYearMonth(dec31)).toBe("2025-12");
+  });
+});
+
+describe("previousYearMonth", () => {
+  it("crosses year boundary: 2026-01 → 2025-12", () => {
+    expect(previousYearMonth("2026-01")).toBe("2025-12");
+  });
+
+  it("normal case: 2026-06 → 2026-05", () => {
+    expect(previousYearMonth("2026-06")).toBe("2026-05");
+  });
+
+  it("handles February: 2026-03 → 2026-02", () => {
+    expect(previousYearMonth("2026-03")).toBe("2026-02");
+  });
+});
+
+describe("last6YearMonths", () => {
+  it("2026-06 returns 6 months oldest-first ending at 2026-06", () => {
+    expect(last6YearMonths("2026-06")).toEqual([
+      "2026-01",
+      "2026-02",
+      "2026-03",
+      "2026-04",
+      "2026-05",
+      "2026-06",
+    ]);
+  });
+
+  it("2026-03 crosses year boundary and includes 2025-10", () => {
+    const result = last6YearMonths("2026-03");
+    expect(result).toContain("2025-10");
+    expect(result[result.length - 1]).toBe("2026-03");
+    expect(result).toHaveLength(6);
+  });
+
+  it("returns exactly 6 items", () => {
+    expect(last6YearMonths("2026-06")).toHaveLength(6);
   });
 });
 

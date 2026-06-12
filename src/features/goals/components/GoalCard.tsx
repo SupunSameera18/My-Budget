@@ -41,7 +41,7 @@ export function GoalCard({ goal, currency }: GoalCardProps) {
         <div className="mt-1 min-h-[1.5rem]">
           {isMet ? (
             <div className="flex flex-wrap items-center gap-1">
-              <span className="inline-flex items-center rounded-full bg-[#4FA6A6]/20 px-3 py-1 text-xs font-semibold text-[#1F7A78] dark:bg-[#4FA6A6]/30 dark:text-[#5FBBBB]">
+              <span className="inline-flex items-center rounded-full border-2 border-brand-accent px-3 py-1 text-xs font-semibold text-brand-accent-strong">
                 Met!
               </span>
               {hasSurplus && (

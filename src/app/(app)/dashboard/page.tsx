@@ -8,6 +8,7 @@ import { LogSuccessToast } from "@/features/dashboard/LogSuccessToast";
 import { DashboardBudgetsCard } from "@/features/dashboard/DashboardBudgetsCard";
 import { DashboardGoalsCard } from "@/features/dashboard/DashboardGoalsCard";
 import { getDashboardProfile } from "@/features/dashboard/server/actions";
+import { HealthScoreCard } from "@/features/analytics/components/HealthScoreCard";
 
 function BreathingRoomSkeleton() {
   return (
@@ -30,6 +31,12 @@ function DashboardBudgetsSkeleton() {
 function DashboardGoalsSkeleton() {
   return (
     <div className="h-40 animate-pulse rounded-xl border border-hairline bg-surface-base" />
+  );
+}
+
+function HealthScoreSkeleton() {
+  return (
+    <div className="h-32 animate-pulse rounded-xl border border-hairline bg-surface-base" />
   );
 }
 
@@ -56,6 +63,9 @@ export default async function DashboardPage() {
       </p>
       <Suspense fallback={<BreathingRoomSkeleton />}>
         <BreathingRoomCard />
+      </Suspense>
+      <Suspense fallback={<HealthScoreSkeleton />}>
+        <HealthScoreCard />
       </Suspense>
       <Suspense fallback={<LoggingGridSkeleton />}>
         <LoggingGrid />

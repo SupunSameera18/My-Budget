@@ -56,6 +56,8 @@ export function MacroCard({
       if (!result.ok) {
         setError(result.error.message);
         setShowArchiveConfirm(false);
+      } else {
+        setStatusMsg("Macro archived");
       }
     });
   }
@@ -64,12 +66,17 @@ export function MacroCard({
     ? `Account: ${macro.account_name ?? ""}`
     : `Goal: ${macro.goal_name ?? ""}`;
 
+  // Always rendered at top level so screen readers pre-register it regardless of state
+  const liveRegion = (
+    <p role="status" aria-live="polite" className="sr-only">
+      {statusMsg}
+    </p>
+  );
+
   if (isEditing) {
     return (
       <div className="rounded-lg bg-card px-4 py-3 shadow-sm">
-        <p role="status" aria-live="polite" className="sr-only">
-          {statusMsg}
-        </p>
+        {liveRegion}
         <form
           ref={formRef}
           onSubmit={handleUpdate}
@@ -264,6 +271,7 @@ export function MacroCard({
   if (showArchiveConfirm) {
     return (
       <div className="rounded-lg bg-card px-4 py-3 shadow-sm">
+        {liveRegion}
         <p className="mb-3 text-sm font-semibold text-ink-primary">
           {macro.name}
         </p>
@@ -302,6 +310,7 @@ export function MacroCard({
 
   return (
     <div className="rounded-lg bg-card px-4 py-3 shadow-sm">
+      {liveRegion}
       <div className="flex flex-col gap-0.5">
         <p className="text-sm font-semibold text-ink-primary">{macro.name}</p>
         <p className="font-mono text-sm tabular-nums text-ink-primary">

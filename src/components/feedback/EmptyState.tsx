@@ -1,3 +1,4 @@
+import { useId } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 
@@ -14,14 +15,31 @@ export function EmptyState({
   actionLabel,
   actionHref,
 }: EmptyStateProps) {
+  const uid = useId();
+  const slug = heading
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "empty";
+  const headingId = `empty-state-${slug}-${uid.replace(/[^a-z0-9]/g, "")}`;
+
   return (
-    <div className="flex flex-col items-center justify-center px-4 py-16 text-center">
-      <p className="mb-2 text-lg font-semibold text-ink-primary">{heading}</p>
-      <p
-        className={`max-w-xs text-sm text-ink-secondary ${actionLabel && actionHref ? "mb-8" : ""}`}
+    <section
+      aria-labelledby={headingId}
+      className="flex flex-col items-center justify-center px-4 py-16 text-center"
+    >
+      <h2
+        id={headingId}
+        className="mb-2 text-lg font-semibold text-ink-primary"
       >
-        {body}
-      </p>
+        {heading}
+      </h2>
+      {body && (
+        <p
+          className={`max-w-xs text-sm text-ink-secondary ${actionLabel && actionHref ? "mb-8" : ""}`}
+        >
+          {body}
+        </p>
+      )}
       {actionLabel && actionHref && (
         <Link
           href={actionHref}
@@ -31,6 +49,6 @@ export function EmptyState({
           {actionLabel}
         </Link>
       )}
-    </div>
+    </section>
   );
 }

@@ -1,6 +1,6 @@
 import { requireUser } from "@/lib/supabase/require-user";
 import { signOut } from "@/features/auth/server/actions";
-import { LogOut, Settings } from "lucide-react";
+import { BarChart2, CalendarDays, LogOut, Settings, Target } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -22,6 +22,45 @@ export default async function MorePage() {
 
       <div className="mb-2">
         <ThemeToggle />
+      </div>
+
+      <div className="mb-2">
+        <Link
+          href="/goals"
+          className="flex min-h-[44px] w-full items-center gap-3 rounded-md border border-hairline bg-surface-raised px-4 text-sm text-ink-primary transition-colors hover:bg-surface-inset"
+        >
+          <Target
+            strokeWidth={1.75}
+            className="h-5 w-5 shrink-0 text-ink-secondary"
+          />
+          Goals
+        </Link>
+      </div>
+
+      <div className="mb-2">
+        <Link
+          href="/analytics"
+          className="flex min-h-[44px] w-full items-center gap-3 rounded-md border border-hairline bg-surface-raised px-4 text-sm text-ink-primary transition-colors hover:bg-surface-inset"
+        >
+          <BarChart2
+            strokeWidth={1.75}
+            className="h-5 w-5 shrink-0 text-ink-secondary"
+          />
+          Analytics
+        </Link>
+      </div>
+
+      <div className="mb-2">
+        <Link
+          href="/summary"
+          className="flex min-h-[44px] w-full items-center gap-3 rounded-md border border-hairline bg-surface-raised px-4 text-sm text-ink-primary transition-colors hover:bg-surface-inset"
+        >
+          <CalendarDays
+            strokeWidth={1.75}
+            className="h-5 w-5 shrink-0 text-ink-secondary"
+          />
+          Monthly Summary
+        </Link>
       </div>
 
       <div className="mb-2">

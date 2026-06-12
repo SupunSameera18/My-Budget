@@ -24,8 +24,6 @@ function periodLabel(budget: BudgetWithActual): string {
 
 export function BudgetCard({ budget, currency }: BudgetCardProps) {
   const pct = budget.pct_used;
-  const pctAmber = pct >= 80;
-  const remainingAmber = budget.remaining_minor <= 0;
 
   return (
     <article className="rounded-xl border border-hairline bg-card p-4 shadow-sm">
@@ -34,7 +32,7 @@ export function BudgetCard({ budget, currency }: BudgetCardProps) {
           {budget.name}
         </h2>
         <span
-          className={`text-sm font-medium ${pctAmber ? "text-breathing-low-text" : "text-ink-primary"}`}
+          className="text-sm font-medium text-ink-primary"
         >
           {pct.toFixed(0)}%
         </span>
@@ -60,9 +58,7 @@ export function BudgetCard({ budget, currency }: BudgetCardProps) {
           {formatMoney(budget.limit_minor, currency)}
         </span>
         <span
-          className={
-            remainingAmber ? "text-breathing-low-text" : "text-ink-primary"
-          }
+          className="text-ink-primary"
         >
           {budget.remaining_minor >= 0
             ? `${formatMoney(budget.remaining_minor, currency)} left`

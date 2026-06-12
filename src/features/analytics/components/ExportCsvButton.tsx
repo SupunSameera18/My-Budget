@@ -1,0 +1,54 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { getExportData } from "@/features/analytics/server/actions";
+import {
+  generateCsvString,
+  triggerCsvDownload,
+} from "@/features/analytics/csv";
+
+interface ExportCsvButtonProps {
+  period: { start: string; end: string };
+  currency: string;
+  selectedMonth: string;
+}
+
+export function ExportCsvButton({
+  period,
+  currency,
+  selectedMonth,
+}: ExportCsvButtonProps) {
+  const [isPending, startTransition] = useTransition();
+  const [statusMsg, setStatusMsg] = useState("");
+
+  const handleClick = () => {
+    setStatusMsg(""); // reset so aria-live re-announces even if next msg is identical
+    startTransition(async () => {
+      setStatusMsg("Exporting…");
+      const rows = await getExportData(period);
+      if (!rows) {
+        setStatusMsg("Export failed");
+        return;
+      }
+      const csv = generateCsvString(rows, currency);
+      triggerCsvDownload(csv, `my-budget-${selectedMonth}.csv`);
+      setStatusMsg("Export complete");
+    });
+  };
+
+  return (
+    <>
+      <button
+        onClick={handleClick}
+        disabled={isPending}
+        aria-disabled={isPending}
+        className="min-h-[44px] rounded-lg border border-hairline bg-card px-4 text-sm text-ink-primary hover:bg-surface-inset"
+      >
+        {isPending ? "Exporting…" : "Export CSV"}
+      </button>
+      <div role="status" aria-live="polite" className="sr-only">
+        {statusMsg}
+      </div>
+    </>
+  );
+}
