@@ -125,20 +125,21 @@ export async function getTransactionFormData(): Promise<
         (m.categories as unknown as { name: string } | null)?.name ?? "",
     }));
 
-    // Fetch family status (non-fatal — fallback to solo if error)
-    const { data: membership } = await supabase
-      .from("family_members")
-      .select("family_unit_id")
-      .eq("user_id", user.id)
-      .maybeSingle();
+    // Fetch family status + transaction defaults in parallel (non-fatal — fallback to solo/null if error)
+    const [{ data: membership }, { data: txDefaultsProfile }] =
+      await Promise.all([
+        supabase
+          .from("family_members")
+          .select("family_unit_id")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("profiles")
+          .select("transaction_defaults")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+      ]);
     const isFamilyMode = !!membership;
-
-    // Fetch transaction defaults from profile (non-fatal)
-    const { data: txDefaultsProfile } = await supabase
-      .from("profiles")
-      .select("transaction_defaults")
-      .eq("user_id", user.id)
-      .maybeSingle();
     const transactionDefaults =
       (txDefaultsProfile?.transaction_defaults as TransactionDefaults | null) ??
       null;

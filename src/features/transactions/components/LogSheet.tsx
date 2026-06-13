@@ -126,7 +126,7 @@ export function LogSheet({
     fd.set("date", selectedDate);
     if (note.trim()) fd.set("note", note.trim());
     if (selectedSubcategoryId) fd.set("subcategory_id", selectedSubcategoryId);
-    fd.set("is_shared", isShared ? "true" : "false");
+    fd.set("is_shared", isFamilyMode && isShared ? "true" : "false");
     return fd;
   }
 
