@@ -20,6 +20,8 @@ import {
   getInvitePreview,
   redeemInviteCode,
   getFamilyStatus,
+  updatePrivacyToggle,
+  getHidePersonal,
 } from "./actions";
 import { requireUser } from "@/lib/supabase/require-user";
 
@@ -258,5 +260,140 @@ describe("getFamilyStatus", () => {
     if (status.status === "in_family") {
       expect(status.partner.displayName).toBe("Bob");
     }
+  });
+});
+
+// ── Helpers for .from().update/select chain mocks ─────────────────────────────
+
+function makeFromUpdateChain(result: {
+  data?: { id: string }[] | null;
+  error?: null | { code: string; message: string };
+}) {
+  const chain = {
+    select: vi.fn().mockResolvedValue({
+      data: result.data ?? null,
+      error: result.error ?? null,
+    }),
+    eq: vi.fn().mockReturnThis(),
+    update: vi.fn().mockReturnThis(),
+  };
+  // each builder call returns the same chain object
+  chain.update = vi.fn().mockReturnValue(chain);
+  chain.eq = vi.fn().mockReturnValue(chain);
+  return chain;
+}
+
+function makeFromSelectChain(result: {
+  data?: { hide_personal: boolean } | null;
+  error?: null | { code: string; message: string };
+}) {
+  return {
+    select: vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({
+          data: result.data ?? null,
+          error: result.error ?? null,
+        }),
+      }),
+    }),
+  };
+}
+
+function mockAuthWithFrom(fromImpl: (table: string) => unknown) {
+  vi.mocked(requireUser).mockResolvedValue({
+    supabase: { from: fromImpl } as never,
+    user: { id: USER_ID } as never,
+  });
+}
+
+// ── updatePrivacyToggle ────────────────────────────────────────────────────────
+
+describe("updatePrivacyToggle", () => {
+  it("calls requireUser first, then updates family_members.hide_personal", async () => {
+    const chain = makeFromUpdateChain({ data: [{ id: "mem-1" }], error: null });
+    mockAuthWithFrom(() => chain);
+
+    const result = await updatePrivacyToggle(true);
+
+    expect(vi.mocked(requireUser)).toHaveBeenCalled();
+    expect(chain.update).toHaveBeenCalledWith({ hide_personal: true });
+    expect(chain.eq).toHaveBeenCalledWith("user_id", USER_ID);
+    expect(result.ok).toBe(true);
+  });
+
+  it("returns ok() when update matches a row", async () => {
+    const chain = makeFromUpdateChain({ data: [{ id: "mem-1" }], error: null });
+    mockAuthWithFrom(() => chain);
+
+    const result = await updatePrivacyToggle(false);
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("returns err(NotInFamily) when no row matched (not in family)", async () => {
+    const chain = makeFromUpdateChain({ data: [], error: null });
+    mockAuthWithFrom(() => chain);
+
+    const result = await updatePrivacyToggle(true);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe(ErrorCode.NotInFamily);
+  });
+
+  it("returns err(PrivacyToggleFailed) on DB error", async () => {
+    const chain = makeFromUpdateChain({
+      data: null,
+      error: { code: "500", message: "db error" },
+    });
+    mockAuthWithFrom(() => chain);
+
+    const result = await updatePrivacyToggle(true);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok)
+      expect(result.error.code).toBe(ErrorCode.PrivacyToggleFailed);
+  });
+
+  it("returns undefined (redirect) when not authenticated", async () => {
+    vi.mocked(requireUser).mockResolvedValue(null);
+
+    const result = await updatePrivacyToggle(true);
+    expect(result).toBeUndefined();
+  });
+});
+
+// ── getHidePersonal ───────────────────────────────────────────────────────────
+
+describe("getHidePersonal", () => {
+  it("returns true when family_members row has hide_personal=true", async () => {
+    mockAuthWithFrom(() =>
+      makeFromSelectChain({ data: { hide_personal: true } }),
+    );
+
+    const value = await getHidePersonal();
+    expect(value).toBe(true);
+  });
+
+  it("returns false when family_members row has hide_personal=false", async () => {
+    mockAuthWithFrom(() =>
+      makeFromSelectChain({ data: { hide_personal: false } }),
+    );
+
+    const value = await getHidePersonal();
+    expect(value).toBe(false);
+  });
+
+  it("returns false when no family_members row (not in family)", async () => {
+    mockAuthWithFrom(() => makeFromSelectChain({ data: null }));
+
+    const value = await getHidePersonal();
+    expect(value).toBe(false);
+  });
+
+  it("returns false when not authenticated", async () => {
+    vi.mocked(requireUser).mockResolvedValue(null);
+
+    const value = await getHidePersonal();
+    expect(value).toBe(false);
   });
 });

@@ -135,6 +135,46 @@ export async function redeemInviteCode(code: string): Promise<Result<void>> {
   return ok();
 }
 
+export async function updatePrivacyToggle(
+  enabled: boolean,
+): Promise<Result<void>> {
+  const auth = await requireUser();
+  if (!auth) return redirect("/auth/login") as never;
+
+  const { data, error } = await auth.supabase
+    .from("family_members")
+    .update({ hide_personal: enabled })
+    .eq("user_id", auth.user.id)
+    .select("id");
+
+  if (error)
+    return err(
+      ErrorCode.PrivacyToggleFailed,
+      "Failed to update privacy setting",
+    );
+
+  if (!data || data.length === 0)
+    return err(ErrorCode.NotInFamily, "You are not in a family");
+
+  return ok();
+}
+
+export async function getHidePersonal(): Promise<boolean> {
+  const auth = await requireUser();
+  if (!auth) return false;
+
+  try {
+    const { data } = await auth.supabase
+      .from("family_members")
+      .select("hide_personal")
+      .eq("user_id", auth.user.id)
+      .single();
+    return data?.hide_personal ?? false;
+  } catch {
+    return false;
+  }
+}
+
 export async function getFamilyStatus(): Promise<FamilyStatus> {
   const auth = await requireUser();
   if (!auth) return { status: "solo" };
