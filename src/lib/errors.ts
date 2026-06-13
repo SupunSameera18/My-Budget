@@ -76,6 +76,9 @@ export enum ErrorCode {
   InviteRedeemFailed = "invite_redeem_failed",
   InvitePreviewFailed = "invite_preview_failed",
   FamilyStatusFetchFailed = "family_status_fetch_failed",
+  // ↓ Added by Story 7.4
+  NotInFamily = "not_in_family",
+  PrivacyToggleFailed = "privacy_toggle_failed",
 }
 
 export type AppError = {
