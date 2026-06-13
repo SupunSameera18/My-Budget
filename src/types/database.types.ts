@@ -60,7 +60,10 @@ export type Database = {
           // ↓ Added by Story 6.3
           chart_preferences: Record<string, boolean> | null;
           // ↓ Added by Story 7.5
-          transaction_defaults: { defaultType?: string; defaultSplitMethod?: string } | null;
+          transaction_defaults: {
+            defaultType?: string;
+            defaultSplitMethod?: string;
+          } | null;
         };
         Insert: {
           created_at?: string;
@@ -322,6 +325,37 @@ export type Database = {
         };
         Relationships: [];
       };
+      // ↓ Added by Story 7.6
+      transaction_splits: {
+        Row: {
+          id: string;
+          transaction_id: string;
+          payer_id: string;
+          payer_share_minor: number;
+          partner_share_minor: number;
+          split_method: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          transaction_id: string;
+          payer_id: string;
+          payer_share_minor: number;
+          partner_share_minor: number;
+          split_method: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          transaction_id?: string;
+          payer_id?: string;
+          payer_share_minor?: number;
+          partner_share_minor?: number;
+          split_method?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       // ↓ Added by Story 7.1a
       family_members: {
         Row: {
@@ -355,7 +389,7 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      // ↓ Added by Story 1.10; updated 0013 (+p_subcategory_id); updated 0026 (+p_is_shared)
+      // ↓ Added by Story 1.10; updated 0013 (+p_subcategory_id); updated 0026 (+p_is_shared); updated 0027 (returns UUID)
       rpc_log_transaction: {
         Args: {
           p_account_id: string;
@@ -365,6 +399,17 @@ export type Database = {
           p_note?: string | null;
           p_subcategory_id?: string | null;
           p_is_shared?: boolean;
+        };
+        Returns: string;
+      };
+      // ↓ Added by Story 7.6
+      rpc_split_transaction: {
+        Args: {
+          p_transaction_id: string;
+          p_split_method: string;
+          p_payer_id: string;
+          p_payer_share_minor: number;
+          p_partner_share_minor: number;
         };
         Returns: undefined;
       };

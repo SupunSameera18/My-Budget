@@ -19,6 +19,7 @@ import { getAccounts } from "@/features/accounts/server/actions";
 import { currentMonthBoundaries } from "@/lib/period";
 import { dedupeRecentNotes } from "@/lib/note-suggestions";
 import type { MacroWithTarget } from "@/features/macros/schema";
+import { splitTransaction as computeSplit } from "@/lib/money/split";
 
 export async function getTransactionFormData(): Promise<
   Result<TransactionFormData>
@@ -201,21 +202,43 @@ export async function logTransaction(
       .eq("user_id", user.id);
     const isFirstTransaction = existingCount !== null && existingCount === 0;
 
-    const { error: rpcError } = await supabase.rpc("rpc_log_transaction", {
-      p_account_id: parsed.data.account_id,
-      p_category_id: parsed.data.category_id,
-      p_amount_minor: amountMinor,
-      p_date: parsed.data.date,
-      p_note: parsed.data.note ?? null,
-      p_subcategory_id: subcategoryId,
-      p_is_shared: isShared,
-    });
+    const { data: newTxId, error: rpcError } = await supabase.rpc(
+      "rpc_log_transaction",
+      {
+        p_account_id: parsed.data.account_id,
+        p_category_id: parsed.data.category_id,
+        p_amount_minor: amountMinor,
+        p_date: parsed.data.date,
+        p_note: parsed.data.note ?? null,
+        p_subcategory_id: subcategoryId,
+        p_is_shared: isShared,
+      },
+    );
 
     if (rpcError) {
       return err(
         ErrorCode.TransactionCreateFailed,
         "Failed to log transaction. Please try again.",
       );
+    }
+
+    // Auto-split Shared transactions with equal split (non-fatal — tx is already logged)
+    if (isShared && newTxId) {
+      try {
+        const split = computeSplit({ amountMinor, method: "equal" });
+        await supabase
+          .rpc("rpc_split_transaction", {
+            p_transaction_id: newTxId,
+            p_split_method: "equal",
+            p_payer_id: user.id,
+            p_payer_share_minor: split.payerShareMinor,
+            p_partner_share_minor: split.partnerShareMinor,
+          })
+          .throwOnError();
+      } catch (splitErr) {
+        // Non-fatal: transaction already logged; user can re-split from edit sheet
+        console.error("[logTransaction] auto-split failed:", splitErr);
+      }
     }
 
     const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
@@ -290,10 +313,9 @@ export async function getTransaction(
     const { data: transaction, error: txnError } = await supabase
       .from("transactions")
       .select(
-        "id, user_id, account_id, category_id, subcategory_id, amount_minor, date, note, type, created_at, updated_at, archived_at",
+        "id, user_id, account_id, category_id, subcategory_id, amount_minor, date, note, type, is_shared, created_at, updated_at, archived_at",
       )
       .eq("id", id)
-      .eq("user_id", user.id)
       .is("archived_at", null)
       .maybeSingle();
 
@@ -343,6 +365,25 @@ export async function getTransaction(
       subcategories = subcatsData ?? [];
     }
 
+    // Non-fatally fetch partner name for split UI (only relevant for Shared transactions)
+    let partnerName: string | undefined;
+    if (transaction.is_shared) {
+      try {
+        const { data: familyStatus } = await supabase.rpc(
+          "rpc_get_family_status",
+        );
+        const raw = familyStatus as Record<string, unknown>;
+        if (
+          raw?.status === "in_family" &&
+          typeof raw?.partner_name === "string"
+        ) {
+          partnerName = raw.partner_name;
+        }
+      } catch {
+        // Non-fatal — partner name defaults to "Your partner" in SplitSheet
+      }
+    }
+
     return ok({
       transaction: transaction as EditTransactionFormData["transaction"],
       accounts: accountsResult.data,
@@ -350,6 +391,7 @@ export async function getTransaction(
       currency,
       subcategoriesEnabled,
       subcategories: subcategories as EditTransactionFormData["subcategories"],
+      partnerName,
     });
   } catch {
     return err(
@@ -610,6 +652,68 @@ export async function saveTransactionDefaults(
   } catch {
     return err(
       ErrorCode.TransactionDefaultsSaveFailed,
+      "An unexpected error occurred. Please try again.",
+    );
+  }
+}
+
+export async function splitTransactionAction(
+  transactionId: string,
+  splitMethod: "equal" | "percentage" | "fixed",
+  payerShareMinor: number,
+  partnerShareMinor: number,
+): Promise<Result<void>> {
+  try {
+    const auth = await requireUser(); // requireUser FIRST (§9)
+    if (!auth)
+      return err(ErrorCode.SplitTransactionFailed, "Not authenticated");
+    const { supabase, user } = auth;
+
+    const idParse = z.string().uuid().safeParse(transactionId);
+    if (!idParse.success) {
+      return err(ErrorCode.SplitTransactionFailed, "Invalid transaction id");
+    }
+
+    if (payerShareMinor < 0 || partnerShareMinor < 0) {
+      return err(
+        ErrorCode.SplitTransactionFailed,
+        "Share amounts must be non-negative",
+      );
+    }
+
+    const { error } = await supabase.rpc("rpc_split_transaction", {
+      p_transaction_id: transactionId,
+      p_split_method: splitMethod,
+      p_payer_id: user.id,
+      p_payer_share_minor: payerShareMinor,
+      p_partner_share_minor: partnerShareMinor,
+    });
+
+    if (error) {
+      if (error.code === "P0001")
+        return err(
+          ErrorCode.SplitTransactionFailed,
+          "Cannot split a personal transaction",
+        );
+      if (error.code === "23514")
+        return err(
+          ErrorCode.SplitTransactionFailed,
+          "Split amounts do not add up to the transaction total",
+        );
+      if (error.code === "42501")
+        return err(
+          ErrorCode.SplitTransactionFailed,
+          "You do not have access to split this transaction",
+        );
+      return err(ErrorCode.SplitTransactionFailed, "Failed to save split");
+    }
+
+    revalidatePath("/transactions");
+    revalidatePath("/transactions/" + transactionId);
+    return ok();
+  } catch {
+    return err(
+      ErrorCode.SplitTransactionFailed,
       "An unexpected error occurred. Please try again.",
     );
   }
