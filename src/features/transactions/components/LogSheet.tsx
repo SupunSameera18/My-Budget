@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import type { Account } from "@/features/accounts/schema";
 import type {
   TransactionCategory,
+  TransactionDefaults,
   Subcategory,
 } from "@/features/transactions/schema";
 import type { MacroWithTarget } from "@/features/macros/schema";
@@ -32,6 +33,8 @@ interface LogSheetProps {
   subcategories: Subcategory[];
   currentBreathingRoomMinor: number;
   macros?: MacroWithTarget[];
+  isFamilyMode?: boolean;
+  transactionDefaults?: TransactionDefaults | null;
 }
 
 export function LogSheet({
@@ -43,6 +46,8 @@ export function LogSheet({
   subcategories,
   currentBreathingRoomMinor,
   macros = [],
+  isFamilyMode = false,
+  transactionDefaults = null,
 }: LogSheetProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -62,6 +67,9 @@ export function LogSheet({
   const [note, setNote] = useState("");
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [selectedMacroIds, setSelectedMacroIds] = useState<string[]>([]);
+  const [isShared, setIsShared] = useState<boolean>(
+    transactionDefaults?.defaultType === "shared",
+  );
 
   const amountMinor =
     amountDisplay === "0" || amountDisplay === "" || amountDisplay === "0."
@@ -118,6 +126,7 @@ export function LogSheet({
     fd.set("date", selectedDate);
     if (note.trim()) fd.set("note", note.trim());
     if (selectedSubcategoryId) fd.set("subcategory_id", selectedSubcategoryId);
+    fd.set("is_shared", isShared ? "true" : "false");
     return fd;
   }
 
@@ -301,6 +310,42 @@ export function LogSheet({
           </div>
         </div>
       )}
+
+      {/* Personal/Shared toggle — hidden in single-user mode (preserve form state) */}
+      <div hidden={!isFamilyMode}>
+        <div
+          role="radiogroup"
+          aria-label="Transaction type"
+          className="flex gap-1 rounded-lg border border-hairline bg-surface-base p-1"
+        >
+          <button
+            type="button"
+            role="radio"
+            aria-checked={!isShared}
+            onClick={() => setIsShared(false)}
+            className={`min-h-[44px] flex-1 rounded-md text-sm font-medium transition-colors ${
+              !isShared
+                ? "bg-brand-accent-strong text-white"
+                : "text-ink-secondary hover:bg-surface-inset"
+            }`}
+          >
+            Personal
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={isShared}
+            onClick={() => setIsShared(true)}
+            className={`min-h-[44px] flex-1 rounded-md text-sm font-medium transition-colors ${
+              isShared
+                ? "bg-brand-accent-strong text-white"
+                : "text-ink-secondary hover:bg-surface-inset"
+            }`}
+          >
+            Shared
+          </button>
+        </div>
+      </div>
 
       {/* Category heading */}
       <h2 className="text-sm font-bold text-ink-primary">Category</h2>

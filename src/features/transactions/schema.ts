@@ -23,6 +23,8 @@ export const logTransactionSchema = z.object({
     .optional(),
   // Optional subcategory — select emits "" when placeholder chosen; treat as absent
   subcategory_id: z.union([z.string().uuid(), z.literal("")]).optional(),
+  // is_shared: "true" | "false" from FormData string; defaults to "false"
+  is_shared: z.enum(["true", "false"]).optional(),
 });
 
 export type LogTransactionInput = z.infer<typeof logTransactionSchema>;
@@ -49,6 +51,11 @@ export type TransactionCategory = {
   type: "income" | "expense";
 };
 
+export type TransactionDefaults = {
+  defaultType?: "personal" | "shared";
+  defaultSplitMethod?: "equal" | "percentage" | "fixed" | "none";
+};
+
 export type TransactionFormData = {
   accounts: Account[];
   categories: TransactionCategory[];
@@ -58,6 +65,8 @@ export type TransactionFormData = {
   subcategories: Subcategory[];
   currentBreathingRoomMinor: number;
   macros: import("@/features/macros/schema").MacroWithTarget[];
+  transactionDefaults: TransactionDefaults | null;
+  isFamilyMode: boolean;
 };
 
 export type { Subcategory };

@@ -500,3 +500,121 @@ describe("LogSheet — macro chips", () => {
     expect(screen.queryByText("Entertainment")).not.toBeInTheDocument();
   });
 });
+
+describe("LogSheet — Personal/Shared toggle (Story 7.5)", () => {
+  async function goToStep2() {
+    await userEvent.click(screen.getByRole("button", { name: "5" }));
+    await userEvent.click(screen.getByRole("button", { name: /continue/i }));
+  }
+
+  it("toggle is hidden in single-user mode (isFamilyMode=false)", async () => {
+    render(<LogSheet {...baseProps} isFamilyMode={false} />);
+    await goToStep2();
+    // The radiogroup is in the DOM (preserve form state — AC: hide content, not unmount).
+    // jsdom does not apply browser-default display:none for the `hidden` attribute, so
+    // we assert the wrapper has the `hidden` attribute directly rather than toBeVisible().
+    // Use hidden:true so @testing-library searches inside the hidden subtree
+    const group = screen.queryByRole("radiogroup", {
+      name: /transaction type/i,
+      hidden: true,
+    });
+    expect(group).toBeInTheDocument();
+    expect(group?.parentElement).toHaveAttribute("hidden");
+  });
+
+  it("toggle is visible in family mode (isFamilyMode=true)", async () => {
+    render(<LogSheet {...baseProps} isFamilyMode={true} />);
+    await goToStep2();
+    const personalBtn = screen.getByRole("radio", { name: /personal/i });
+    const sharedBtn = screen.getByRole("radio", { name: /shared/i });
+    expect(personalBtn).toBeVisible();
+    expect(sharedBtn).toBeVisible();
+  });
+
+  it("defaults to Personal when transactionDefaults is null", async () => {
+    render(
+      <LogSheet
+        {...baseProps}
+        isFamilyMode={true}
+        transactionDefaults={null}
+      />,
+    );
+    await goToStep2();
+    const personalBtn = screen.getByRole("radio", { name: /personal/i });
+    const sharedBtn = screen.getByRole("radio", { name: /shared/i });
+    expect(personalBtn).toHaveAttribute("aria-checked", "true");
+    expect(sharedBtn).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("defaults to Shared when transactionDefaults.defaultType is 'shared'", async () => {
+    render(
+      <LogSheet
+        {...baseProps}
+        isFamilyMode={true}
+        transactionDefaults={{ defaultType: "shared" }}
+      />,
+    );
+    await goToStep2();
+    const personalBtn = screen.getByRole("radio", { name: /personal/i });
+    const sharedBtn = screen.getByRole("radio", { name: /shared/i });
+    expect(sharedBtn).toHaveAttribute("aria-checked", "true");
+    expect(personalBtn).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("tapping Shared sets it active; tapping Personal reverts", async () => {
+    render(<LogSheet {...baseProps} isFamilyMode={true} />);
+    await goToStep2();
+    const personalBtn = screen.getByRole("radio", { name: /personal/i });
+    const sharedBtn = screen.getByRole("radio", { name: /shared/i });
+    await userEvent.click(sharedBtn);
+    expect(sharedBtn).toHaveAttribute("aria-checked", "true");
+    expect(personalBtn).toHaveAttribute("aria-checked", "false");
+    await userEvent.click(personalBtn);
+    expect(personalBtn).toHaveAttribute("aria-checked", "true");
+    expect(sharedBtn).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("passes is_shared=true in FormData when Shared is selected", async () => {
+    (logTransaction as Mock).mockResolvedValue({ ok: true, data: undefined });
+    render(
+      <LogSheet
+        {...baseProps}
+        isFamilyMode={true}
+        transactionDefaults={null}
+      />,
+    );
+    await goToStep2();
+    // Select Shared
+    await userEvent.click(screen.getByRole("radio", { name: /shared/i }));
+    // Select a category so Save is enabled
+    await userEvent.click(screen.getByRole("button", { name: "Groceries" }));
+    await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(logTransaction).toHaveBeenCalledOnce();
+      const fd = (logTransaction as Mock).mock.calls[0][0] as FormData;
+      expect(fd.get("is_shared")).toBe("true");
+    });
+  });
+
+  it("passes is_shared=false in FormData when Personal is selected", async () => {
+    (logTransaction as Mock).mockResolvedValue({ ok: true, data: undefined });
+    render(
+      <LogSheet
+        {...baseProps}
+        isFamilyMode={true}
+        transactionDefaults={{ defaultType: "shared" }}
+      />,
+    );
+    await goToStep2();
+    // Start Shared, switch to Personal
+    await userEvent.click(screen.getByRole("radio", { name: /personal/i }));
+    await userEvent.click(screen.getByRole("button", { name: "Groceries" }));
+    await userEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      const fd = (logTransaction as Mock).mock.calls[0][0] as FormData;
+      expect(fd.get("is_shared")).toBe("false");
+    });
+  });
+});

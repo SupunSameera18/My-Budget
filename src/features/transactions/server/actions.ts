@@ -7,6 +7,7 @@ import {
   logTransactionSchema,
   editTransactionSchema,
   type TransactionFormData,
+  type TransactionDefaults,
   type EditTransactionFormData,
   type ActivityTrailEntry,
   type TransactionListFilters,
@@ -124,6 +125,24 @@ export async function getTransactionFormData(): Promise<
         (m.categories as unknown as { name: string } | null)?.name ?? "",
     }));
 
+    // Fetch family status (non-fatal — fallback to solo if error)
+    const { data: membership } = await supabase
+      .from("family_members")
+      .select("family_unit_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const isFamilyMode = !!membership;
+
+    // Fetch transaction defaults from profile (non-fatal)
+    const { data: txDefaultsProfile } = await supabase
+      .from("profiles")
+      .select("transaction_defaults")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const transactionDefaults =
+      (txDefaultsProfile?.transaction_defaults as TransactionDefaults | null) ??
+      null;
+
     return ok({
       accounts,
       categories: (categories ?? []) as TransactionFormData["categories"],
@@ -133,6 +152,8 @@ export async function getTransactionFormData(): Promise<
       subcategories: subcategories as TransactionFormData["subcategories"],
       currentBreathingRoomMinor,
       macros,
+      transactionDefaults,
+      isFamilyMode,
     });
   } catch {
     return err(
@@ -164,6 +185,8 @@ export async function logTransaction(
       ? parsed.data.subcategory_id
       : null;
 
+  const isShared = parsed.data.is_shared === "true";
+
   try {
     const auth = await requireUser();
     if (!auth) {
@@ -184,6 +207,7 @@ export async function logTransaction(
       p_date: parsed.data.date,
       p_note: parsed.data.note ?? null,
       p_subcategory_id: subcategoryId,
+      p_is_shared: isShared,
     });
 
     if (rpcError) {
@@ -557,6 +581,34 @@ export async function getTransactionList(
   } catch {
     return err(
       ErrorCode.TransactionFetchFailed,
+      "An unexpected error occurred. Please try again.",
+    );
+  }
+}
+
+export async function saveTransactionDefaults(
+  defaults: TransactionDefaults,
+): Promise<Result<void>> {
+  try {
+    const auth = await requireUser(); // requireUser FIRST (§9)
+    if (!auth)
+      return err(ErrorCode.TransactionDefaultsSaveFailed, "Not authenticated");
+    const { supabase, user } = auth;
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ transaction_defaults: defaults })
+      .eq("user_id", user.id); // explicit user_id filter (§9 defense-in-depth)
+
+    if (error)
+      return err(
+        ErrorCode.TransactionDefaultsSaveFailed,
+        "Failed to save transaction defaults",
+      );
+    return ok(undefined);
+  } catch {
+    return err(
+      ErrorCode.TransactionDefaultsSaveFailed,
       "An unexpected error occurred. Please try again.",
     );
   }

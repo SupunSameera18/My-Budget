@@ -59,6 +59,8 @@ export type Database = {
           checklist_completed_at: string | null;
           // ↓ Added by Story 6.3
           chart_preferences: Record<string, boolean> | null;
+          // ↓ Added by Story 7.5
+          transaction_defaults: Record<string, string> | null;
         };
         Insert: {
           created_at?: string;
@@ -73,6 +75,8 @@ export type Database = {
           checklist_completed_at?: string | null;
           // ↓ Added by Story 6.3
           chart_preferences?: Record<string, boolean> | null;
+          // ↓ Added by Story 7.5
+          transaction_defaults?: Record<string, string> | null;
         };
         Update: {
           created_at?: string;
@@ -87,6 +91,8 @@ export type Database = {
           checklist_completed_at?: string | null;
           // ↓ Added by Story 6.3
           chart_preferences?: Record<string, boolean> | null;
+          // ↓ Added by Story 7.5
+          transaction_defaults?: Record<string, string> | null;
         };
         Relationships: [];
       };
