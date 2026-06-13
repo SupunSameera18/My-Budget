@@ -6,6 +6,7 @@ import { ErrorCode, err, ok, type Result } from "@/lib/errors";
 import {
   logTransactionSchema,
   editTransactionSchema,
+  editSharedTransactionSchema,
   type TransactionFormData,
   type TransactionDefaults,
   type EditTransactionFormData,
@@ -334,12 +335,51 @@ export async function getTransaction(
       return err(ErrorCode.TransactionFetchFailed, "Failed to load accounts");
     }
 
-    const { data: categories, error: catError } = await supabase
-      .from("categories")
-      .select("id, name, type")
-      .is("archived_at", null)
-      .order("type", { ascending: true })
-      .order("name", { ascending: true });
+    // For Shared transactions where the viewer is not the owner, fetch the owner's
+    // categories via SECURITY DEFINER RPC (partner's RLS would otherwise filter them out)
+    const isViewerOwner = transaction.user_id === user.id;
+    let categories: { id: string; name: string; type: string }[] | null = null;
+    let catError: { message: string } | null = null;
+
+    // When the partner's category_id (from the transaction) is archived and absent from
+    // the owner's active category list, clear it so the UI forces picking a valid one
+    // rather than silently submitting a stale UUID that the RPC will reject with 23514.
+    let partnerCategoryIdOverride: string | null = null;
+
+    if (transaction.is_shared && !isViewerOwner) {
+      const { data: ownerCats, error: ownerCatError } = await supabase.rpc(
+        "rpc_get_transaction_owner_categories",
+        { p_transaction_id: id },
+      );
+      if (ownerCatError) {
+        catError = ownerCatError;
+      } else {
+        const mappedCats = (ownerCats ?? []).map(
+          (c: { cat_id: string; name: string; type: string }) => ({
+            id: c.cat_id,
+            name: c.name,
+            type: c.type,
+          }),
+        );
+        categories = mappedCats;
+        const activeCatIds = new Set(mappedCats.map((c: { id: string }) => c.id));
+        if (
+          transaction.category_id &&
+          !activeCatIds.has(transaction.category_id)
+        ) {
+          partnerCategoryIdOverride = "";
+        }
+      }
+    } else {
+      const { data: myCats, error: myCatError } = await supabase
+        .from("categories")
+        .select("id, name, type")
+        .is("archived_at", null)
+        .order("type", { ascending: true })
+        .order("name", { ascending: true });
+      catError = myCatError;
+      categories = myCats;
+    }
 
     if (catError) {
       return err(ErrorCode.TransactionFetchFailed, "Failed to load categories");
@@ -355,7 +395,10 @@ export async function getTransaction(
     const subcategoriesEnabled = profile?.subcategories_enabled ?? false;
 
     let subcategories: { id: string; name: string; category_id: string }[] = [];
-    if (subcategoriesEnabled) {
+    // Non-owner partner cannot see or pick owner's subcategories (no RPC equivalent).
+    // Disable subcategory UI for the partner — existing subcategory_id is preserved server-side
+    // since buildSharedFormData does not include it.
+    if (subcategoriesEnabled && isViewerOwner) {
       const { data: subcatsData } = await supabase
         .from("subcategories")
         .select("id, name, category_id")
@@ -384,14 +427,24 @@ export async function getTransaction(
       }
     }
 
+    const effectiveTransaction =
+      partnerCategoryIdOverride !== null
+        ? {
+            ...transaction,
+            category_id: partnerCategoryIdOverride,
+          }
+        : transaction;
+
     return ok({
-      transaction: transaction as EditTransactionFormData["transaction"],
+      transaction:
+        effectiveTransaction as EditTransactionFormData["transaction"],
       accounts: accountsResult.data,
       categories: (categories ?? []) as EditTransactionFormData["categories"],
       currency,
       subcategoriesEnabled,
       subcategories: subcategories as EditTransactionFormData["subcategories"],
       partnerName,
+      viewerUserId: user.id,
     });
   } catch {
     return err(
@@ -727,17 +780,101 @@ export async function getActivityTrail(
       return [];
     const auth = await requireUser();
     if (!auth) return [];
-    const { supabase, user } = auth;
+    const { supabase } = auth;
+    // RLS policy "activity trail visibility" (0024) shows own entries + partner entries
+    // for Shared transactions — no explicit user_id filter needed here.
     const { data } = await supabase
       .from("activity_trail")
       .select(
         "id, user_id, transaction_id, change_type, changed_fields, created_at",
       )
       .eq("transaction_id", transactionId)
-      .eq("user_id", user.id) // explicit user_id filter (defense-in-depth §9)
       .order("created_at", { ascending: false });
     return (data ?? []) as ActivityTrailEntry[];
   } catch {
     return [];
+  }
+}
+
+export async function editSharedTransaction(
+  transactionId: string,
+  formData: FormData,
+): Promise<Result<void>> {
+  try {
+    const auth = await requireUser(); // requireUser FIRST (§9)
+    if (!auth)
+      return err(ErrorCode.SharedTransactionEditFailed, "Not authenticated");
+    const { supabase } = auth;
+
+    const idParse = z.string().uuid().safeParse(transactionId);
+    if (!idParse.success) {
+      return err(
+        ErrorCode.SharedTransactionEditFailed,
+        "Invalid transaction id",
+      );
+    }
+
+    const raw = Object.fromEntries(formData);
+    const parsed = editSharedTransactionSchema.safeParse(raw);
+
+    if (!parsed.success) {
+      const first = parsed.error.issues[0];
+      return err(
+        ErrorCode.SharedTransactionEditFailed,
+        first?.message ?? "Invalid transaction data",
+        String(first?.path[0] ?? ""),
+      );
+    }
+
+    const { error: rpcError } = await supabase.rpc(
+      "rpc_edit_shared_transaction",
+      {
+        p_transaction_id: transactionId,
+        p_note: parsed.data.note ?? null,
+        p_category_id: parsed.data.category_id,
+      },
+    );
+
+    if (rpcError) {
+      const code = rpcError.code;
+      if (code === "P0001") {
+        return err(
+          ErrorCode.SharedTransactionEditFailed,
+          "This is a personal transaction. Use the standard edit flow.",
+        );
+      }
+      if (code === "P0002") {
+        return err(
+          ErrorCode.SharedTransactionEditFailed,
+          "Transaction not found.",
+        );
+      }
+      if (code === "42501") {
+        return err(
+          ErrorCode.SharedTransactionEditFailed,
+          "You do not have permission to edit this transaction.",
+        );
+      }
+      if (code === "23514") {
+        return err(
+          ErrorCode.SharedTransactionEditFailed,
+          "The selected category does not belong to the transaction owner.",
+        );
+      }
+      return err(
+        ErrorCode.SharedTransactionEditFailed,
+        "Failed to update transaction. Please try again.",
+      );
+    }
+
+    revalidatePath("/dashboard");
+    revalidatePath("/transactions");
+    revalidatePath("/transactions/" + transactionId);
+    return ok();
+  } catch {
+    return err(
+      ErrorCode.SharedTransactionEditFailed,
+      "An unexpected error occurred. Please try again.",
+    );
   }
 }

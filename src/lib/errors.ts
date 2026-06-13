@@ -83,6 +83,9 @@ export enum ErrorCode {
   TransactionDefaultsSaveFailed = "transaction_defaults_save_failed",
   // ↓ Added by Story 7.6
   SplitTransactionFailed = "split_transaction_failed",
+  // ↓ Added by Story 7.7
+  SharedTransactionEditFailed = "shared_transaction_edit_failed",
+  OwnerCategoriesFetchFailed = "owner_categories_fetch_failed",
 }
 
 export type AppError = {

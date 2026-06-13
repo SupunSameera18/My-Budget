@@ -447,6 +447,19 @@ export type Database = {
         Args: Record<string, never>;
         Returns: Record<string, unknown>;
       };
+      // ↓ Added by Story 7.7
+      rpc_edit_shared_transaction: {
+        Args: {
+          p_transaction_id: string;
+          p_note: string | null;
+          p_category_id: string;
+        };
+        Returns: undefined;
+      };
+      rpc_get_transaction_owner_categories: {
+        Args: { p_transaction_id: string };
+        Returns: { cat_id: string; name: string; type: string }[];
+      };
     };
     Enums: {
       [_ in never]: never;
