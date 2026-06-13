@@ -8,7 +8,11 @@ vi.mock("@/features/accounts/server/actions", () => ({
   getAccounts: vi.fn(),
 }));
 
-import { saveTransactionDefaults, getTransactionFormData } from "./actions";
+import {
+  saveTransactionDefaults,
+  getTransactionFormData,
+  splitTransactionAction,
+} from "./actions";
 import { requireUser } from "@/lib/supabase/require-user";
 import { getAccounts } from "@/features/accounts/server/actions";
 
@@ -249,5 +253,94 @@ describe("getTransactionFormData — isFamilyMode + transactionDefaults", () => 
     const result = await getTransactionFormData();
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.data.transactionDefaults).toBeNull();
+  });
+});
+
+// ── splitTransactionAction ───────────────────────────────────────────────────
+
+const VALID_TX_ID = "22222222-7006-4000-8000-000000000001";
+
+function mockRpcSplit(rpcResult: {
+  data?: unknown;
+  error?: { code: string; message: string } | null;
+}) {
+  const rpc = vi.fn().mockResolvedValue({
+    data: rpcResult.data ?? null,
+    error: rpcResult.error ?? null,
+  });
+  vi.mocked(requireUser).mockResolvedValue({
+    supabase: { rpc } as never,
+    user: { id: USER_ID } as never,
+  });
+  return rpc;
+}
+
+describe("splitTransactionAction", () => {
+  it("calls requireUser first before any RPC (§9)", async () => {
+    const rpc = mockRpcSplit({});
+    await splitTransactionAction(VALID_TX_ID, "equal", 500, 500);
+    expect(vi.mocked(requireUser)).toHaveBeenCalledOnce();
+    expect(rpc).toHaveBeenCalled();
+  });
+
+  it("returns SplitTransactionFailed when unauthenticated", async () => {
+    vi.mocked(requireUser).mockResolvedValue(null);
+    const result = await splitTransactionAction(VALID_TX_ID, "equal", 500, 500);
+    expect(result.ok).toBe(false);
+    if (!result.ok)
+      expect(result.error.code).toBe(ErrorCode.SplitTransactionFailed);
+  });
+
+  it("returns SplitTransactionFailed for invalid UUID", async () => {
+    mockRpcSplit({});
+    const result = await splitTransactionAction(
+      "not-a-uuid",
+      "equal",
+      500,
+      500,
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok)
+      expect(result.error.code).toBe(ErrorCode.SplitTransactionFailed);
+  });
+
+  it("branches P0001 → personal transaction message (§9 ERRCODE rule)", async () => {
+    mockRpcSplit({
+      error: { code: "P0001", message: "cannot split a personal transaction" },
+    });
+    const result = await splitTransactionAction(VALID_TX_ID, "equal", 500, 500);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe(ErrorCode.SplitTransactionFailed);
+      expect(result.error.message).toContain("personal transaction");
+    }
+  });
+
+  it("branches 23514 → math mismatch message (§9 ERRCODE rule)", async () => {
+    mockRpcSplit({
+      error: { code: "23514", message: "split amounts do not sum" },
+    });
+    const result = await splitTransactionAction(VALID_TX_ID, "fixed", 400, 400);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe(ErrorCode.SplitTransactionFailed);
+      expect(result.error.message).toContain("do not add up");
+    }
+  });
+
+  it("branches 42501 → access denied message (§9 ERRCODE rule)", async () => {
+    mockRpcSplit({ error: { code: "42501", message: "access denied" } });
+    const result = await splitTransactionAction(VALID_TX_ID, "equal", 500, 500);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe(ErrorCode.SplitTransactionFailed);
+      expect(result.error.message).toContain("access");
+    }
+  });
+
+  it("returns ok() on success", async () => {
+    mockRpcSplit({});
+    const result = await splitTransactionAction(VALID_TX_ID, "equal", 500, 500);
+    expect(result.ok).toBe(true);
   });
 });

@@ -9,6 +9,7 @@ import {
 import { useOnlineStatus } from "@/lib/hooks/useOnlineStatus";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SplitSheet } from "@/features/transactions/components/SplitSheet";
 import type { Account } from "@/features/accounts/schema";
 import type {
   Transaction,
@@ -25,6 +26,8 @@ interface TransactionEditSheetProps {
   subcategoriesEnabled: boolean;
   subcategories: Subcategory[];
   activityTrail: ActivityTrailEntry[];
+  isShared?: boolean;
+  partnerName?: string;
 }
 
 export function TransactionEditSheet({
@@ -35,10 +38,13 @@ export function TransactionEditSheet({
   subcategoriesEnabled,
   subcategories,
   activityTrail,
+  isShared = false,
+  partnerName = "Your partner",
 }: TransactionEditSheetProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const isOnline = useOnlineStatus();
+  const [showSplitSheet, setShowSplitSheet] = useState(false);
 
   const [amountDisplay, setAmountDisplay] = useState(
     (transaction.amount_minor / 100).toFixed(2),
@@ -102,6 +108,22 @@ export function TransactionEditSheet({
         setShowDeleteConfirm(false);
       }
     });
+  }
+
+  if (showSplitSheet) {
+    return (
+      <SplitSheet
+        transactionId={transaction.id}
+        amountMinor={transaction.amount_minor}
+        currency={currency}
+        partnerName={partnerName}
+        onSaved={() => {
+          setShowSplitSheet(false);
+          router.refresh();
+        }}
+        onCancel={() => setShowSplitSheet(false)}
+      />
+    );
   }
 
   return (
@@ -275,6 +297,19 @@ export function TransactionEditSheet({
       >
         {isPending ? "Saving…" : "Save changes"}
       </Button>
+
+      {/* Edit split — only for Shared transactions */}
+      {isShared && (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setShowSplitSheet(true)}
+          disabled={isPending}
+          className="min-h-[44px] w-full"
+        >
+          Edit split
+        </Button>
+      )}
 
       {/* Delete section */}
       {!showDeleteConfirm ? (

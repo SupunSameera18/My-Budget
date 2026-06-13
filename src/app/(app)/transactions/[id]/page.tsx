@@ -26,7 +26,12 @@ export default async function TransactionPage({
       <h1 className="mb-6 text-xl font-bold text-ink-primary">
         Edit Transaction
       </h1>
-      <TransactionEditSheet {...result.data} activityTrail={trail} />
+      <TransactionEditSheet
+        {...result.data}
+        activityTrail={trail}
+        isShared={result.data.transaction.is_shared}
+        partnerName={result.data.partnerName}
+      />
     </div>
   );
 }

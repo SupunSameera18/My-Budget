@@ -40,6 +40,7 @@ export type Transaction = {
   date: string;
   note: string | null;
   type: string;
+  is_shared: boolean;
   created_at: string;
   updated_at: string;
   archived_at: string | null;
@@ -111,6 +112,7 @@ export type EditTransactionFormData = {
   currency: string;
   subcategoriesEnabled: boolean;
   subcategories: Subcategory[];
+  partnerName?: string;
 };
 
 // ---- Transaction list & filter (Story 3.4) ----

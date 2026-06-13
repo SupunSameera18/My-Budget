@@ -81,6 +81,8 @@ export enum ErrorCode {
   PrivacyToggleFailed = "privacy_toggle_failed",
   // ↓ Added by Story 7.5
   TransactionDefaultsSaveFailed = "transaction_defaults_save_failed",
+  // ↓ Added by Story 7.6
+  SplitTransactionFailed = "split_transaction_failed",
 }
 
 export type AppError = {
