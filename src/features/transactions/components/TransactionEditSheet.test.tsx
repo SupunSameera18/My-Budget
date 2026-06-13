@@ -17,6 +17,7 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/features/transactions/server/actions", () => ({
   editTransaction: vi.fn(),
+  editSharedTransaction: vi.fn(),
   deleteTransaction: vi.fn(),
 }));
 
@@ -27,6 +28,7 @@ vi.mock("@/lib/hooks/useOnlineStatus", () => ({
 import { TransactionEditSheet } from "./TransactionEditSheet";
 import {
   editTransaction,
+  editSharedTransaction,
   deleteTransaction,
 } from "@/features/transactions/server/actions";
 import { useOnlineStatus } from "@/lib/hooks/useOnlineStatus";
@@ -87,12 +89,19 @@ const baseProps = {
   subcategoriesEnabled: false,
   subcategories: mockSubcategories,
   activityTrail: [],
+  viewerUserId: "user-1",
+};
+
+const sharedTransaction: Transaction = {
+  ...mockTransaction,
+  is_shared: true,
 };
 
 beforeEach(() => {
   vi.resetAllMocks();
   (useOnlineStatus as Mock).mockReturnValue(true);
   (editTransaction as Mock).mockResolvedValue(ok());
+  (editSharedTransaction as Mock).mockResolvedValue(ok());
   (deleteTransaction as Mock).mockResolvedValue(ok());
   (useRouter as Mock).mockReturnValue({ push: vi.fn(), refresh: vi.fn() });
 });
@@ -226,5 +235,86 @@ describe("TransactionEditSheet — note clearing", () => {
       const fd: FormData = (editTransaction as Mock).mock.calls[0][1];
       expect(fd.get("note")).toBeNull();
     });
+  });
+});
+
+describe("TransactionEditSheet — shared transaction", () => {
+  it("disables the amount field for shared transactions", () => {
+    render(
+      <TransactionEditSheet
+        {...baseProps}
+        transaction={sharedTransaction}
+        isShared
+      />,
+    );
+    const amountInput = screen.getByLabelText(/amount/i);
+    expect(amountInput).toBeDisabled();
+    expect(amountInput).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("sets aria-describedby on amount field pointing to hint text for shared transactions", () => {
+    render(
+      <TransactionEditSheet
+        {...baseProps}
+        transaction={sharedTransaction}
+        isShared
+      />,
+    );
+    const amountInput = screen.getByLabelText(/amount/i);
+    expect(amountInput).toHaveAttribute(
+      "aria-describedby",
+      "amount-readonly-hint",
+    );
+    expect(document.getElementById("amount-readonly-hint")).toBeInTheDocument();
+  });
+
+  it("does not disable amount field for personal transactions", () => {
+    render(<TransactionEditSheet {...baseProps} />);
+    expect(screen.getByLabelText(/amount/i)).not.toBeDisabled();
+  });
+
+  it("calls editSharedTransaction (not editTransaction) when saving a shared transaction", async () => {
+    render(
+      <TransactionEditSheet
+        {...baseProps}
+        transaction={sharedTransaction}
+        isShared
+      />,
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: /save changes/i }),
+    );
+    await waitFor(() => {
+      expect(editSharedTransaction as Mock).toHaveBeenCalledWith(
+        sharedTransaction.id,
+        expect.any(FormData),
+      );
+      expect(editTransaction as Mock).not.toHaveBeenCalled();
+    });
+  });
+
+  it("shows 'You' for viewer's own trail entry and partnerName for partner's", () => {
+    const viewerEntry: ActivityTrailEntry = {
+      ...mockTrailEntry,
+      id: "trail-viewer",
+      user_id: "user-1",
+    };
+    const partnerEntry: ActivityTrailEntry = {
+      ...mockTrailEntry,
+      id: "trail-partner",
+      user_id: "user-2",
+    };
+    render(
+      <TransactionEditSheet
+        {...baseProps}
+        transaction={sharedTransaction}
+        isShared
+        partnerName="Bob"
+        viewerUserId="user-1"
+        activityTrail={[viewerEntry, partnerEntry]}
+      />,
+    );
+    expect(screen.getByText("You")).toBeInTheDocument();
+    expect(screen.getByText("Bob")).toBeInTheDocument();
   });
 });

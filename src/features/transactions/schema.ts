@@ -113,7 +113,22 @@ export type EditTransactionFormData = {
   subcategoriesEnabled: boolean;
   subcategories: Subcategory[];
   partnerName?: string;
+  viewerUserId: string;
 };
+
+// Edit shared transaction schema — amount is excluded (server enforces this structurally)
+export const editSharedTransactionSchema = z.object({
+  category_id: z.string().uuid("Select a category"),
+  note: z
+    .string()
+    .trim()
+    .max(280, "Note must be 280 characters or fewer")
+    .optional(),
+});
+
+export type EditSharedTransactionInput = z.infer<
+  typeof editSharedTransactionSchema
+>;
 
 // ---- Transaction list & filter (Story 3.4) ----
 

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   editTransaction,
+  editSharedTransaction,
   deleteTransaction,
 } from "@/features/transactions/server/actions";
 import { useOnlineStatus } from "@/lib/hooks/useOnlineStatus";
@@ -28,6 +29,7 @@ interface TransactionEditSheetProps {
   activityTrail: ActivityTrailEntry[];
   isShared?: boolean;
   partnerName?: string;
+  viewerUserId: string;
 }
 
 export function TransactionEditSheet({
@@ -40,6 +42,7 @@ export function TransactionEditSheet({
   activityTrail,
   isShared = false,
   partnerName = "Your partner",
+  viewerUserId,
 }: TransactionEditSheetProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -83,10 +86,19 @@ export function TransactionEditSheet({
     return fd;
   }
 
+  function buildSharedFormData(): FormData {
+    const fd = new FormData();
+    fd.set("category_id", selectedCategoryId);
+    if (note.trim()) fd.set("note", note.trim());
+    return fd;
+  }
+
   function handleSave() {
     setLiveMessage("");
     startTransition(async () => {
-      const result = await editTransaction(transaction.id, buildFormData());
+      const result = isShared
+        ? await editSharedTransaction(transaction.id, buildSharedFormData())
+        : await editTransaction(transaction.id, buildFormData());
       if (result.ok) {
         setLiveMessage("Transaction updated");
         router.refresh();
@@ -147,13 +159,21 @@ export function TransactionEditSheet({
           Amount{" "}
           <span className="font-normal text-ink-secondary">({currency})</span>
         </label>
+        {/* hint is always in DOM so screen readers can reference it via aria-describedby */}
+        <span id="amount-readonly-hint" className="sr-only">
+          To correct a shared amount, use Close-the-Month correction (available
+          in a future update).
+        </span>
         <Input
           id="amount_display"
           type="text"
           inputMode="decimal"
           value={amountDisplay}
           onChange={(e) => setAmountDisplay(e.target.value)}
-          className="min-h-[44px] border border-hairline bg-surface-base text-ink-primary"
+          disabled={isShared}
+          aria-disabled={isShared ? "true" : undefined}
+          aria-describedby={isShared ? "amount-readonly-hint" : undefined}
+          className={`min-h-[44px] border border-hairline bg-surface-base text-ink-primary${isShared ? " cursor-not-allowed opacity-60" : ""}`}
         />
       </div>
 
@@ -311,8 +331,8 @@ export function TransactionEditSheet({
         </Button>
       )}
 
-      {/* Delete section */}
-      {!showDeleteConfirm ? (
+      {/* Delete section — only owner can delete; partner sees no delete button */}
+      {isShared && viewerUserId !== transaction.user_id ? null : !showDeleteConfirm ? (
         <Button
           type="button"
           variant="ghost"
@@ -354,42 +374,49 @@ export function TransactionEditSheet({
         <div className="flex flex-col gap-3">
           <h2 className="text-sm font-bold text-ink-primary">History</h2>
           <ol className="flex flex-col gap-2">
-            {activityTrail.map((entry) => (
-              <li
-                key={entry.id}
-                className="flex flex-col gap-0.5 rounded-lg bg-surface-inset px-3 py-2 text-sm"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-ink-secondary">
-                    {new Date(entry.created_at).toLocaleString(undefined, {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    })}
-                  </span>
-                  <span
-                    className={`rounded px-1.5 py-0.5 text-xs font-semibold ${
-                      entry.change_type === "delete"
-                        ? "bg-destructive/10 text-destructive"
-                        : "bg-brand-accent-strong/10 text-brand-accent-strong"
-                    }`}
-                  >
-                    {entry.change_type === "delete" ? "Deleted" : "Edited"}
-                  </span>
-                </div>
-                {entry.change_type === "delete" ? (
-                  <span className="text-ink-secondary">
-                    Transaction removed
-                  </span>
-                ) : (
-                  <span className="text-ink-secondary">
-                    {Object.keys(entry.changed_fields).length > 0
-                      ? "Changed: " +
-                        Object.keys(entry.changed_fields).join(", ")
-                      : "No fields changed"}
-                  </span>
-                )}
-              </li>
-            ))}
+            {activityTrail.map((entry) => {
+              const editorLabel =
+                entry.user_id === viewerUserId ? "You" : partnerName;
+              return (
+                <li
+                  key={entry.id}
+                  className="flex flex-col gap-0.5 rounded-lg bg-surface-inset px-3 py-2 text-sm"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-ink-primary">
+                      {editorLabel}
+                    </span>
+                    <span className="text-ink-secondary">
+                      {new Date(entry.created_at).toLocaleString(undefined, {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })}
+                    </span>
+                    <span
+                      className={`rounded px-1.5 py-0.5 text-xs font-semibold ${
+                        entry.change_type === "delete"
+                          ? "bg-destructive/10 text-destructive"
+                          : "bg-brand-accent-strong/10 text-brand-accent-strong"
+                      }`}
+                    >
+                      {entry.change_type === "delete" ? "Deleted" : "Edited"}
+                    </span>
+                  </div>
+                  {entry.change_type === "delete" ? (
+                    <span className="text-ink-secondary">
+                      Transaction removed
+                    </span>
+                  ) : (
+                    <span className="text-ink-secondary">
+                      {Object.keys(entry.changed_fields).length > 0
+                        ? "Changed: " +
+                          Object.keys(entry.changed_fields).join(", ")
+                        : "No fields changed"}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
           </ol>
         </div>
       )}
