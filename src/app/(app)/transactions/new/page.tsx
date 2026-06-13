@@ -23,6 +23,8 @@ export default async function NewTransactionPage() {
     subcategories,
     currentBreathingRoomMinor,
     macros,
+    transactionDefaults,
+    isFamilyMode,
   } = result.data;
 
   if (accounts.length === 0) {
@@ -56,6 +58,8 @@ export default async function NewTransactionPage() {
         subcategories={subcategories}
         currentBreathingRoomMinor={currentBreathingRoomMinor}
         macros={macros}
+        isFamilyMode={isFamilyMode}
+        transactionDefaults={transactionDefaults}
       />
     </div>
   );

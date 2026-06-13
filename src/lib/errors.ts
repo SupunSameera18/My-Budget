@@ -79,6 +79,8 @@ export enum ErrorCode {
   // ↓ Added by Story 7.4
   NotInFamily = "not_in_family",
   PrivacyToggleFailed = "privacy_toggle_failed",
+  // ↓ Added by Story 7.5
+  TransactionDefaultsSaveFailed = "transaction_defaults_save_failed",
 }
 
 export type AppError = {

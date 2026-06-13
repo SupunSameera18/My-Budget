@@ -59,6 +59,8 @@ export type Database = {
           checklist_completed_at: string | null;
           // ↓ Added by Story 6.3
           chart_preferences: Record<string, boolean> | null;
+          // ↓ Added by Story 7.5
+          transaction_defaults: { defaultType?: string; defaultSplitMethod?: string } | null;
         };
         Insert: {
           created_at?: string;
@@ -73,6 +75,8 @@ export type Database = {
           checklist_completed_at?: string | null;
           // ↓ Added by Story 6.3
           chart_preferences?: Record<string, boolean> | null;
+          // ↓ Added by Story 7.5
+          transaction_defaults?: Record<string, string> | null;
         };
         Update: {
           created_at?: string;
@@ -87,6 +91,8 @@ export type Database = {
           checklist_completed_at?: string | null;
           // ↓ Added by Story 6.3
           chart_preferences?: Record<string, boolean> | null;
+          // ↓ Added by Story 7.5
+          transaction_defaults?: Record<string, string> | null;
         };
         Relationships: [];
       };
@@ -349,7 +355,7 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      // ↓ Added by Story 1.10
+      // ↓ Added by Story 1.10; updated 0013 (+p_subcategory_id); updated 0026 (+p_is_shared)
       rpc_log_transaction: {
         Args: {
           p_account_id: string;
@@ -357,6 +363,8 @@ export type Database = {
           p_amount_minor: number;
           p_date: string;
           p_note?: string | null;
+          p_subcategory_id?: string | null;
+          p_is_shared?: boolean;
         };
         Returns: undefined;
       };
