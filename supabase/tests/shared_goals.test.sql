@@ -3,7 +3,7 @@
 -- UUID block: 11111111-7011-4000-8000-* (alice=001, bob=002)
 
 BEGIN;
-SELECT plan(16);
+SELECT plan(14);
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Seed: alice (goal owner) and bob (family partner)
