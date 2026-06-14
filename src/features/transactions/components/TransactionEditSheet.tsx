@@ -12,6 +12,7 @@ import { useOnlineStatus } from "@/lib/hooks/useOnlineStatus";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SplitSheet } from "@/features/transactions/components/SplitSheet";
+import { getDisplayName } from "@/lib/display-names";
 import type { Account } from "@/features/accounts/schema";
 import type {
   Transaction,
@@ -533,8 +534,7 @@ export function TransactionEditSheet({
           <h2 className="text-sm font-bold text-ink-primary">History</h2>
           <ol className="flex flex-col gap-2">
             {activityTrail.map((entry) => {
-              const editorLabel =
-                entry.user_id === viewerUserId ? "You" : partnerName;
+              const editorLabel = getDisplayName(entry.user_id, viewerUserId);
               return (
                 <li
                   key={entry.id}

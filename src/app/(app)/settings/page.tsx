@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/supabase/require-user";
 import { redirect } from "next/navigation";
 import { DownloadDataButton } from "@/features/settings/components/DownloadDataButton";
 import { TransactionDefaultsForm } from "@/features/settings/components/TransactionDefaultsForm";
+import { DeleteAccountSection } from "@/features/settings/components/DeleteAccountSection";
 import type { TransactionDefaults } from "@/features/transactions/schema";
 
 export default async function SettingsPage() {
@@ -74,6 +75,7 @@ export default async function SettingsPage() {
           <DownloadDataButton />
         </div>
       </section>
+      <DeleteAccountSection userEmail={user.email ?? ""} />
     </div>
   );
 }
