@@ -8,6 +8,7 @@ import { getGoals } from "@/features/goals/server/actions";
 export default async function GoalsPage() {
   const auth = await requireUser();
   if (!auth) redirect("/auth/login");
+  const { user } = auth;
 
   const result = await getGoals();
 
@@ -44,6 +45,7 @@ export default async function GoalsPage() {
               goal={goal}
               currency={result.data.currency}
               isFamilyMode={result.data.isFamilyMode}
+              viewerUserId={user.id}
             />
           ))}
         </div>

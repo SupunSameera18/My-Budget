@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { formatMoney } from "@/lib/format";
+import { getDisplayName } from "@/lib/display-names";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { SharedBadge } from "@/features/family/components/SharedBadge";
 import { ContributeSheet } from "./ContributeSheet";
@@ -12,9 +13,15 @@ interface GoalCardProps {
   goal: GoalWithProgress;
   currency: string;
   isFamilyMode: boolean;
+  viewerUserId?: string;
 }
 
-export function GoalCard({ goal, currency, isFamilyMode }: GoalCardProps) {
+export function GoalCard({
+  goal,
+  currency,
+  isFamilyMode,
+  viewerUserId = "",
+}: GoalCardProps) {
   const [contributeOpen, setContributeOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
 
@@ -86,7 +93,11 @@ export function GoalCard({ goal, currency, isFamilyMode }: GoalCardProps) {
               <dd>{formatMoney(goal.myContributionMinor ?? 0, currency)}</dd>
             </div>
             <div className="flex justify-between">
-              <dt>Partner</dt>
+              <dt>
+                {goal.partnerContributorId
+                  ? getDisplayName(goal.partnerContributorId, viewerUserId)
+                  : "Partner"}
+              </dt>
               <dd>
                 {formatMoney(goal.partnerContributionMinor ?? 0, currency)}
               </dd>

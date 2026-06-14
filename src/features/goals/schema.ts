@@ -50,4 +50,5 @@ export type GoalWithProgress = {
   isOwner: boolean;
   myContributionMinor?: number;
   partnerContributionMinor?: number;
+  partnerContributorId?: string;
 };

@@ -259,13 +259,19 @@ export async function getGoals(): Promise<
 
       let myContributionMinor: number | undefined;
       let partnerContributionMinor: number | undefined;
+      let partnerContributorId: string | undefined;
       if (g.is_shared && viewerJoinDate) {
         myContributionMinor = progressContribs
           .filter((c) => c.user_id === user.id)
           .reduce((sum, c) => sum + c.amount_minor, 0);
-        partnerContributionMinor = progressContribs
-          .filter((c) => c.user_id !== user.id)
-          .reduce((sum, c) => sum + c.amount_minor, 0);
+        const partnerContribs = progressContribs.filter(
+          (c) => c.user_id !== user.id,
+        );
+        partnerContributionMinor = partnerContribs.reduce(
+          (sum, c) => sum + c.amount_minor,
+          0,
+        );
+        partnerContributorId = partnerContribs[0]?.user_id;
       }
 
       return {
@@ -281,6 +287,7 @@ export async function getGoals(): Promise<
         created_at: g.created_at,
         myContributionMinor,
         partnerContributionMinor,
+        partnerContributorId,
       };
     });
 

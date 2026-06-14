@@ -488,7 +488,7 @@ describe("TransactionEditSheet — shared transaction", () => {
     });
   });
 
-  it("shows 'You' for viewer's own trail entry and partnerName for partner's", () => {
+  it("shows 'You' for viewer's own trail entry and 'Partner' for partner's", () => {
     const viewerEntry: ActivityTrailEntry = {
       ...mockTrailEntry,
       id: "trail-viewer",
@@ -510,6 +510,24 @@ describe("TransactionEditSheet — shared transaction", () => {
       />,
     );
     expect(screen.getByText("You")).toBeInTheDocument();
-    expect(screen.getByText("Bob")).toBeInTheDocument();
+    expect(screen.getByText("Partner")).toBeInTheDocument();
+  });
+
+  it("shows 'Former member' in trail for tombstone user_id", () => {
+    const tombstoneEntry: ActivityTrailEntry = {
+      ...mockTrailEntry,
+      id: "trail-tombstone",
+      user_id: "00000000-0000-0000-0000-000000000001",
+    };
+    render(
+      <TransactionEditSheet
+        {...baseProps}
+        transaction={sharedTransaction}
+        isShared
+        viewerUserId="user-1"
+        activityTrail={[tombstoneEntry]}
+      />,
+    );
+    expect(screen.getByText("Former member")).toBeInTheDocument();
   });
 });
