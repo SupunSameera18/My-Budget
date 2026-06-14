@@ -75,12 +75,14 @@ SELECT throws_ok(
   'User B cannot INSERT contribution for User A''s goal (RLS WITH CHECK: EXISTS fails)'
 );
 
--- ── Test 7: rpc_contribute_goal as User B raises P0002 ────────────────────────
+-- ── Test 7: rpc_contribute_goal as User B raises P0001 ────────────────────────
+-- Story 7.11 updated rpc_contribute_goal: when the goal is Personal (is_shared=false)
+-- and the caller is not the owner, the function raises P0001 before checking P0002.
 SELECT throws_ok(
   $$SELECT public.rpc_contribute_goal('aa777777-7777-4777-8777-777777777777'::uuid, 1000, CURRENT_DATE)$$,
-  'P0002',
+  'P0001',
   NULL::text,
-  'rpc_contribute_goal as User B for User A''s goal raises P0002 (not owner)'
+  'rpc_contribute_goal as User B for User A''s personal goal raises P0001'
 );
 
 -- ── Test 8: CHECK constraint blocks target_minor = 0 ─────────────────────────

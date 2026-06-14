@@ -8,9 +8,10 @@ import { createGoal } from "@/features/goals/server/actions";
 
 interface GoalFormProps {
   currency: string;
+  isFamilyMode: boolean;
 }
 
-export function GoalForm({ currency }: GoalFormProps) {
+export function GoalForm({ currency, isFamilyMode }: GoalFormProps) {
   const router = useRouter();
   const [statusMessage, setStatusMessage] = useState("");
   const [fieldError, setFieldError] = useState<{
@@ -105,6 +106,30 @@ export function GoalForm({ currency }: GoalFormProps) {
             {fieldError.message}
           </p>
         )}
+      </div>
+
+      {/* "Make shared" toggle — hidden in single-user mode (hide content, not component) */}
+      <div hidden={!isFamilyMode || undefined}>
+        <div className="flex flex-col gap-1">
+          <label
+            htmlFor="make-shared"
+            className="flex items-center gap-3 text-sm text-ink-primary"
+          >
+            <input
+              id="make-shared"
+              name="is_shared"
+              type="checkbox"
+              value="true"
+              aria-label="Make this a shared goal"
+              aria-describedby="make-shared-help"
+              className="h-5 w-5 rounded border-hairline accent-brand-accent"
+            />
+            <span className="font-medium">Make shared</span>
+          </label>
+          <p id="make-shared-help" className="text-xs text-ink-secondary">
+            Both partners can contribute and see progress.
+          </p>
+        </div>
       </div>
 
       <OfflineRetryBanner

@@ -13,12 +13,15 @@ import { getGoals } from "@/features/goals/server/actions";
 function makeGoal(overrides: Partial<GoalWithProgress>): GoalWithProgress {
   return {
     id: overrides.id ?? "goal-1",
+    user_id: overrides.user_id ?? "user-1",
     name: overrides.name ?? "Goal",
     target_minor: overrides.target_minor ?? 100000,
     currentMinor: overrides.currentMinor ?? 0,
     remaining_minor: overrides.remaining_minor ?? 100000,
     pctUsed: overrides.pctUsed ?? 0,
     created_at: "2026-06-01T00:00:00Z",
+    is_shared: overrides.is_shared ?? false,
+    isOwner: overrides.isOwner ?? true,
   };
 }
 

@@ -7,13 +7,21 @@ export default async function NewGoalPage() {
   const auth = await requireUser();
   if (!auth) redirect("/auth/login");
 
-  const { data: profile } = await auth.supabase
-    .from("profiles")
-    .select("currency")
-    .eq("user_id", auth.user.id)
-    .single();
+  const [profileResult, memberResult] = await Promise.all([
+    auth.supabase
+      .from("profiles")
+      .select("currency")
+      .eq("user_id", auth.user.id)
+      .single(),
+    auth.supabase
+      .from("family_members")
+      .select("join_date")
+      .eq("user_id", auth.user.id)
+      .maybeSingle(),
+  ]);
 
-  const currency = profile?.currency ?? "USD";
+  const currency = profileResult.data?.currency ?? "USD";
+  const isFamilyMode = !!memberResult.data;
 
   return (
     <div className="mx-auto max-w-2xl p-4">
@@ -27,7 +35,7 @@ export default async function NewGoalPage() {
         <h1 className="mt-2 text-xl font-bold text-ink-primary">Create Goal</h1>
       </div>
 
-      <GoalForm currency={currency} />
+      <GoalForm currency={currency} isFamilyMode={isFamilyMode} />
     </div>
   );
 }

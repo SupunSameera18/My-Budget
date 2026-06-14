@@ -43,6 +43,7 @@ export default async function GoalsPage() {
               key={goal.id}
               goal={goal}
               currency={result.data.currency}
+              isFamilyMode={result.data.isFamilyMode}
             />
           ))}
         </div>
