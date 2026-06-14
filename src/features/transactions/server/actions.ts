@@ -362,7 +362,9 @@ export async function getTransaction(
           }),
         );
         categories = mappedCats;
-        const activeCatIds = new Set(mappedCats.map((c: { id: string }) => c.id));
+        const activeCatIds = new Set(
+          mappedCats.map((c: { id: string }) => c.id),
+        );
         if (
           transaction.category_id &&
           !activeCatIds.has(transaction.category_id)
@@ -408,23 +410,38 @@ export async function getTransaction(
       subcategories = subcatsData ?? [];
     }
 
-    // Non-fatally fetch partner name for split UI (only relevant for Shared transactions)
+    // Non-fatally fetch family status: partner name + partner join_date for reclassify UI
     let partnerName: string | undefined;
-    if (transaction.is_shared) {
-      try {
-        const { data: familyStatus } = await supabase.rpc(
-          "rpc_get_family_status",
-        );
-        const raw = familyStatus as Record<string, unknown>;
-        if (
-          raw?.status === "in_family" &&
-          typeof raw?.partner_name === "string"
-        ) {
+    let isFamilyMode = false;
+    let partnerJoinDate: string | null = null;
+    try {
+      const [{ data: familyStatus }, { data: partnerRow }] = await Promise.all([
+        supabase.rpc("rpc_get_family_status"),
+        supabase
+          .from("family_members")
+          .select("family_unit_id")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+      ]);
+      const raw = familyStatus as Record<string, unknown>;
+      if (raw?.status === "in_family") {
+        isFamilyMode = true;
+        if (typeof raw?.partner_name === "string") {
           partnerName = raw.partner_name;
         }
-      } catch {
-        // Non-fatal — partner name defaults to "Your partner" in SplitSheet
+        // Fetch partner join_date (needed for pre-join block UI)
+        if (partnerRow?.family_unit_id) {
+          const { data: partnerMember } = await supabase
+            .from("family_members")
+            .select("join_date")
+            .eq("family_unit_id", partnerRow.family_unit_id)
+            .neq("user_id", user.id)
+            .maybeSingle();
+          partnerJoinDate = partnerMember?.join_date ?? null;
+        }
       }
+    } catch {
+      // Non-fatal — reclassify controls will be hidden in solo mode
     }
 
     const effectiveTransaction =
@@ -445,6 +462,8 @@ export async function getTransaction(
       subcategories: subcategories as EditTransactionFormData["subcategories"],
       partnerName,
       viewerUserId: user.id,
+      isFamilyMode,
+      partnerJoinDate,
     });
   } catch {
     return err(
@@ -767,6 +786,82 @@ export async function splitTransactionAction(
   } catch {
     return err(
       ErrorCode.SplitTransactionFailed,
+      "An unexpected error occurred. Please try again.",
+    );
+  }
+}
+
+export async function reclassifyTransaction(
+  transactionId: string,
+  newIsShared: boolean,
+): Promise<Result<void>> {
+  try {
+    const auth = await requireUser(); // requireUser FIRST (§9)
+    if (!auth)
+      return err(ErrorCode.ReclassifyTransactionFailed, "Not authenticated");
+    const { supabase } = auth;
+
+    const idParse = z.string().uuid().safeParse(transactionId);
+    if (!idParse.success) {
+      return err(
+        ErrorCode.ReclassifyTransactionFailed,
+        "Invalid transaction id",
+      );
+    }
+
+    const { error: rpcError } = await supabase.rpc(
+      "rpc_reclassify_transaction",
+      {
+        p_transaction_id: idParse.data,
+        p_new_is_shared: newIsShared,
+      },
+    );
+
+    if (rpcError) {
+      const code = rpcError.code;
+      if (code === "P0001") {
+        return err(
+          ErrorCode.ReclassifyTransactionFailed,
+          "Transaction is already that type.",
+        );
+      }
+      if (code === "P0002") {
+        return err(
+          ErrorCode.ReclassifyTransactionFailed,
+          "Transaction not found.",
+        );
+      }
+      if (code === "P0003") {
+        return err(
+          ErrorCode.ReclassifyTransactionFailed,
+          "This transaction predates your partner's join date and cannot be shared.",
+        );
+      }
+      if (code === "P0004") {
+        return err(
+          ErrorCode.ReclassifyTransactionFailed,
+          "This transaction is in a settled period. Use a correction entry instead.",
+        );
+      }
+      if (code === "42501") {
+        return err(
+          ErrorCode.ReclassifyTransactionFailed,
+          "You don't have permission to reclassify this transaction.",
+        );
+      }
+      return err(
+        ErrorCode.ReclassifyTransactionFailed,
+        "Failed to reclassify transaction. Please try again.",
+      );
+    }
+
+    revalidatePath("/dashboard");
+    revalidatePath("/transactions");
+    revalidatePath("/transactions/" + transactionId);
+    return ok();
+  } catch {
+    return err(
+      ErrorCode.ReclassifyTransactionFailed,
       "An unexpected error occurred. Please try again.",
     );
   }

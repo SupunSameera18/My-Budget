@@ -98,7 +98,11 @@ export type ActivityTrailEntry = {
   id: string;
   user_id: string;
   transaction_id: string;
-  change_type: "edit" | "delete";
+  change_type:
+    | "edit"
+    | "delete"
+    | "reclassified_to_shared"
+    | "reclassified_to_personal";
   changed_fields:
     | Record<string, { old: unknown; new: unknown }>
     | Record<string, never>;
@@ -114,6 +118,8 @@ export type EditTransactionFormData = {
   subcategories: Subcategory[];
   partnerName?: string;
   viewerUserId: string;
+  isFamilyMode?: boolean;
+  partnerJoinDate?: string | null;
 };
 
 // Edit shared transaction schema — amount is excluded (server enforces this structurally)

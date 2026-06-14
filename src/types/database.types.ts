@@ -460,6 +460,11 @@ export type Database = {
         Args: { p_transaction_id: string };
         Returns: { cat_id: string; name: string; type: string }[];
       };
+      // ↓ Added by Story 7.8
+      rpc_reclassify_transaction: {
+        Args: { p_transaction_id: string; p_new_is_shared: boolean };
+        Returns: undefined;
+      };
     };
     Enums: {
       [_ in never]: never;

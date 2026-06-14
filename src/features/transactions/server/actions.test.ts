@@ -12,6 +12,7 @@ import {
   saveTransactionDefaults,
   getTransactionFormData,
   splitTransactionAction,
+  reclassifyTransaction,
 } from "./actions";
 import { requireUser } from "@/lib/supabase/require-user";
 import { getAccounts } from "@/features/accounts/server/actions";
@@ -341,6 +342,93 @@ describe("splitTransactionAction", () => {
   it("returns ok() on success", async () => {
     mockRpcSplit({});
     const result = await splitTransactionAction(VALID_TX_ID, "equal", 500, 500);
+    expect(result.ok).toBe(true);
+  });
+});
+
+// ── reclassifyTransaction ────────────────────────────────────────────────────
+
+const VALID_RECLASSIFY_TX_ID = "33333333-7008-4000-8000-000000000001";
+
+function mockRpcReclassify(rpcResult: {
+  data?: unknown;
+  error?: { code: string; message: string } | null;
+}) {
+  const rpc = vi.fn().mockResolvedValue({
+    data: rpcResult.data ?? null,
+    error: rpcResult.error ?? null,
+  });
+  vi.mocked(requireUser).mockResolvedValue({
+    supabase: { rpc } as never,
+    user: { id: USER_ID } as never,
+  });
+  return rpc;
+}
+
+describe("reclassifyTransaction", () => {
+  it("calls requireUser first before any RPC (§9)", async () => {
+    const rpc = mockRpcReclassify({});
+    await reclassifyTransaction(VALID_RECLASSIFY_TX_ID, true);
+    expect(vi.mocked(requireUser)).toHaveBeenCalledOnce();
+    expect(rpc).toHaveBeenCalled();
+  });
+
+  it("returns ReclassifyTransactionFailed when unauthenticated", async () => {
+    vi.mocked(requireUser).mockResolvedValue(null);
+    const result = await reclassifyTransaction(VALID_RECLASSIFY_TX_ID, true);
+    expect(result.ok).toBe(false);
+    if (!result.ok)
+      expect(result.error.code).toBe(ErrorCode.ReclassifyTransactionFailed);
+  });
+
+  it("returns ReclassifyTransactionFailed for invalid UUID", async () => {
+    mockRpcReclassify({});
+    const result = await reclassifyTransaction("not-a-uuid", true);
+    expect(result.ok).toBe(false);
+    if (!result.ok)
+      expect(result.error.code).toBe(ErrorCode.ReclassifyTransactionFailed);
+  });
+
+  it("branches P0001 → already that type message (§9 ERRCODE rule)", async () => {
+    mockRpcReclassify({
+      error: { code: "P0001", message: "already that type" },
+    });
+    const result = await reclassifyTransaction(VALID_RECLASSIFY_TX_ID, false);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe(ErrorCode.ReclassifyTransactionFailed);
+      expect(result.error.message).toContain("already that type");
+    }
+  });
+
+  it("branches P0003 → pre-join date message (§9 ERRCODE rule)", async () => {
+    mockRpcReclassify({
+      error: {
+        code: "P0003",
+        message: "pre-join transaction cannot be shared",
+      },
+    });
+    const result = await reclassifyTransaction(VALID_RECLASSIFY_TX_ID, true);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe(ErrorCode.ReclassifyTransactionFailed);
+      expect(result.error.message).toContain("predates your partner");
+    }
+  });
+
+  it("branches 42501 → access denied message (§9 ERRCODE rule)", async () => {
+    mockRpcReclassify({ error: { code: "42501", message: "access denied" } });
+    const result = await reclassifyTransaction(VALID_RECLASSIFY_TX_ID, false);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe(ErrorCode.ReclassifyTransactionFailed);
+      expect(result.error.message).toContain("permission");
+    }
+  });
+
+  it("returns ok() on success", async () => {
+    mockRpcReclassify({});
+    const result = await reclassifyTransaction(VALID_RECLASSIFY_TX_ID, true);
     expect(result.ok).toBe(true);
   });
 });
