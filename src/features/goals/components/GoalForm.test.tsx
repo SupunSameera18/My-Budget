@@ -30,7 +30,7 @@ describe("GoalForm", () => {
   });
 
   it("renders name input, target amount input with currency prefix, and submit button", () => {
-    render(<GoalForm currency="USD" />);
+    render(<GoalForm currency="USD" isFamilyMode={false} />);
     expect(screen.getByLabelText(/name/i)).toBeTruthy();
     expect(screen.getByLabelText(/target amount/i)).toBeTruthy();
     expect(screen.getByText("USD")).toBeTruthy();
@@ -38,14 +38,14 @@ describe("GoalForm", () => {
   });
 
   it("always renders the ARIA live region with both required attributes", () => {
-    render(<GoalForm currency="GBP" />);
+    render(<GoalForm currency="GBP" isFamilyMode={false} />);
     const liveRegion = screen.getByRole("status");
     expect(liveRegion).toBeTruthy();
     expect(liveRegion.getAttribute("aria-live")).toBe("polite");
   });
 
   it("calls createGoal with FormData on submit", async () => {
-    render(<GoalForm currency="USD" />);
+    render(<GoalForm currency="USD" isFamilyMode={false} />);
     fireEvent.change(screen.getByLabelText(/name/i), {
       target: { value: "Emergency Fund" },
     });
@@ -59,7 +59,7 @@ describe("GoalForm", () => {
   it("navigates to /goals on success", async () => {
     const push = vi.fn();
     (useRouter as Mock).mockReturnValue({ push });
-    render(<GoalForm currency="USD" />);
+    render(<GoalForm currency="USD" isFamilyMode={false} />);
     fireEvent.submit(document.querySelector("form")!);
     await waitFor(() => expect(push).toHaveBeenCalledWith("/goals"));
   });
@@ -71,7 +71,7 @@ describe("GoalForm", () => {
         "Target amount must be greater than zero",
       ),
     );
-    render(<GoalForm currency="USD" />);
+    render(<GoalForm currency="USD" isFamilyMode={false} />);
     fireEvent.submit(document.querySelector("form")!);
     await waitFor(() => {
       const errors = screen.getAllByText(
@@ -85,7 +85,7 @@ describe("GoalForm", () => {
     (createGoal as Mock)
       .mockResolvedValueOnce(err(ErrorCode.GoalCreateFailed, "First error"))
       .mockResolvedValueOnce(err(ErrorCode.GoalCreateFailed, "Second error"));
-    render(<GoalForm currency="USD" />);
+    render(<GoalForm currency="USD" isFamilyMode={false} />);
 
     const form = document.querySelector("form")!;
     fireEvent.submit(form);
@@ -93,5 +93,63 @@ describe("GoalForm", () => {
 
     fireEvent.submit(form);
     await waitFor(() => screen.getByText("Second error"));
+  });
+
+  it("'Make shared' toggle is hidden in solo mode (isFamilyMode=false)", () => {
+    render(<GoalForm currency="USD" isFamilyMode={false} />);
+    const toggle = screen.queryByRole("checkbox", {
+      name: /make this a shared goal/i,
+      hidden: true,
+    });
+    expect(toggle).toBeTruthy();
+    expect(toggle?.parentElement?.parentElement?.parentElement).toHaveAttribute(
+      "hidden",
+    );
+  });
+
+  it("'Make shared' toggle is visible in family mode (isFamilyMode=true)", () => {
+    render(<GoalForm currency="USD" isFamilyMode={true} />);
+    const toggle = screen.getByRole("checkbox", {
+      name: /make this a shared goal/i,
+    });
+    expect(toggle).toBeTruthy();
+    // wrapper div should NOT have hidden attribute
+    expect(
+      toggle?.parentElement?.parentElement?.parentElement,
+    ).not.toHaveAttribute("hidden");
+  });
+
+  it("submits is_shared=true when 'Make shared' toggle is checked in family mode", async () => {
+    render(<GoalForm currency="USD" isFamilyMode={true} />);
+    const toggle = screen.getByRole("checkbox", {
+      name: /make this a shared goal/i,
+    });
+    fireEvent.click(toggle);
+    fireEvent.submit(document.querySelector("form")!);
+    await waitFor(() => {
+      expect(createGoal).toHaveBeenCalledOnce();
+      const formData = (createGoal as Mock).mock.calls[0][0] as FormData;
+      expect(formData.get("is_shared")).toBe("true");
+    });
+  });
+
+  it("does NOT submit is_shared when toggle is unchecked", async () => {
+    render(<GoalForm currency="USD" isFamilyMode={true} />);
+    fireEvent.submit(document.querySelector("form")!);
+    await waitFor(() => {
+      const formData = (createGoal as Mock).mock.calls[0][0] as FormData;
+      expect(formData.get("is_shared")).toBeNull();
+    });
+  });
+
+  it("help text is associated via aria-describedby in family mode", () => {
+    render(<GoalForm currency="USD" isFamilyMode={true} />);
+    const toggle = screen.getByRole("checkbox", {
+      name: /make this a shared goal/i,
+    });
+    const describedById = toggle.getAttribute("aria-describedby");
+    expect(describedById).toBeTruthy();
+    const helpEl = document.getElementById(describedById!);
+    expect(helpEl?.textContent).toContain("Both partners can contribute");
   });
 });

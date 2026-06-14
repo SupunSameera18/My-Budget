@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { formatMoney } from "@/lib/format";
 import { ProgressBar } from "@/components/ui/ProgressBar";
+import { SharedBadge } from "@/features/family/components/SharedBadge";
 import { ContributeSheet } from "./ContributeSheet";
 import { EditGoalTargetSheet } from "./EditGoalTargetSheet";
 import type { GoalWithProgress } from "@/features/goals/schema";
@@ -10,9 +11,10 @@ import type { GoalWithProgress } from "@/features/goals/schema";
 interface GoalCardProps {
   goal: GoalWithProgress;
   currency: string;
+  isFamilyMode: boolean;
 }
 
-export function GoalCard({ goal, currency }: GoalCardProps) {
+export function GoalCard({ goal, currency, isFamilyMode }: GoalCardProps) {
   const [contributeOpen, setContributeOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
 
@@ -20,13 +22,25 @@ export function GoalCard({ goal, currency }: GoalCardProps) {
   const hasSurplus = goal.currentMinor > goal.target_minor;
   const surplusMinor = Math.max(0, goal.currentMinor - goal.target_minor);
 
+  const showBreakdown =
+    goal.is_shared &&
+    isFamilyMode &&
+    (goal.myContributionMinor !== undefined ||
+      goal.partnerContributionMinor !== undefined);
+
   return (
     <>
       <article className="rounded-xl border border-hairline bg-card p-4 shadow-sm">
-        <div className="mb-3">
+        <div className="mb-3 flex items-center gap-2">
           <h2 className="text-base font-semibold text-ink-primary">
             {goal.name}
           </h2>
+          {/* SharedBadge is always in DOM; renders null when conditions not met */}
+          <SharedBadge
+            isFamilyMode={isFamilyMode}
+            isShared={goal.is_shared}
+            ariaLabel="Shared goal"
+          />
         </div>
 
         <ProgressBar
@@ -64,6 +78,22 @@ export function GoalCard({ goal, currency }: GoalCardProps) {
           </span>
         </div>
 
+        {/* Contributor breakdown for Shared Goals (optional — only shown in family mode) */}
+        {showBreakdown && (
+          <dl className="mb-4 flex flex-col gap-1 text-xs text-ink-secondary">
+            <div className="flex justify-between">
+              <dt>You</dt>
+              <dd>{formatMoney(goal.myContributionMinor ?? 0, currency)}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt>Partner</dt>
+              <dd>
+                {formatMoney(goal.partnerContributionMinor ?? 0, currency)}
+              </dd>
+            </div>
+          </dl>
+        )}
+
         {/* Action buttons */}
         <div className="flex flex-wrap gap-2">
           <button
@@ -74,14 +104,16 @@ export function GoalCard({ goal, currency }: GoalCardProps) {
           >
             Contribute
           </button>
-          <button
-            type="button"
-            onClick={() => setEditOpen(true)}
-            aria-label={`Edit target for ${goal.name}`}
-            className="min-h-[44px] flex-1 rounded-md border border-hairline bg-surface-base px-4 text-sm text-ink-secondary"
-          >
-            Edit target
-          </button>
+          {goal.isOwner && (
+            <button
+              type="button"
+              onClick={() => setEditOpen(true)}
+              aria-label={`Edit target for ${goal.name}`}
+              className="min-h-[44px] flex-1 rounded-md border border-hairline bg-surface-base px-4 text-sm text-ink-secondary"
+            >
+              Edit target
+            </button>
+          )}
         </div>
       </article>
 
@@ -93,14 +125,16 @@ export function GoalCard({ goal, currency }: GoalCardProps) {
         onOpenChange={setContributeOpen}
       />
 
-      <EditGoalTargetSheet
-        goalId={goal.id}
-        goalName={goal.name}
-        currentTargetMinor={goal.target_minor}
-        currency={currency}
-        open={editOpen}
-        onOpenChange={setEditOpen}
-      />
+      {goal.isOwner && (
+        <EditGoalTargetSheet
+          goalId={goal.id}
+          goalName={goal.name}
+          currentTargetMinor={goal.target_minor}
+          currency={currency}
+          open={editOpen}
+          onOpenChange={setEditOpen}
+        />
+      )}
     </>
   );
 }

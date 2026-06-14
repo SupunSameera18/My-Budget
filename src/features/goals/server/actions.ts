@@ -21,6 +21,7 @@ export async function createGoal(
     const raw = {
       name: formData.get("name") as string,
       target_amount_display: formData.get("target_amount_display") as string,
+      is_shared: (formData.get("is_shared") as string | null) ?? undefined,
     };
 
     const parsed = createGoalSchema.safeParse(raw);
@@ -44,9 +45,12 @@ export async function createGoal(
       );
     }
 
+    const isShared = parsed.data.is_shared === "true";
+
     const { data, error } = await supabase.rpc("rpc_create_goal", {
       p_name: parsed.data.name,
       p_target_minor: targetMinor,
+      p_is_shared: isShared,
     });
 
     if (error) {
@@ -187,7 +191,7 @@ export async function editGoalTarget(formData: FormData): Promise<Result> {
 }
 
 export async function getGoals(): Promise<
-  Result<{ goals: GoalWithProgress[]; currency: string }>
+  Result<{ goals: GoalWithProgress[]; currency: string; isFamilyMode: boolean }>
 > {
   noStore();
   try {
@@ -195,13 +199,12 @@ export async function getGoals(): Promise<
     if (!auth) return err(ErrorCode.GoalFetchFailed, "Not authenticated");
     const { supabase, user } = auth;
 
-    const [goalsResult, profileResult] = await Promise.all([
+    const [goalsResult, profileResult, memberResult] = await Promise.all([
       supabase
         .from("goals")
         .select(
-          "id, name, target_minor, created_at, goal_contributions(amount_minor)",
+          "id, user_id, name, target_minor, is_shared, created_at, goal_contributions(amount_minor, date, user_id)",
         )
-        .eq("user_id", user.id)
         .is("archived_at", null)
         .order("created_at", { ascending: false }),
       supabase
@@ -209,6 +212,11 @@ export async function getGoals(): Promise<
         .select("currency")
         .eq("user_id", user.id)
         .single(),
+      supabase
+        .from("family_members")
+        .select("join_date")
+        .eq("user_id", user.id)
+        .maybeSingle(),
     ]);
 
     if (goalsResult.error) {
@@ -216,28 +224,61 @@ export async function getGoals(): Promise<
     }
 
     const currency = profileResult.data?.currency ?? "USD";
+    const viewerJoinDate: string | null = memberResult.data?.join_date ?? null;
+    const isFamilyMode = !!viewerJoinDate;
 
     const goals: GoalWithProgress[] = (goalsResult.data ?? []).map((g) => {
-      const contribs = (g.goal_contributions ?? []) as unknown as Array<{
+      const isOwner = g.user_id === user.id;
+      const allContribs = (g.goal_contributions ?? []) as unknown as Array<{
         amount_minor: number;
+        date: string;
+        user_id: string;
       }>;
-      const currentMinor = contribs.reduce((sum, c) => sum + c.amount_minor, 0);
+
+      // For Shared Goals: pool only post-join contributions (join-date-forward invariant).
+      // RLS already filters partner contributions to post-join; also filter own for
+      // identical pooled total between both partners.
+      const progressContribs =
+        g.is_shared && viewerJoinDate
+          ? allContribs.filter((c) => c.date >= viewerJoinDate)
+          : allContribs;
+
+      const currentMinor = progressContribs.reduce(
+        (sum, c) => sum + c.amount_minor,
+        0,
+      );
       const pctUsed =
         g.target_minor > 0 ? (currentMinor / g.target_minor) * 100 : 0;
       const remaining_minor = g.target_minor - currentMinor;
 
+      let myContributionMinor: number | undefined;
+      let partnerContributionMinor: number | undefined;
+      if (g.is_shared && viewerJoinDate) {
+        myContributionMinor = progressContribs
+          .filter((c) => c.user_id === user.id)
+          .reduce((sum, c) => sum + c.amount_minor, 0);
+        partnerContributionMinor = progressContribs
+          .filter((c) => c.user_id !== user.id)
+          .reduce((sum, c) => sum + c.amount_minor, 0);
+      }
+
       return {
         id: g.id,
+        user_id: g.user_id,
         name: g.name,
         target_minor: g.target_minor,
+        is_shared: g.is_shared ?? false,
+        isOwner,
         currentMinor,
         remaining_minor,
         pctUsed,
         created_at: g.created_at,
+        myContributionMinor,
+        partnerContributionMinor,
       };
     });
 
-    return ok({ goals, currency });
+    return ok({ goals, currency, isFamilyMode });
   } catch {
     return err(ErrorCode.GoalFetchFailed, "Failed to load goals.");
   }

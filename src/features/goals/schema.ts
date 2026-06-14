@@ -10,6 +10,7 @@ export const createGoalSchema = z.object({
     .string()
     .min(1, "Target amount is required")
     .regex(/^\d+(\.\d{1,2})?$/, "Must be a valid decimal amount (e.g. 100.00)"),
+  is_shared: z.string().optional(),
 });
 
 export const contributeGoalSchema = z.object({
@@ -38,10 +39,15 @@ export type EditGoalTargetInput = z.infer<typeof editGoalTargetSchema>;
 
 export type GoalWithProgress = {
   id: string;
+  user_id: string;
   name: string;
   target_minor: number;
   currentMinor: number;
   remaining_minor: number;
   pctUsed: number;
   created_at: string;
+  is_shared: boolean;
+  isOwner: boolean;
+  myContributionMinor?: number;
+  partnerContributionMinor?: number;
 };
