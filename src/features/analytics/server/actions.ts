@@ -340,9 +340,9 @@ export async function getBudgetPerformanceData(period: {
 
     return (budgetsRes.data ?? []).map((b) => {
       const catIds = new Set(
-        (
-          (b.budget_categories as { category_id: string }[] | null) ?? []
-        ).map((bc) => bc.category_id),
+        ((b.budget_categories as { category_id: string }[] | null) ?? []).map(
+          (bc) => bc.category_id,
+        ),
       );
       const actual = txns
         .filter((t) => catIds.has(t.category_id))

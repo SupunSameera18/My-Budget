@@ -5,7 +5,11 @@ import crypto from "crypto";
 import { requireUser } from "@/lib/supabase/require-user";
 import { ok, err, ErrorCode } from "@/lib/errors";
 import type { Result } from "@/lib/errors";
-import type { FamilyStatus } from "@/features/family/schema";
+import type {
+  FamilyStatus,
+  ContributionEntry,
+  ContributionAnalysisData,
+} from "@/features/family/schema";
 
 export async function generateInviteCode(): Promise<Result<{ code: string }>> {
   const auth = await requireUser();
@@ -210,5 +214,75 @@ export async function getFamilyStatus(): Promise<FamilyStatus> {
     return { status: "solo" };
   } catch {
     return { status: "solo" };
+  }
+}
+
+export async function getContributionAnalysis(
+  periodStart?: string,
+  periodEnd?: string,
+): Promise<ContributionAnalysisData | null> {
+  // Graceful supplementary: return null (not redirect) so callers can fetch in parallel
+  const auth = await requireUser();
+  if (!auth) return null;
+
+  try {
+    const { data: rows, error } = await auth.supabase.rpc(
+      "rpc_get_contribution_analysis",
+      {
+        p_period_start: periodStart ?? null,
+        p_period_end: periodEnd ?? null,
+      },
+    );
+
+    if (error || !rows || rows.length !== 2) return null;
+
+    // Fetch display names by stable UUID (§9 A2: always key by ID)
+    const contributorIds = rows.map(
+      (r: { contributor_id: string }) => r.contributor_id,
+    );
+    const { data: profiles } = await auth.supabase
+      .from("profiles")
+      .select("user_id, display_name")
+      .in("user_id", contributorIds);
+
+    const nameMap = new Map<string, string>();
+    for (const p of profiles ?? []) {
+      nameMap.set(p.user_id, p.display_name ?? "Partner");
+    }
+
+    // Fetch currency from caller's profile
+    const { data: callerProfile } = await auth.supabase
+      .from("profiles")
+      .select("currency")
+      .eq("user_id", auth.user.id)
+      .single();
+
+    // Place caller's entry first for consistent "my column on the left" UX
+    const sortedRows = [...rows].sort((a, b) =>
+      a.contributor_id === auth.user.id
+        ? -1
+        : b.contributor_id === auth.user.id
+          ? 1
+          : 0,
+    );
+
+    const contributions = sortedRows.map(
+      (r): ContributionEntry => ({
+        contributorId: r.contributor_id,
+        displayName: nameMap.get(r.contributor_id) ?? "Partner",
+        totalPaidMinor: r.total_paid_minor,
+        transactionCount: r.transaction_count,
+        goalContributionMinor: r.goal_contribution_minor,
+      }),
+    );
+
+    return {
+      contributions: contributions as [ContributionEntry, ContributionEntry],
+      currency: callerProfile?.currency ?? "USD",
+      periodStart: periodStart ?? null,
+      periodEnd: periodEnd ?? null,
+    };
+  } catch {
+    return null;
   }
 }

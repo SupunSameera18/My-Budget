@@ -1,3 +1,18 @@
+export interface ContributionEntry {
+  contributorId: string;
+  displayName: string;
+  totalPaidMinor: number;
+  transactionCount: number;
+  goalContributionMinor: number;
+}
+
+export interface ContributionAnalysisData {
+  contributions: [ContributionEntry, ContributionEntry];
+  currency: string;
+  periodStart: string | null;
+  periodEnd: string | null;
+}
+
 export type FamilyStatus =
   | { status: "solo" }
   | {

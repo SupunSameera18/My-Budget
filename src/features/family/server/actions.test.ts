@@ -22,6 +22,7 @@ import {
   getFamilyStatus,
   updatePrivacyToggle,
   getHidePersonal,
+  getContributionAnalysis,
 } from "./actions";
 import { requireUser } from "@/lib/supabase/require-user";
 
@@ -395,5 +396,113 @@ describe("getHidePersonal", () => {
 
     const value = await getHidePersonal();
     expect(value).toBe(false);
+  });
+});
+
+// ── getContributionAnalysis ───────────────────────────────────────────────────
+
+const ALICE_ID = "aaaaaaaa-0000-4000-8000-000000000001";
+const BOB_ID = "bbbbbbbb-0000-4000-8000-000000000002";
+
+const RPC_ROWS = [
+  {
+    contributor_id: ALICE_ID,
+    total_paid_minor: 500,
+    transaction_count: 2,
+    goal_contribution_minor: 100,
+  },
+  {
+    contributor_id: BOB_ID,
+    total_paid_minor: 300,
+    transaction_count: 2,
+    goal_contribution_minor: 0,
+  },
+];
+
+function makeContributionAuth(
+  rpcRows: unknown[] | null,
+  rpcError?: { code: string; message: string } | null,
+) {
+  const rpc = vi
+    .fn()
+    .mockResolvedValue({ data: rpcRows, error: rpcError ?? null });
+
+  // profiles query chain: .from("profiles").select(...).in(...) → array
+  // callerProfile query chain: .from("profiles").select("currency").eq(...).single() → single
+  const inChain = {
+    then: (r: (v: unknown) => unknown) =>
+      Promise.resolve({
+        data: [
+          { user_id: ALICE_ID, display_name: "Alice" },
+          { user_id: BOB_ID, display_name: "Bob" },
+        ],
+        error: null,
+      }).then(r),
+  };
+  const singleChain = {
+    single: vi
+      .fn()
+      .mockResolvedValue({ data: { currency: "USD" }, error: null }),
+  };
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const fromImpl = (_table: string) => ({
+    select: vi.fn().mockReturnValue({
+      in: vi.fn().mockReturnValue(inChain),
+      eq: vi.fn().mockReturnValue(singleChain),
+    }),
+  });
+
+  vi.mocked(requireUser).mockResolvedValue({
+    supabase: { rpc, from: fromImpl } as never,
+    user: { id: ALICE_ID } as never,
+  });
+
+  return rpc;
+}
+
+describe("getContributionAnalysis", () => {
+  it("returns null when not authenticated", async () => {
+    vi.mocked(requireUser).mockResolvedValue(null);
+    const result = await getContributionAnalysis();
+    expect(result).toBeNull();
+  });
+
+  it("returns null when RPC errors", async () => {
+    makeContributionAuth(null, { code: "500", message: "db error" });
+    const result = await getContributionAnalysis();
+    expect(result).toBeNull();
+  });
+
+  it("returns null when RPC returns 0 rows (solo user)", async () => {
+    makeContributionAuth([]);
+    const result = await getContributionAnalysis();
+    expect(result).toBeNull();
+  });
+
+  it("returns ContributionAnalysisData with caller first when RPC returns 2 rows", async () => {
+    makeContributionAuth(RPC_ROWS);
+    const result = await getContributionAnalysis();
+    expect(result).not.toBeNull();
+    expect(result!.contributions).toHaveLength(2);
+    // Caller (ALICE_ID) should be first
+    expect(result!.contributions[0].contributorId).toBe(ALICE_ID);
+    expect(result!.contributions[0].displayName).toBe("Alice");
+    expect(result!.contributions[0].totalPaidMinor).toBe(500);
+    expect(result!.contributions[0].goalContributionMinor).toBe(100);
+  });
+
+  it("passes period params to RPC", async () => {
+    const rpc = makeContributionAuth(RPC_ROWS);
+    await getContributionAnalysis("2026-06-01", "2026-06-30");
+    expect(rpc).toHaveBeenCalledWith("rpc_get_contribution_analysis", {
+      p_period_start: "2026-06-01",
+      p_period_end: "2026-06-30",
+    });
+  });
+
+  it("calls requireUser before any other async operation", async () => {
+    makeContributionAuth(RPC_ROWS);
+    await getContributionAnalysis();
+    expect(vi.mocked(requireUser)).toHaveBeenCalled();
   });
 });

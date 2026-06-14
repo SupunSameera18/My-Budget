@@ -31,9 +31,7 @@ export function BudgetCard({ budget, currency }: BudgetCardProps) {
         <h2 className="text-base font-semibold text-ink-primary">
           {budget.name}
         </h2>
-        <span
-          className="text-sm font-medium text-ink-primary"
-        >
+        <span className="text-sm font-medium text-ink-primary">
           {pct.toFixed(0)}%
         </span>
       </div>
@@ -57,9 +55,7 @@ export function BudgetCard({ budget, currency }: BudgetCardProps) {
           {formatMoney(budget.actual_minor, currency)} of{" "}
           {formatMoney(budget.limit_minor, currency)}
         </span>
-        <span
-          className="text-ink-primary"
-        >
+        <span className="text-ink-primary">
           {budget.remaining_minor >= 0
             ? `${formatMoney(budget.remaining_minor, currency)} left`
             : `${formatMoney(Math.abs(budget.remaining_minor), currency)} over`}

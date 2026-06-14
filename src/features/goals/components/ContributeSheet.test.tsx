@@ -1,4 +1,10 @@
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  act,
+} from "@testing-library/react";
 import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 import { ok, err, ErrorCode } from "@/lib/errors";
 

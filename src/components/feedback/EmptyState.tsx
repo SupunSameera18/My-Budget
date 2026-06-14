@@ -16,10 +16,11 @@ export function EmptyState({
   actionHref,
 }: EmptyStateProps) {
   const uid = useId();
-  const slug = heading
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "") || "empty";
+  const slug =
+    heading
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "empty";
   const headingId = `empty-state-${slug}-${uid.replace(/[^a-z0-9]/g, "")}`;
 
   return (

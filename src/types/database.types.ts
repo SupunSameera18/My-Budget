@@ -51,6 +51,8 @@ export type Database = {
           id: string;
           updated_at: string;
           user_id: string;
+          // ↓ Added by Story 1.7 (0007_profiles_display_name.sql)
+          display_name: string | null;
           // ↓ Added by Story 1.8
           currency: string;
           onboarding_step: number;
@@ -70,6 +72,8 @@ export type Database = {
           id?: string;
           updated_at?: string;
           user_id: string;
+          // ↓ Added by Story 1.7
+          display_name?: string | null;
           // ↓ Added by Story 1.8
           currency?: string;
           onboarding_step?: number;
@@ -86,6 +90,8 @@ export type Database = {
           id?: string;
           updated_at?: string;
           user_id?: string;
+          // ↓ Added by Story 1.7
+          display_name?: string | null;
           // ↓ Added by Story 1.8
           currency?: string;
           onboarding_step?: number;
@@ -464,6 +470,16 @@ export type Database = {
       rpc_reclassify_transaction: {
         Args: { p_transaction_id: string; p_new_is_shared: boolean };
         Returns: undefined;
+      };
+      // ↓ Added by Story 7.9
+      rpc_get_contribution_analysis: {
+        Args: { p_period_start?: string | null; p_period_end?: string | null };
+        Returns: {
+          contributor_id: string;
+          total_paid_minor: number;
+          transaction_count: number;
+          goal_contribution_minor: number;
+        }[];
       };
     };
     Enums: {
