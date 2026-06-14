@@ -161,6 +161,7 @@ export type TransactionListFilters = {
   showArchivedCategories?: boolean;
   isFamilyMode?: boolean;
   familyUnitId?: string;
+  scope?: import("@/features/analytics/schema").Scope;
 };
 
 export type TransactionListFilterAccount = Pick<

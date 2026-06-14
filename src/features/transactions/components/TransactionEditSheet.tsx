@@ -227,7 +227,10 @@ export function TransactionEditSheet({
           disabled={isShared}
           aria-disabled={isShared ? "true" : undefined}
           aria-describedby={isShared ? "amount-readonly-hint" : undefined}
-          className={`min-h-[44px] border border-hairline bg-surface-base text-ink-primary${isShared ? " cursor-not-allowed opacity-60" : ""}`}
+          className={
+            "min-h-[44px] border border-hairline bg-surface-base text-ink-primary" +
+            (isShared ? " cursor-not-allowed opacity-60" : "")
+          }
         />
       </div>
 
