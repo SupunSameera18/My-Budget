@@ -27,4 +27,38 @@ describe("ChartCard", () => {
     );
     expect(screen.getByText("No data available")).toBeTruthy();
   });
+
+  it("appends (Personal) suffix when scope=personal", () => {
+    render(
+      <ChartCard title="Spending" scope="personal">
+        content
+      </ChartCard>,
+    );
+    expect(screen.getByText("(Personal)")).toBeTruthy();
+  });
+
+  it("appends (Shared) suffix when scope=shared", () => {
+    render(
+      <ChartCard title="Spending" scope="shared">
+        content
+      </ChartCard>,
+    );
+    expect(screen.getByText("(Shared)")).toBeTruthy();
+  });
+
+  it("shows no suffix when scope=combined", () => {
+    render(
+      <ChartCard title="Spending" scope="combined">
+        content
+      </ChartCard>,
+    );
+    expect(screen.queryByText("(Combined)")).toBeNull();
+    expect(screen.queryByText("(Personal)")).toBeNull();
+  });
+
+  it("shows no suffix when scope is not provided", () => {
+    render(<ChartCard title="Spending">content</ChartCard>);
+    expect(screen.queryByText("(Personal)")).toBeNull();
+    expect(screen.queryByText("(Shared)")).toBeNull();
+  });
 });

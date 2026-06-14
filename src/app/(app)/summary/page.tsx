@@ -5,14 +5,25 @@ import { MonthSelector } from "@/features/analytics/components/MonthSelector";
 import { MonthlySummaryContent } from "@/features/analytics/components/MonthlySummaryContent";
 import { ExportCsvButton } from "@/features/analytics/components/ExportCsvButton";
 import { ExportPdfButton } from "@/features/analytics/components/ExportPdfButton";
+import { ScopeSegmentedControl } from "@/components/ui/ScopeSegmentedControl";
 import { monthBoundaries, currentMonthBoundaries } from "@/lib/period";
+import { getFamilyStatus } from "@/features/family/server/actions";
+import type { Scope } from "@/features/analytics/schema";
+
+const VALID_SCOPES: Scope[] = ["personal", "shared", "combined"];
 
 interface PageProps {
-  searchParams: Promise<{ month?: string }>;
+  searchParams: Promise<{ month?: string; scope?: string }>;
 }
 
 export default async function SummaryPage({ searchParams }: PageProps) {
-  const params = await searchParams;
+  const [params, familyStatus] = await Promise.all([
+    searchParams,
+    getFamilyStatus(),
+  ]);
+
+  const isFamilyMode = familyStatus.status === "in_family";
+
   const rawMonth = params.month;
 
   const currentYearMonth = (() => {
@@ -32,7 +43,12 @@ export default async function SummaryPage({ searchParams }: PageProps) {
     ? monthBoundaries(selectedMonth)
     : currentMonthBoundaries();
 
-  const data = await getMonthlySummaryData(period);
+  const scope: Scope =
+    isFamilyMode && VALID_SCOPES.includes(params.scope as Scope)
+      ? (params.scope as Scope)
+      : "combined";
+
+  const data = await getMonthlySummaryData(period, scope);
 
   if (!data) {
     return (
@@ -52,6 +68,12 @@ export default async function SummaryPage({ searchParams }: PageProps) {
       </h1>
       <Suspense fallback={null}>
         <MonthSelector selectedMonth={selectedMonth} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <ScopeSegmentedControl
+          isFamilyMode={isFamilyMode}
+          basePath="/summary"
+        />
       </Suspense>
       <MonthlySummaryContent data={data} />
       <div className="flex flex-wrap gap-2">

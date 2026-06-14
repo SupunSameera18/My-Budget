@@ -614,6 +614,15 @@ export async function getTransactionList(
 
     if (!filters.isFamilyMode) {
       txnQuery = txnQuery.eq("user_id", user.id);
+    } else {
+      // In family mode, apply scope filter on top of RLS
+      const scope = filters.scope ?? "combined";
+      if (scope === "personal") {
+        txnQuery = txnQuery.eq("is_shared", false).eq("user_id", user.id);
+      } else if (scope === "shared") {
+        txnQuery = txnQuery.eq("is_shared", true);
+      }
+      // combined: RLS handles everything, no additional filter
     }
 
     if (validAccountId) txnQuery = txnQuery.eq("account_id", validAccountId);
