@@ -3,7 +3,7 @@
 -- UUID block: 11111111-7011-4000-8000-* (alice=001, bob=002)
 
 BEGIN;
-SELECT plan(14);
+SELECT plan(16);
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Seed: alice (goal owner) and bob (family partner)
@@ -155,6 +155,32 @@ SELECT throws_ok(
   '42501',
   NULL::text,
   'T8: stranger contributing to Shared Goal raises 42501'
+);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- T8b: stranger cannot INSERT directly into goal_contributions for alice's Shared Goal
+--      Tests RLS WITH CHECK — distinct from the RPC path in T8
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Pre-assert: stranger has no existing contributions (non-vacuous)
+SET LOCAL ROLE postgres;
+SELECT is(
+  (SELECT COUNT(*)::int FROM public.goal_contributions
+   WHERE user_id = '11111111-7011-4000-8000-000000000003'),
+  0,
+  'T8b pre-assert: stranger has no contributions'
+);
+
+SET LOCAL ROLE authenticated;
+SET LOCAL "request.jwt.claims" TO '{"sub":"11111111-7011-4000-8000-000000000003"}';
+
+SELECT throws_ok(
+  $$INSERT INTO public.goal_contributions (goal_id, user_id, amount_minor, date)
+    VALUES ('11111111-7011-4000-8000-000000000020',
+            '11111111-7011-4000-8000-000000000003',
+            1000, '2026-06-06')$$,
+  NULL::text,
+  NULL::text,
+  'T8b: stranger direct INSERT into goal_contributions for Shared Goal is blocked by RLS'
 );
 
 -- ─────────────────────────────────────────────────────────────────────────────

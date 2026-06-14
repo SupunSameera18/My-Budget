@@ -112,6 +112,12 @@ export async function contributeToGoal(formData: FormData): Promise<Result> {
       if (error.code === "P0002") {
         return err(ErrorCode.ContributionCreateFailed, "Goal not found.");
       }
+      if (error.code === "P0001") {
+        return err(
+          ErrorCode.ContributionCreateFailed,
+          "You can only contribute to shared goals.",
+        );
+      }
       return err(
         ErrorCode.ContributionCreateFailed,
         "Failed to record contribution.",

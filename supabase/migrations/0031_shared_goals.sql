@@ -108,6 +108,7 @@ CREATE POLICY "family_member_reads_shared_goal_contributions"
         SELECT fm.join_date
           FROM public.family_members fm
          WHERE fm.user_id = auth.uid()
+         LIMIT 1
       )
       AND EXISTS (
         SELECT 1 FROM public.goals g
@@ -168,6 +169,7 @@ DECLARE
   v_caller          uuid := auth.uid();
   v_goal            goals%ROWTYPE;
   v_contribution_id uuid;
+  v_caller_join_date DATE;
 BEGIN
   IF v_caller IS NULL THEN
     RAISE EXCEPTION 'Not authenticated' USING ERRCODE = '42501';
@@ -190,14 +192,24 @@ BEGIN
     END IF;
 
     -- Verify caller is a family member with the goal owner (SECURITY DEFINER reads both rows)
-    IF NOT EXISTS (
-      SELECT 1 FROM public.family_members fm_me
+    -- Also fetch caller's join_date to enforce the join-date-forward invariant on p_date.
+    SELECT fm_me.join_date INTO v_caller_join_date
+      FROM public.family_members fm_me
       JOIN public.family_members fm_owner
         ON  fm_owner.family_unit_id = fm_me.family_unit_id
         AND fm_owner.user_id        = v_goal.user_id
-      WHERE fm_me.user_id = v_caller
-    ) THEN
+     WHERE fm_me.user_id = v_caller
+     LIMIT 1;
+
+    IF v_caller_join_date IS NULL THEN
       RAISE EXCEPTION 'Not a family member of goal owner' USING ERRCODE = '42501';
+    END IF;
+
+    -- Guard: partner cannot back-date a contribution before their own join_date.
+    -- Doing so would create asymmetric pooled progress (visible to owner, invisible to partner).
+    IF p_date < v_caller_join_date THEN
+      RAISE EXCEPTION 'Contribution date cannot be before your join date'
+        USING ERRCODE = 'P0003';
     END IF;
   END IF;
 
