@@ -381,9 +381,7 @@ describe("TransactionEditSheet — reclassify controls", () => {
     );
     await userEvent.click(screen.getByRole("button", { name: /cancel/i }));
     // After cancel, alertdialog has hidden=true — query with { hidden: true }
-    expect(
-      screen.getByRole("alertdialog", { hidden: true }),
-    ).not.toBeVisible();
+    expect(screen.getByRole("alertdialog", { hidden: true })).not.toBeVisible();
   });
 
   it("calls reclassifyTransaction(id, false) when confirmation confirmed", async () => {

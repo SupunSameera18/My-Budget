@@ -1,6 +1,12 @@
 import { requireUser } from "@/lib/supabase/require-user";
 import { signOut } from "@/features/auth/server/actions";
-import { BarChart2, CalendarDays, LogOut, Settings, Target } from "lucide-react";
+import {
+  BarChart2,
+  CalendarDays,
+  LogOut,
+  Settings,
+  Target,
+} from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/ThemeToggle";
 

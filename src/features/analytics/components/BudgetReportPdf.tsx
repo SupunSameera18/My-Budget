@@ -67,7 +67,9 @@ export function BudgetReportPdf({
             <Text style={[styles.colDate, styles.colHeaderText]}>Date</Text>
             <Text style={[styles.colAmount, styles.colHeaderText]}>Amount</Text>
             <Text style={[styles.colType, styles.colHeaderText]}>Type</Text>
-            <Text style={[styles.colCategory, styles.colHeaderText]}>Category</Text>
+            <Text style={[styles.colCategory, styles.colHeaderText]}>
+              Category
+            </Text>
             <Text style={[styles.colNote, styles.colHeaderText]}>Note</Text>
           </View>
           {rows.map((row, i) => (

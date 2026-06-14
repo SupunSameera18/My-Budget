@@ -75,7 +75,7 @@ export async function ChecklistCard() {
                   {item.label}
                 </span>
                 <ChevronRight
-                  className="h-4 w-4 shrink-0 text-ink-secondary/40"
+                  className="text-ink-secondary/40 h-4 w-4 shrink-0"
                   strokeWidth={1.75}
                 />
               </div>

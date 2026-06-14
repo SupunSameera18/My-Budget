@@ -429,7 +429,9 @@ export function TransactionEditSheet({
               setShowMakePersonalConfirm(true);
             }}
             disabled={isPending || showMakePersonalConfirm}
-            aria-disabled={isPending || showMakePersonalConfirm ? "true" : undefined}
+            aria-disabled={
+              isPending || showMakePersonalConfirm ? "true" : undefined
+            }
             aria-label="Make this transaction personal"
             className="min-h-[44px] w-full"
           >
@@ -480,9 +482,7 @@ export function TransactionEditSheet({
 
       {/* Reclassify error — inline visual text; announced via main live region above */}
       {reclassifyError && (
-        <p className="text-sm text-destructive">
-          {reclassifyError}
-        </p>
+        <p className="text-sm text-destructive">{reclassifyError}</p>
       )}
 
       {/* Delete section — only owner can delete; partner sees no delete button */}
