@@ -219,7 +219,7 @@ SELECT ok(
 -- Assert the function accepts exactly 3 parameters (transaction_id, note, category_id)
 SET LOCAL ROLE postgres;
 SELECT is(
-  (SELECT pronargs FROM pg_proc
+  (SELECT pronargs::int FROM pg_proc
     JOIN pg_namespace ON pg_namespace.oid = pg_proc.pronamespace
    WHERE pg_namespace.nspname = 'public'
      AND pg_proc.proname = 'rpc_edit_shared_transaction'),

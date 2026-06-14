@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   editTransaction,
   editSharedTransaction,
   deleteTransaction,
+  reclassifyTransaction,
 } from "@/features/transactions/server/actions";
 import { useOnlineStatus } from "@/lib/hooks/useOnlineStatus";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,8 @@ interface TransactionEditSheetProps {
   isShared?: boolean;
   partnerName?: string;
   viewerUserId: string;
+  isFamilyMode?: boolean;
+  partnerJoinDate?: string | null;
 }
 
 export function TransactionEditSheet({
@@ -43,11 +46,15 @@ export function TransactionEditSheet({
   isShared = false,
   partnerName = "Your partner",
   viewerUserId,
+  isFamilyMode = false,
+  partnerJoinDate,
 }: TransactionEditSheetProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const isOnline = useOnlineStatus();
   const [showSplitSheet, setShowSplitSheet] = useState(false);
+  const [showMakePersonalConfirm, setShowMakePersonalConfirm] = useState(false);
+  const makePersonalConfirmRef = useRef<HTMLButtonElement>(null);
 
   const [amountDisplay, setAmountDisplay] = useState(
     (transaction.amount_minor / 100).toFixed(2),
@@ -65,6 +72,53 @@ export function TransactionEditSheet({
   );
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [liveMessage, setLiveMessage] = useState("");
+  const [reclassifyError, setReclassifyError] = useState("");
+
+  // Focus confirm button when inline alertdialog appears (AC: 16)
+  useEffect(() => {
+    if (showMakePersonalConfirm) {
+      makePersonalConfirmRef.current?.focus();
+    }
+  }, [showMakePersonalConfirm]);
+
+  // True when the viewer is the transaction owner AND in family mode
+  const isOwner = transaction.user_id === viewerUserId;
+  // Pre-join block: transaction date is before partner's join date
+  const isPreJoinBlocked =
+    isFamilyMode &&
+    isOwner &&
+    !isShared &&
+    !!partnerJoinDate &&
+    transaction.date < partnerJoinDate;
+
+  function handleMakeShared() {
+    setReclassifyError("");
+    setLiveMessage("");
+    startTransition(async () => {
+      const result = await reclassifyTransaction(transaction.id, true);
+      if (result.ok) {
+        router.refresh();
+      } else {
+        setReclassifyError(result.error.message);
+        setLiveMessage("Reclassify failed");
+      }
+    });
+  }
+
+  function handleMakePersonal() {
+    setReclassifyError("");
+    setLiveMessage("");
+    setShowMakePersonalConfirm(false);
+    startTransition(async () => {
+      const result = await reclassifyTransaction(transaction.id, false);
+      if (result.ok) {
+        router.refresh();
+      } else {
+        setReclassifyError(result.error.message);
+        setLiveMessage("Reclassify failed");
+      }
+    });
+  }
 
   const expenseCategories = categories.filter((c) => c.type === "expense");
   const incomeCategories = categories.filter((c) => c.type === "income");
@@ -331,8 +385,109 @@ export function TransactionEditSheet({
         </Button>
       )}
 
+      {/* ── Reclassify: Make shared (Personal → Shared) ────────────────────
+          Hidden in solo mode; only shown to transaction owner when personal.
+          Disabled with explanation if transaction date precedes partner join date. */}
+      {isFamilyMode && isOwner && !isShared && (
+        <div className="flex flex-col gap-2">
+          {/* Pre-join explanation — always in DOM so aria-describedby resolves (§9) */}
+          <span id="pre-join-hint" className="sr-only">
+            This transaction predates your partner&apos;s join date and cannot
+            be shared.
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleMakeShared}
+            disabled={isPending || isPreJoinBlocked}
+            aria-disabled={isPending || isPreJoinBlocked ? "true" : undefined}
+            aria-describedby={isPreJoinBlocked ? "pre-join-hint" : undefined}
+            aria-label="Make this transaction shared"
+            className="min-h-[44px] w-full"
+          >
+            Make shared
+          </Button>
+          {isPreJoinBlocked && (
+            <p className="text-sm text-ink-secondary" aria-hidden="true">
+              This transaction predates your partner&apos;s join date and cannot
+              be shared.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* ── Reclassify: Make personal (Shared → Personal) ──────────────────
+          Hidden in solo mode; only shown to transaction owner when shared.
+          Requires inline confirmation (destructive action). */}
+      {isFamilyMode && isOwner && isShared && (
+        <div className="flex flex-col gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setReclassifyError("");
+              setShowMakePersonalConfirm(true);
+            }}
+            disabled={isPending || showMakePersonalConfirm}
+            aria-disabled={isPending || showMakePersonalConfirm ? "true" : undefined}
+            aria-label="Make this transaction personal"
+            className="min-h-[44px] w-full"
+          >
+            Make personal
+          </Button>
+
+          {/* Inline confirmation — always mounted; hidden when not shown (§9) */}
+          <div
+            role="alertdialog"
+            aria-labelledby="make-personal-heading"
+            hidden={!showMakePersonalConfirm}
+            className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4"
+          >
+            <p
+              id="make-personal-heading"
+              className="text-sm font-medium text-ink-primary"
+            >
+              Remove from shared view?
+            </p>
+            <p className="text-sm text-ink-secondary">
+              This will remove the transaction from your partner&apos;s view.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                ref={makePersonalConfirmRef}
+                type="button"
+                disabled={isPending}
+                aria-disabled={isPending ? "true" : undefined}
+                onClick={handleMakePersonal}
+                className="min-h-[44px] flex-1 bg-amber-600 text-white hover:bg-amber-700"
+              >
+                {isPending ? "Saving…" : "Make personal"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isPending}
+                aria-disabled={isPending ? "true" : undefined}
+                onClick={() => setShowMakePersonalConfirm(false)}
+                className="min-h-[44px] flex-1"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reclassify error — inline visual text; announced via main live region above */}
+      {reclassifyError && (
+        <p className="text-sm text-destructive">
+          {reclassifyError}
+        </p>
+      )}
+
       {/* Delete section — only owner can delete; partner sees no delete button */}
-      {isShared && viewerUserId !== transaction.user_id ? null : !showDeleteConfirm ? (
+      {isShared &&
+      viewerUserId !== transaction.user_id ? null : !showDeleteConfirm ? (
         <Button
           type="button"
           variant="ghost"
@@ -396,15 +551,32 @@ export function TransactionEditSheet({
                       className={`rounded px-1.5 py-0.5 text-xs font-semibold ${
                         entry.change_type === "delete"
                           ? "bg-destructive/10 text-destructive"
-                          : "bg-brand-accent-strong/10 text-brand-accent-strong"
+                          : entry.change_type === "reclassified_to_shared" ||
+                              entry.change_type === "reclassified_to_personal"
+                            ? "bg-amber-100 text-amber-800"
+                            : "bg-brand-accent-strong/10 text-brand-accent-strong"
                       }`}
                     >
-                      {entry.change_type === "delete" ? "Deleted" : "Edited"}
+                      {entry.change_type === "delete"
+                        ? "Deleted"
+                        : entry.change_type === "reclassified_to_shared"
+                          ? "Made shared"
+                          : entry.change_type === "reclassified_to_personal"
+                            ? "Made personal"
+                            : "Edited"}
                     </span>
                   </div>
                   {entry.change_type === "delete" ? (
                     <span className="text-ink-secondary">
                       Transaction removed
+                    </span>
+                  ) : entry.change_type === "reclassified_to_shared" ? (
+                    <span className="text-ink-secondary">
+                      Reclassified to Shared
+                    </span>
+                  ) : entry.change_type === "reclassified_to_personal" ? (
+                    <span className="text-ink-secondary">
+                      Reclassified to Personal
                     </span>
                   ) : (
                     <span className="text-ink-secondary">
