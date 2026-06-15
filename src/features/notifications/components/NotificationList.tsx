@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { markAllNotificationsRead } from "@/features/notifications/server/actions";
 import { NotificationItem } from "./NotificationItem";
@@ -13,6 +14,7 @@ interface NotificationListProps {
 export function NotificationList({ notifications }: NotificationListProps) {
   const [statusMessage, setStatusMessage] = useState("");
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   const hasUnread = notifications.some((n) => n.read_at === null);
 
@@ -25,6 +27,7 @@ export function NotificationList({ notifications }: NotificationListProps) {
           ? "All notifications marked as read."
           : "Failed to mark all as read.",
       );
+      if (result.ok) router.refresh();
     });
   }
 

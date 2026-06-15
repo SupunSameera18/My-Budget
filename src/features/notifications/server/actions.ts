@@ -34,14 +34,20 @@ export async function markNotificationRead(id: string): Promise<Result<void>> {
   if (!parsed.success)
     return err(ErrorCode.NotificationUpdateFailed, "Invalid notification id");
 
-  const { error } = await auth.supabase
+  const { data, error } = await auth.supabase
     .from("notifications")
     .update({ read_at: new Date().toISOString() })
     .eq("id", parsed.data)
     .eq("user_id", auth.user.id)
-    .is("read_at", null);
+    .is("read_at", null)
+    .select("id");
 
   if (error) return err(ErrorCode.NotificationUpdateFailed, error.message);
+  if (!data || data.length === 0)
+    return err(
+      ErrorCode.NotificationUpdateFailed,
+      "Notification not found or already read",
+    );
   return ok(undefined);
 }
 
@@ -69,13 +75,26 @@ export async function dismissNotification(id: string): Promise<Result<void>> {
     return err(ErrorCode.NotificationUpdateFailed, "Invalid notification id");
 
   const now = new Date().toISOString();
-  const { error } = await auth.supabase
-    .from("notifications")
-    .update({ dismissed_at: now, read_at: now })
-    .eq("id", parsed.data)
-    .eq("user_id", auth.user.id);
 
-  if (error) return err(ErrorCode.NotificationUpdateFailed, error.message);
+  // P6: guard against double-dismiss re-stamping dismissed_at
+  const { error: e1 } = await auth.supabase
+    .from("notifications")
+    .update({ dismissed_at: now })
+    .eq("id", parsed.data)
+    .eq("user_id", auth.user.id)
+    .is("dismissed_at", null);
+
+  if (e1) return err(ErrorCode.NotificationUpdateFailed, e1.message);
+
+  // P3: COALESCE(read_at, now()) — only set read_at if not already read
+  const { error: e2 } = await auth.supabase
+    .from("notifications")
+    .update({ read_at: now })
+    .eq("id", parsed.data)
+    .eq("user_id", auth.user.id)
+    .is("read_at", null);
+
+  if (e2) return err(ErrorCode.NotificationUpdateFailed, e2.message);
   return ok(undefined);
 }
 

@@ -93,7 +93,7 @@ SELECT throws_ok(
   $$DELETE FROM public.notifications WHERE user_id = auth.uid()$$,
   '42501',
   NULL::text,
-  'T7: alice DELETE raises 42501 (INSERT privilege revoked)'
+  'T7: alice DELETE raises 42501 (DELETE privilege revoked)'
 );
 
 -- T8: authenticated=alice cannot INSERT directly → raises 42501 (privilege revoked)

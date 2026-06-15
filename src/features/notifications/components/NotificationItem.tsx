@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AlertCircle, Bell, CalendarCheck, Users } from "lucide-react";
 import {
@@ -20,7 +21,8 @@ const TYPE_ICONS: Record<NotificationType, React.ElementType> = {
 };
 
 function relativeTime(isoString: string): string {
-  const diff = Date.now() - new Date(isoString).getTime();
+  const diff = Math.max(0, Date.now() - new Date(isoString).getTime());
+  if (isNaN(diff)) return "just now";
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return "just now";
   if (mins < 60) return `${mins}m ago`;
@@ -40,6 +42,7 @@ export function NotificationItem({
   onStatusChange,
 }: NotificationItemProps) {
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
   const Icon = TYPE_ICONS[notification.type] ?? Bell;
   const isUnread = notification.read_at === null;
 
@@ -48,6 +51,7 @@ export function NotificationItem({
       onStatusChange("");
       const result = await markNotificationRead(notification.id);
       onStatusChange(result.ok ? "Marked as read." : "Failed to mark as read.");
+      if (result.ok) router.refresh();
     });
   }
 
@@ -60,6 +64,7 @@ export function NotificationItem({
           ? "Notification dismissed."
           : "Failed to dismiss notification.",
       );
+      if (result.ok) router.refresh();
     });
   }
 
@@ -67,10 +72,10 @@ export function NotificationItem({
     <article
       role="article"
       aria-label={notification.title}
-      className={`relative flex gap-3 rounded-lg border p-4 transition-colors ${
+      className={`relative flex gap-3 rounded-lg p-4 transition-colors ${
         isUnread
           ? "border-l-2 border-brand-accent bg-card"
-          : "border-hairline bg-card"
+          : "border border-hairline bg-card"
       }`}
     >
       <Icon

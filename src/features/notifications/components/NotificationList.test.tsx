@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 
-vi.mock("next/navigation", () => ({ useRouter: vi.fn() }));
+vi.mock("next/navigation", () => ({
+  useRouter: vi.fn(() => ({ refresh: vi.fn() })),
+}));
 vi.mock("@/features/notifications/server/actions", () => ({
   markNotificationRead: vi.fn(),
   dismissNotification: vi.fn(),

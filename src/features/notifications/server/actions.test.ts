@@ -18,15 +18,13 @@ const USER_ID = "11111111-9001-4000-8000-000000000099";
 const NOTIF_ID = "22222222-9001-4000-8000-000000000001";
 
 // Flat thenable chain — every method returns itself; chain resolves as a Promise
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+/* eslint-disable @typescript-eslint/no-explicit-any */
 function makeChain(resolved: {
   data?: unknown;
   error?: unknown;
   count?: number | null;
 }): any {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const chain: any = {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     then: (resolve: any, reject: any) =>
       Promise.resolve({
         data: resolved.data ?? null,
@@ -51,6 +49,7 @@ function makeChain(resolved: {
   }
   return chain;
 }
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 function mockAuth(chain: ReturnType<typeof makeChain>) {
   vi.mocked(requireUser).mockResolvedValue({
@@ -121,7 +120,7 @@ describe("getNotifications", () => {
 
 describe("markNotificationRead", () => {
   it("calls requireUser first (§9)", async () => {
-    const chain = makeChain({ error: null });
+    const chain = makeChain({ data: [{ id: NOTIF_ID }], error: null });
     mockAuth(chain);
     await markNotificationRead(NOTIF_ID);
     expect(vi.mocked(requireUser)).toHaveBeenCalledOnce();
@@ -143,17 +142,26 @@ describe("markNotificationRead", () => {
   });
 
   it("applies explicit user_id filter (§9 defense-in-depth)", async () => {
-    const chain = makeChain({ error: null });
+    const chain = makeChain({ data: [{ id: NOTIF_ID }], error: null });
     mockAuth(chain);
     await markNotificationRead(NOTIF_ID);
     expect(chain.eq).toHaveBeenCalledWith("user_id", USER_ID);
   });
 
   it("returns ok(undefined) on success", async () => {
-    const chain = makeChain({ error: null });
+    const chain = makeChain({ data: [{ id: NOTIF_ID }], error: null });
     mockAuth(chain);
     const result = await markNotificationRead(NOTIF_ID);
     expect(result.ok).toBe(true);
+  });
+
+  it("returns err(NotificationUpdateFailed) when 0 rows updated (already read / not found)", async () => {
+    const chain = makeChain({ data: [], error: null });
+    mockAuth(chain);
+    const result = await markNotificationRead(NOTIF_ID);
+    expect(result.ok).toBe(false);
+    if (!result.ok)
+      expect(result.error.code).toBe(ErrorCode.NotificationUpdateFailed);
   });
 
   it("returns err(NotificationUpdateFailed) on DB error", async () => {

@@ -196,7 +196,11 @@ Deno.serve(async (req: Request) => {
       if (e15) throw e15;
 
       // Delete notifications (Story 9.1 — migration 0040)
-      await adminClient.from("notifications").delete().eq("user_id", userId);
+      const { error: eNotif1 } = await adminClient
+        .from("notifications")
+        .delete()
+        .eq("user_id", userId);
+      if (eNotif1) throw eNotif1;
 
       // Step 5: Delete auth user — POINT OF NO RETURN
       const { error: deleteError } =
@@ -280,7 +284,11 @@ Deno.serve(async (req: Request) => {
       if (s10) throw s10;
 
       // Delete notifications (Story 9.1 — migration 0040)
-      await adminClient.from("notifications").delete().eq("user_id", userId);
+      const { error: eNotif2 } = await adminClient
+        .from("notifications")
+        .delete()
+        .eq("user_id", userId);
+      if (eNotif2) throw eNotif2;
 
       // Delete auth user — POINT OF NO RETURN
       const { error: deleteError } =
