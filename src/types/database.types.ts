@@ -369,7 +369,6 @@ export type Database = {
           family_unit_id: string;
           user_id: string;
           join_date: string;
-          hide_personal: boolean;
           joined_at: string;
         };
         Insert: {
@@ -377,7 +376,6 @@ export type Database = {
           family_unit_id: string;
           user_id: string;
           join_date: string;
-          hide_personal?: boolean;
           joined_at?: string;
         };
         Update: {
@@ -385,7 +383,6 @@ export type Database = {
           family_unit_id?: string;
           user_id?: string;
           join_date?: string;
-          hide_personal?: boolean;
           joined_at?: string;
         };
         Relationships: [];

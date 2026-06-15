@@ -44,11 +44,11 @@ INSERT INTO public.family_units (id)
 VALUES ('11111111-7008-4000-8000-000000000010');
 
 -- Alice joined first (2026-01-01); Bob joined later (2026-03-01).
--- Alice has hide_personal=true so bob cannot see her personal transactions (AC14 / S4).
-INSERT INTO public.family_members (family_unit_id, user_id, join_date, joined_at, hide_personal)
+-- Bob cannot see alice's personal transactions (personal is always owner-only, AC14 / S4).
+INSERT INTO public.family_members (family_unit_id, user_id, join_date, joined_at)
 VALUES
-  ('11111111-7008-4000-8000-000000000010', '11111111-7008-4000-8000-000000000001', '2026-01-01', '2026-01-01 10:00:00', true),
-  ('11111111-7008-4000-8000-000000000010', '11111111-7008-4000-8000-000000000002', '2026-03-01', '2026-03-01 10:00:00', false);
+  ('11111111-7008-4000-8000-000000000010', '11111111-7008-4000-8000-000000000001', '2026-01-01', '2026-01-01 10:00:00'),
+  ('11111111-7008-4000-8000-000000000010', '11111111-7008-4000-8000-000000000002', '2026-03-01', '2026-03-01 10:00:00');
 
 -- tx_pre_join: alice's personal, date BEFORE bob's join_date → pre-join block applies
 INSERT INTO public.transactions
@@ -213,9 +213,8 @@ SELECT is(
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- S4: AC14 — After Shared→Personal, bob sees 0 rows for tx_shared.
---     alice has hide_personal=true in the fixture, so the RLS predicate returns
---     false for bob on alice's personal rows. This verifies that the is_shared
---     flip correctly withdraws the row from the partner's visible set.
+--     Personal transactions are always owner-only; the is_shared flip correctly
+--     withdraws the row from the partner's visible set.
 -- ═══════════════════════════════════════════════════════════════════════════
 SET LOCAL ROLE authenticated;
 SET LOCAL "request.jwt.claims" TO '{"sub":"11111111-7008-4000-8000-000000000002"}';

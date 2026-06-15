@@ -2,13 +2,11 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/supabase/require-user";
 import {
   getFamilyStatus,
-  getHidePersonal,
   getContributionAnalysis,
 } from "@/features/family/server/actions";
 import { InviteGenerator } from "@/features/family/components/InviteGenerator";
 import { JoinFamilyForm } from "@/features/family/components/JoinFamilyForm";
 import { FamilyStatusBanner } from "@/features/family/components/FamilyStatusBanner";
-import { PrivacyToggle } from "@/features/family/components/PrivacyToggle";
 import { ContributionAnalysis } from "@/features/family/components/ContributionAnalysis";
 import { currentMonthBoundaries } from "@/lib/period";
 
@@ -17,9 +15,8 @@ export default async function FamilyPage() {
   if (!auth) redirect("/auth/login");
 
   const { start, end } = currentMonthBoundaries();
-  const [familyStatus, hidePersonal, contributionData] = await Promise.all([
+  const [familyStatus, contributionData] = await Promise.all([
     getFamilyStatus(),
-    getHidePersonal(),
     getContributionAnalysis(start, end),
   ]);
 
@@ -50,11 +47,6 @@ export default async function FamilyPage() {
             />
           </section>
 
-          <PrivacyToggle
-            initialValue={hidePersonal}
-            isFamilyMode={isFamilyMode}
-          />
-
           <ContributionAnalysis
             initialData={contributionData}
             isFamilyMode={isFamilyMode}
@@ -83,9 +75,6 @@ export default async function FamilyPage() {
               <JoinFamilyForm />
             </section>
           </div>
-
-          {/* PrivacyToggle hidden in solo mode; aria-live pre-registered in DOM */}
-          <PrivacyToggle initialValue={false} isFamilyMode={false} />
 
           {/* ContributionAnalysis hidden in solo mode; aria-live pre-registered in DOM */}
           <ContributionAnalysis initialData={null} isFamilyMode={false} />

@@ -7,7 +7,7 @@
 
 BEGIN;
 
-SELECT plan(31);
+SELECT plan(27);
 
 -- ── 1–4: family_units table shape ────────────────────────────────────────────
 
@@ -29,16 +29,6 @@ SELECT col_not_null('public', 'family_members', 'user_id', 'user_id is NOT NULL'
 SELECT has_column('public', 'family_members', 'join_date', 'family_members.join_date exists');
 SELECT col_not_null('public', 'family_members', 'join_date', 'join_date is NOT NULL');
 
-SELECT has_column('public', 'family_members', 'hide_personal', 'family_members.hide_personal exists');
-SELECT col_not_null('public', 'family_members', 'hide_personal', 'hide_personal is NOT NULL');
-SELECT is(
-  (SELECT column_default FROM information_schema.columns
-   WHERE table_schema = 'public' AND table_name = 'family_members'
-     AND column_name = 'hide_personal'),
-  'false',
-  'hide_personal defaults to false'
-);
-
 SELECT has_column('public', 'family_members', 'joined_at', 'family_members.joined_at exists');
 SELECT col_not_null('public', 'family_members', 'joined_at', 'joined_at is NOT NULL');
 
@@ -59,14 +49,6 @@ SELECT is(
   'date',
   'family_members.join_date type is date (not timestamptz)'
 );
-SELECT is(
-  (SELECT data_type FROM information_schema.columns
-   WHERE table_schema = 'public' AND table_name = 'family_members'
-     AND column_name = 'hide_personal'),
-  'boolean',
-  'family_members.hide_personal type is boolean'
-);
-
 -- Structural UNIQUE assertion (AC7: "UNIQUE on (family_unit_id, user_id)")
 -- Counts how many of the expected columns appear in any UNIQUE constraint on this table.
 -- Result = 2 means both columns are covered by a single UNIQUE constraint.

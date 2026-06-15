@@ -1,27 +1,27 @@
 -- Story 7.1b: RLS visibility predicate golden suite
+-- Updated in 0036: Personal transactions are always owner-only (no toggle).
 -- UUID block: eeeeeeee-* (reserved for 7.1b per dev-learnings §5)
 --   eeeeeeee-eeee-4eee-8eee-000000000001 = alice (solo + family creator)
 --   eeeeeeee-eeee-4eee-8eee-000000000002 = bob   (joins alice's family, later join_date)
 --   eeeeeeee-eeee-4eee-8eee-000000000003 = carol  (stranger, no family relation)
 --   eeeeeeee-eeee-4eee-8eee-000000000010 = alice's family_unit
 --
--- Visibility scenarios exercised (11 AC scenarios + 1 scope-filter aggregate = 35 assertions):
+-- Visibility scenarios exercised (28 assertions):
 --   S1: owner reads own Personal row (no family)
 --   S2: owner reads own Shared row (no family)
 --   S3: stranger reads another user's Personal row
 --   S4: pre-join Shared — row created before viewer's join_date (direct)
 --   S5: pre-join Shared — aggregate COUNT for later joiner
 --   S6: post-join Shared — row created on/after viewer's join_date (visible to both)
---   S7: Personal, no hide_personal — owner sees; partner sees (opt-out model)
---   S8: hide_personal member1=true — partner cannot see member1's Personal
---   S9: hide_personal member2=true — member2 cannot see member1's Personal (symmetric)
---  S10: hide_personal active — owner still sees own Personal
+--   S7: Personal — owner sees own; partner CANNOT see (always blocked)
+--   S8: partner cannot see other member's Personal (symmetric)
+--  S10: owner always sees own Personal
 --  S11: write path — non-member cannot INSERT is_shared=true transaction for another user
 --  S12: scope-filter aggregate compatibility (GROUP BY is_shared — retro A10)
 
 BEGIN;
 
-SELECT plan(35);
+SELECT plan(28);
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- SEED (as postgres — bypasses RLS)
@@ -96,6 +96,16 @@ SELECT
   'eeeeeeee-eeee-4eee-8eee-000000000013',
   (SELECT id FROM public.categories WHERE user_id = 'eeeeeeee-eeee-4eee-8eee-000000000003' AND type = 'expense' LIMIT 1),
   4000, '2026-01-20', 'expense', false;
+
+-- Tx 5: bob Personal (used in S8/S10/S12)
+INSERT INTO public.transactions
+  (id, user_id, account_id, category_id, amount_minor, date, type, is_shared)
+SELECT
+  'eeeeeeee-eeee-4eee-8eee-000000000025',
+  'eeeeeeee-eeee-4eee-8eee-000000000002',
+  'eeeeeeee-eeee-4eee-8eee-000000000012',
+  (SELECT id FROM public.categories WHERE user_id = 'eeeeeeee-eeee-4eee-8eee-000000000002' AND type = 'expense' LIMIT 1),
+  5000, '2026-02-10', 'expense', false;
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- S1: owner reads own Personal row (no family context needed)
@@ -198,17 +208,17 @@ SELECT is(
 );
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- S7: Personal, no hide_personal — owner sees; partner blocked
+-- S7: Personal — owner sees own; partner CANNOT see (always blocked)
 -- ═══════════════════════════════════════════════════════════════════════════
 -- alice sees own Personal
 SELECT is(
   (SELECT COUNT(*)::int FROM public.transactions
    WHERE id = 'eeeeeeee-eeee-4eee-8eee-000000000021'),
   1,
-  'S7a: alice sees own Personal (no hide_personal)'
+  'S7a: alice sees own Personal row'
 );
 
--- bob tries to see alice's Personal — blocked when hide_personal=false for both
+-- Pre-assert: alice Personal row exists for bob test
 SET LOCAL ROLE postgres;
 SELECT is(
   (SELECT COUNT(*)::int FROM public.transactions
@@ -217,92 +227,26 @@ SELECT is(
   'S7 pre-assert: alice Personal row exists for bob test'
 );
 
--- Confirm hide_personal is false for both members (default state)
-SELECT is(
-  (SELECT BOOL_AND(NOT hide_personal) FROM public.family_members
-   WHERE family_unit_id = 'eeeeeeee-eeee-4eee-8eee-000000000010'),
-  true,
-  'S7 pre-assert: hide_personal is false for all members'
-);
-
 SET LOCAL ROLE authenticated;
 SET LOCAL "request.jwt.claims" TO '{"sub":"eeeeeeee-eeee-4eee-8eee-000000000002"}';
 
--- With no hide_personal set, bob CAN see alice's Personal (partner visibility when no privacy toggle)
-SELECT is(
-  (SELECT COUNT(*)::int FROM public.transactions
-   WHERE id = 'eeeeeeee-eeee-4eee-8eee-000000000021'),
-  1,
-  'S7b: bob can see alice Personal row when hide_personal=false for both'
-);
-
--- ═══════════════════════════════════════════════════════════════════════════
--- S8: hide_personal member1 (alice) = true → bob cannot see alice Personal
--- ═══════════════════════════════════════════════════════════════════════════
-SET LOCAL ROLE postgres;
-UPDATE public.family_members
-   SET hide_personal = true
- WHERE family_unit_id = 'eeeeeeee-eeee-4eee-8eee-000000000010'
-   AND user_id        = 'eeeeeeee-eeee-4eee-8eee-000000000001';
-
--- Pre-assert: alice's Personal row still physically exists
-SELECT is(
-  (SELECT COUNT(*)::int FROM public.transactions
-   WHERE id = 'eeeeeeee-eeee-4eee-8eee-000000000021'),
-  1,
-  'S8 pre-assert: alice Personal row still physically exists'
-);
-
-SET LOCAL ROLE authenticated;
-SET LOCAL "request.jwt.claims" TO '{"sub":"eeeeeeee-eeee-4eee-8eee-000000000002"}';
-
+-- Personal is always owner-only — bob is blocked regardless of any setting
 SELECT is(
   (SELECT COUNT(*)::int FROM public.transactions
    WHERE id = 'eeeeeeee-eeee-4eee-8eee-000000000021'),
   0,
-  'S8: bob cannot see alice Personal when alice.hide_personal=true'
+  'S7b: bob cannot see alice Personal row (personal is always owner-only)'
 );
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- S9: Symmetric — hide_personal member2 (bob) = true → alice cannot see bob Personal
---     (alice's toggle still true from S8; also testing OR symmetry)
+-- S8: Symmetric — alice cannot see bob Personal (always blocked)
 -- ═══════════════════════════════════════════════════════════════════════════
--- Reset alice's flag; set bob's flag instead to test pure bob-side symmetry
 SET LOCAL ROLE postgres;
-UPDATE public.family_members
-   SET hide_personal = false
- WHERE family_unit_id = 'eeeeeeee-eeee-4eee-8eee-000000000010'
-   AND user_id        = 'eeeeeeee-eeee-4eee-8eee-000000000001';
-
-UPDATE public.family_members
-   SET hide_personal = true
- WHERE family_unit_id = 'eeeeeeee-eeee-4eee-8eee-000000000010'
-   AND user_id        = 'eeeeeeee-eeee-4eee-8eee-000000000002';
-
--- Insert a bob Personal transaction so we have something to test
-INSERT INTO public.transactions
-  (id, user_id, account_id, category_id, amount_minor, date, type, is_shared)
-SELECT
-  'eeeeeeee-eeee-4eee-8eee-000000000025',
-  'eeeeeeee-eeee-4eee-8eee-000000000002',
-  'eeeeeeee-eeee-4eee-8eee-000000000012',
-  (SELECT id FROM public.categories WHERE user_id = 'eeeeeeee-eeee-4eee-8eee-000000000002' AND type = 'expense' LIMIT 1),
-  5000, '2026-02-10', 'expense', false;
-
--- Pre-assert: bob's Personal row exists
 SELECT is(
   (SELECT COUNT(*)::int FROM public.transactions
    WHERE id = 'eeeeeeee-eeee-4eee-8eee-000000000025'),
   1,
-  'S9 pre-assert: bob Personal row exists'
-);
-
--- Also pre-assert alice's Personal row still exists (for S10 later)
-SELECT is(
-  (SELECT COUNT(*)::int FROM public.transactions
-   WHERE id = 'eeeeeeee-eeee-4eee-8eee-000000000021'),
-  1,
-  'S9/S10 pre-assert: alice Personal row exists'
+  'S8 pre-assert: bob Personal row exists'
 );
 
 SET LOCAL ROLE authenticated;
@@ -312,53 +256,31 @@ SELECT is(
   (SELECT COUNT(*)::int FROM public.transactions
    WHERE id = 'eeeeeeee-eeee-4eee-8eee-000000000025'),
   0,
-  'S9a: alice cannot see bob Personal when bob.hide_personal=true (symmetric)'
-);
-
--- S9b also tests that alice cannot see her OWN partner's Personal when bob's flag is set,
--- but this is the same as S9a. Additionally confirm bob still can't see alice's Personal
--- (because the OR: bob.hide_personal=true → alice's Personal also hidden from bob)
-SET LOCAL "request.jwt.claims" TO '{"sub":"eeeeeeee-eeee-4eee-8eee-000000000002"}';
-
-SELECT is(
-  (SELECT COUNT(*)::int FROM public.transactions
-   WHERE id = 'eeeeeeee-eeee-4eee-8eee-000000000021'),
-  0,
-  'S9b: bob cannot see alice Personal when bob.hide_personal=true (OR symmetry)'
+  'S8: alice cannot see bob Personal row (symmetric — personal is always owner-only)'
 );
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- S10: hide_personal active — owner ALWAYS sees own Personal (condition 1 wins)
+-- S10: owner ALWAYS sees own Personal (condition 1 wins)
 -- ═══════════════════════════════════════════════════════════════════════════
--- bob.hide_personal is still true from S9.
--- alice reads her own Personal — must still be visible (owner rule overrides everything)
-SET LOCAL "request.jwt.claims" TO '{"sub":"eeeeeeee-eeee-4eee-8eee-000000000001"}';
-
 SELECT is(
   (SELECT COUNT(*)::int FROM public.transactions
    WHERE id = 'eeeeeeee-eeee-4eee-8eee-000000000021'),
   1,
-  'S10: alice still sees own Personal even when hide_personal active (condition 1)'
+  'S10a: alice sees own Personal (condition 1 — owner always visible)'
 );
 
--- bob reads own Personal (condition 1)
 SET LOCAL "request.jwt.claims" TO '{"sub":"eeeeeeee-eeee-4eee-8eee-000000000002"}';
 
 SELECT is(
   (SELECT COUNT(*)::int FROM public.transactions
    WHERE id = 'eeeeeeee-eeee-4eee-8eee-000000000025'),
   1,
-  'S10b: bob still sees own Personal even when own hide_personal=true (condition 1)'
+  'S10b: bob sees own Personal (condition 1 — owner always visible)'
 );
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- S11: write path — non-member cannot INSERT is_shared=true transaction for another user
 -- ═══════════════════════════════════════════════════════════════════════════
--- Reset hide_personal for clean state
-SET LOCAL ROLE postgres;
-UPDATE public.family_members SET hide_personal = false
- WHERE family_unit_id = 'eeeeeeee-eeee-4eee-8eee-000000000010';
-
 SET LOCAL ROLE authenticated;
 SET LOCAL "request.jwt.claims" TO '{"sub":"eeeeeeee-eeee-4eee-8eee-000000000003"}';
 
@@ -380,31 +302,19 @@ SELECT throws_ok(
 -- S12: Scope-filter aggregate compatibility (Retro A10)
 -- GROUP BY is_shared — confirms predicate is compatible with the E6 scope seam
 -- ═══════════════════════════════════════════════════════════════════════════
-
--- Pre-assert: confirm hide_personal=false for both members before S12 aggregate
--- assertions (S12a count depends on Personal cross-visibility being active).
-SET LOCAL ROLE postgres;
-SELECT is(
-  (SELECT COUNT(*)::int FROM public.family_members
-   WHERE family_unit_id = 'eeeeeeee-eeee-4eee-8eee-000000000010'
-     AND hide_personal = false),
-  2,
-  'S12 pre-assert: both members have hide_personal=false (Personal cross-visibility active)'
-);
-
 SET LOCAL ROLE authenticated;
 SET LOCAL "request.jwt.claims" TO '{"sub":"eeeeeeee-eeee-4eee-8eee-000000000002"}';
 
 -- bob's own Personal row (tx 5: eeee..0025) → is_shared=false bucket
 -- alice's post-join Shared (tx 3: eeee..0023) → is_shared=true bucket
 -- alice's pre-join Shared (tx 2: eeee..0022) → must NOT appear in any bucket
--- alice's Personal (tx 1: eeee..0021) → visible to bob (hide_personal=false); is_shared=false bucket
+-- alice's Personal (tx 1: eeee..0021) → BLOCKED (personal is always owner-only)
 
--- Personal bucket (is_shared=false): bob's own Personal + alice's Personal (no privacy toggle)
+-- Personal bucket (is_shared=false): only bob's own Personal (alice's is blocked)
 SELECT is(
   (SELECT COUNT(*)::int FROM public.transactions WHERE is_shared = false),
-  2,
-  'S12a: Personal bucket contains bob own + alice Personal (no privacy toggle active)'
+  1,
+  'S12a: Personal bucket contains only bob own Personal (alice Personal always blocked)'
 );
 
 -- Shared bucket (is_shared=true): only alice's post-join Shared
@@ -523,7 +433,7 @@ SELECT is(
   'activity_trail: bob sees trail entry for post-join Shared tx'
 );
 
--- bob cannot see the trail entry for alice's Personal tx
+-- bob cannot see the trail entry for alice's Personal tx (personal is always owner-only)
 -- Pre-assert: entry exists as superuser
 SET LOCAL ROLE postgres;
 SELECT is(
@@ -536,14 +446,12 @@ SELECT is(
 SET LOCAL ROLE authenticated;
 SET LOCAL "request.jwt.claims" TO '{"sub":"eeeeeeee-eeee-4eee-8eee-000000000002"}';
 
--- Note: with hide_personal=false (reset above), bob CAN see alice's Personal.
--- Therefore bob also sees alice's Personal trail entry.
--- Verify the Personal trail IS visible to bob (no privacy toggle active)
+-- Personal transactions are always owner-only; trail entries for Personal tx are also blocked
 SELECT is(
   (SELECT COUNT(*)::int FROM public.activity_trail
    WHERE id = 'eeeeeeee-eeee-4eee-8eee-000000000041'),
-  1,
-  'activity_trail: bob sees alice Personal trail entry when hide_personal=false'
+  0,
+  'activity_trail: bob cannot see alice Personal tx trail entry (personal always owner-only)'
 );
 
 SELECT * FROM finish();
