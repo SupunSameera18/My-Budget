@@ -85,6 +85,8 @@ export enum ErrorCode {
   OwnerCategoriesFetchFailed = "owner_categories_fetch_failed",
   // ↓ Added by Story 7.8
   ReclassifyTransactionFailed = "reclassify_transaction_failed",
+  // ↓ Added by Story 8.2
+  SettleUpFailed = "settle_up_failed",
 }
 
 export type AppError = {

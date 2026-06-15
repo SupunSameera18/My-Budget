@@ -3,11 +3,13 @@ import { requireUser } from "@/lib/supabase/require-user";
 import {
   getFamilyStatus,
   getContributionAnalysis,
+  getSettleTally,
 } from "@/features/family/server/actions";
 import { InviteGenerator } from "@/features/family/components/InviteGenerator";
 import { JoinFamilyForm } from "@/features/family/components/JoinFamilyForm";
 import { FamilyStatusBanner } from "@/features/family/components/FamilyStatusBanner";
 import { ContributionAnalysis } from "@/features/family/components/ContributionAnalysis";
+import { SettleUpPanel } from "@/features/family/components/SettleUpPanel";
 import { currentMonthBoundaries } from "@/lib/period";
 
 export default async function FamilyPage() {
@@ -15,12 +17,16 @@ export default async function FamilyPage() {
   if (!auth) redirect("/auth/login");
 
   const { start, end } = currentMonthBoundaries();
-  const [familyStatus, contributionData] = await Promise.all([
-    getFamilyStatus(),
-    getContributionAnalysis(start, end),
-  ]);
+  const familyStatus = await getFamilyStatus();
 
   const isFamilyMode = familyStatus.status === "in_family";
+
+  const [contributionData, tally] = await Promise.all([
+    getContributionAnalysis(start, end),
+    isFamilyMode
+      ? getSettleTally((familyStatus as { familyUnitId: string }).familyUnitId)
+      : Promise.resolve(null),
+  ]);
 
   return (
     <main className="mx-auto max-w-xl px-4 py-8">
@@ -50,6 +56,14 @@ export default async function FamilyPage() {
           <ContributionAnalysis
             initialData={contributionData}
             isFamilyMode={isFamilyMode}
+          />
+
+          <SettleUpPanel
+            isFamilyMode={isFamilyMode}
+            tally={tally}
+            familyUnitId={familyStatus.familyUnitId}
+            partnerDisplayName={familyStatus.partner.displayName}
+            currency={contributionData?.currency ?? "USD"}
           />
         </div>
       ) : (

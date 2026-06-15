@@ -141,7 +141,7 @@ INSERT INTO public.settlements (family_unit_id, settled_by_id, amount_minor, dir
   VALUES (
     '11111111-8001-4000-8000-000000000010',
     '11111111-8001-4000-8000-000000000001',
-    5000, 'b_to_a', '2026-05-15T00:00:00Z', '2026-05'
+    5000, 'b_to_a', '2026-05-15T00:00:00Z', '2026-04'
   );
 
 SET LOCAL ROLE authenticated;
