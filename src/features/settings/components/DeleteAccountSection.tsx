@@ -199,8 +199,7 @@ export function DeleteAccountSection({ userEmail }: DeleteAccountSectionProps) {
         role="alertdialog"
         aria-labelledby="confirm-dialog-heading"
         aria-modal="true"
-        hidden={!showConfirm || undefined}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        className={`fixed inset-0 z-50 items-center justify-center bg-black/40 p-4 ${showConfirm ? "flex" : "hidden"}`}
       >
         <div className="w-full max-w-sm rounded-xl bg-card p-6 shadow-lg">
           <p

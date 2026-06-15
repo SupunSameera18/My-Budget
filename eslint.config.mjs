@@ -26,6 +26,13 @@ const eslintConfig = [
     ],
   },
   ...compat.extends("next/core-web-vitals", "next/typescript"),
+  {
+    rules: {
+      // Enforce aria-disabled="true" (string) not aria-disabled={true} (boolean).
+      // Patched in stories 7-8, 7-9, 7-10, 7-12 — lint rule prevents recurrence.
+      "jsx-a11y/aria-proptypes": "error",
+    },
+  },
 ];
 
 export default eslintConfig;

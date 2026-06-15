@@ -531,3 +531,27 @@ describe("TransactionEditSheet — shared transaction", () => {
     expect(screen.getByText("Former member")).toBeInTheDocument();
   });
 });
+
+// Snapshot: pins the root container class list to catch CSS space regressions.
+// This component was patched for layout regressions in stories 7-7, 7-8, 7-9, and 7-10.
+describe("TransactionEditSheet — layout snapshot", () => {
+  it("matches snapshot for personal transaction (solo mode)", () => {
+    const { asFragment } = render(<TransactionEditSheet {...baseProps} />);
+    expect(asFragment()).toMatchSnapshot();
+  });
+
+  it("matches snapshot for shared transaction (family mode)", () => {
+    const { asFragment } = render(
+      <TransactionEditSheet
+        {...baseProps}
+        transaction={sharedTransaction}
+        isShared
+        isFamilyMode
+        partnerName="Alex"
+        viewerUserId="user-1"
+        partnerJoinDate="2026-01-01"
+      />,
+    );
+    expect(asFragment()).toMatchSnapshot();
+  });
+});

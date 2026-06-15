@@ -446,8 +446,8 @@ export function TransactionEditSheet({
           <div
             role="alertdialog"
             aria-labelledby="make-personal-heading"
-            hidden={!showMakePersonalConfirm}
-            className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4"
+            hidden={!showMakePersonalConfirm || undefined}
+            className={`${showMakePersonalConfirm ? "flex" : ""} flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4`}
           >
             <p
               id="make-personal-heading"

@@ -1,0 +1,365 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`TransactionEditSheet — layout snapshot > matches snapshot for personal transaction (solo mode) 1`] = `
+<DocumentFragment>
+  <div
+    class="flex flex-col gap-6"
+  >
+    <div
+      aria-atomic="true"
+      aria-live="polite"
+      class="sr-only"
+      role="status"
+    />
+    <div
+      class="flex flex-col gap-1.5"
+    >
+      <label
+        class="text-xs font-bold text-ink-secondary"
+        for="amount_display"
+      >
+        Amount 
+        <span
+          class="font-normal text-ink-secondary"
+        >
+          (USD)
+        </span>
+      </label>
+      <span
+        class="sr-only"
+        id="amount-readonly-hint"
+      >
+        To correct a shared amount, use Close-the-Month correction (available in a future update).
+      </span>
+      <input
+        class="flex h-9 w-full rounded-md px-3 py-1 text-base shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm min-h-[44px] border border-hairline bg-surface-base text-ink-primary"
+        id="amount_display"
+        inputmode="decimal"
+        type="text"
+        value="35.00"
+      />
+    </div>
+    <div
+      class="flex flex-col gap-1.5"
+    >
+      <label
+        class="text-xs font-bold text-ink-secondary"
+        for="account_id"
+      >
+        Account
+      </label>
+      <select
+        aria-label="Account"
+        class="flex min-h-[44px] w-full rounded-md border border-hairline bg-surface-base px-3 py-2 text-sm text-ink-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        id="account_id"
+      >
+        <option
+          value="acc-1"
+        >
+          Checking
+        </option>
+        <option
+          value="acc-2"
+        >
+          Savings
+        </option>
+      </select>
+    </div>
+    <div
+      class="flex flex-col gap-1.5"
+    >
+      <label
+        class="text-xs font-bold text-ink-secondary"
+        for="category_id"
+      >
+        Category
+      </label>
+      <select
+        aria-label="Category"
+        class="flex min-h-[44px] w-full rounded-md border border-hairline bg-surface-base px-3 py-2 text-sm text-ink-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        id="category_id"
+      >
+        <optgroup
+          label="Expense"
+        >
+          <option
+            value="cat-expense"
+          >
+            Groceries
+          </option>
+        </optgroup>
+        <optgroup
+          label="Income"
+        >
+          <option
+            value="cat-income"
+          >
+            Salary
+          </option>
+        </optgroup>
+      </select>
+    </div>
+    <div
+      class="flex flex-col gap-1.5"
+    >
+      <label
+        class="text-xs font-bold text-ink-secondary"
+        for="txn_date"
+      >
+        Date
+      </label>
+      <input
+        aria-label="Date"
+        class="flex min-h-[44px] w-full rounded-md border border-hairline bg-surface-base px-3 py-2 text-sm text-ink-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        id="txn_date"
+        type="date"
+        value="2026-06-01"
+      />
+    </div>
+    <div
+      class="flex flex-col gap-1.5"
+    >
+      <label
+        class="text-xs font-bold text-ink-secondary"
+        for="note"
+      >
+        Note 
+        <span
+          class="font-normal text-ink-secondary"
+        >
+          (optional)
+        </span>
+      </label>
+      <input
+        autocomplete="off"
+        class="flex h-9 w-full rounded-md px-3 py-1 text-base shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm min-h-[44px] border border-hairline bg-surface-base text-ink-primary"
+        id="note"
+        maxlength="280"
+        type="text"
+        value="Coffee"
+      />
+    </div>
+    <button
+      class="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 shadow hover:bg-primary/90 h-9 px-4 py-2 min-h-[44px] w-full rounded-md bg-brand-accent-strong font-bold text-white"
+      type="button"
+    >
+      Save changes
+    </button>
+    <button
+      class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent h-9 px-4 py-2 min-h-[44px] w-full text-destructive hover:text-destructive"
+      type="button"
+    >
+      Delete transaction
+    </button>
+  </div>
+</DocumentFragment>
+`;
+
+exports[`TransactionEditSheet — layout snapshot > matches snapshot for shared transaction (family mode) 1`] = `
+<DocumentFragment>
+  <div
+    class="flex flex-col gap-6"
+  >
+    <div
+      aria-atomic="true"
+      aria-live="polite"
+      class="sr-only"
+      role="status"
+    />
+    <div
+      class="flex flex-col gap-1.5"
+    >
+      <label
+        class="text-xs font-bold text-ink-secondary"
+        for="amount_display"
+      >
+        Amount 
+        <span
+          class="font-normal text-ink-secondary"
+        >
+          (USD)
+        </span>
+      </label>
+      <span
+        class="sr-only"
+        id="amount-readonly-hint"
+      >
+        To correct a shared amount, use Close-the-Month correction (available in a future update).
+      </span>
+      <input
+        aria-describedby="amount-readonly-hint"
+        aria-disabled="true"
+        class="flex h-9 w-full rounded-md px-3 py-1 text-base shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm min-h-[44px] border border-hairline bg-surface-base text-ink-primary cursor-not-allowed opacity-60"
+        disabled=""
+        id="amount_display"
+        inputmode="decimal"
+        type="text"
+        value="35.00"
+      />
+    </div>
+    <div
+      class="flex flex-col gap-1.5"
+    >
+      <label
+        class="text-xs font-bold text-ink-secondary"
+        for="account_id"
+      >
+        Account
+      </label>
+      <select
+        aria-label="Account"
+        class="flex min-h-[44px] w-full rounded-md border border-hairline bg-surface-base px-3 py-2 text-sm text-ink-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        id="account_id"
+      >
+        <option
+          value="acc-1"
+        >
+          Checking
+        </option>
+        <option
+          value="acc-2"
+        >
+          Savings
+        </option>
+      </select>
+    </div>
+    <div
+      class="flex flex-col gap-1.5"
+    >
+      <label
+        class="text-xs font-bold text-ink-secondary"
+        for="category_id"
+      >
+        Category
+      </label>
+      <select
+        aria-label="Category"
+        class="flex min-h-[44px] w-full rounded-md border border-hairline bg-surface-base px-3 py-2 text-sm text-ink-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        id="category_id"
+      >
+        <optgroup
+          label="Expense"
+        >
+          <option
+            value="cat-expense"
+          >
+            Groceries
+          </option>
+        </optgroup>
+        <optgroup
+          label="Income"
+        >
+          <option
+            value="cat-income"
+          >
+            Salary
+          </option>
+        </optgroup>
+      </select>
+    </div>
+    <div
+      class="flex flex-col gap-1.5"
+    >
+      <label
+        class="text-xs font-bold text-ink-secondary"
+        for="txn_date"
+      >
+        Date
+      </label>
+      <input
+        aria-label="Date"
+        class="flex min-h-[44px] w-full rounded-md border border-hairline bg-surface-base px-3 py-2 text-sm text-ink-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        id="txn_date"
+        type="date"
+        value="2026-06-01"
+      />
+    </div>
+    <div
+      class="flex flex-col gap-1.5"
+    >
+      <label
+        class="text-xs font-bold text-ink-secondary"
+        for="note"
+      >
+        Note 
+        <span
+          class="font-normal text-ink-secondary"
+        >
+          (optional)
+        </span>
+      </label>
+      <input
+        autocomplete="off"
+        class="flex h-9 w-full rounded-md px-3 py-1 text-base shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm min-h-[44px] border border-hairline bg-surface-base text-ink-primary"
+        id="note"
+        maxlength="280"
+        type="text"
+        value="Coffee"
+      />
+    </div>
+    <button
+      class="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 shadow hover:bg-primary/90 h-9 px-4 py-2 min-h-[44px] w-full rounded-md bg-brand-accent-strong font-bold text-white"
+      type="button"
+    >
+      Save changes
+    </button>
+    <button
+      class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 min-h-[44px] w-full"
+      type="button"
+    >
+      Edit split
+    </button>
+    <div
+      class="flex flex-col gap-2"
+    >
+      <button
+        aria-label="Make this transaction personal"
+        class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 min-h-[44px] w-full"
+        type="button"
+      >
+        Make personal
+      </button>
+      <div
+        aria-labelledby="make-personal-heading"
+        class=" flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4"
+        hidden=""
+        role="alertdialog"
+      >
+        <p
+          class="text-sm font-medium text-ink-primary"
+          id="make-personal-heading"
+        >
+          Remove from shared view?
+        </p>
+        <p
+          class="text-sm text-ink-secondary"
+        >
+          This will remove the transaction from your partner's view.
+        </p>
+        <div
+          class="flex gap-2"
+        >
+          <button
+            class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 shadow h-9 px-4 py-2 min-h-[44px] flex-1 bg-amber-600 text-white hover:bg-amber-700"
+            type="button"
+          >
+            Make personal
+          </button>
+          <button
+            class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 min-h-[44px] flex-1"
+            type="button"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+    <button
+      class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 hover:bg-accent h-9 px-4 py-2 min-h-[44px] w-full text-destructive hover:text-destructive"
+      type="button"
+    >
+      Delete transaction
+    </button>
+  </div>
+</DocumentFragment>
+`;

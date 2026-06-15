@@ -16,6 +16,7 @@ export function JoinFamilyForm() {
   const [partnerName, setPartnerName] = useState("");
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
   const [isPending, startTransition] = useTransition();
 
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -66,12 +67,14 @@ export function JoinFamilyForm() {
   function handleCodeSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setStatusMsg("");
+    setErrorMsg("");
     startTransition(async () => {
       setStatusMsg("Checking code…");
       const trimmedCode = code.trim();
       const result = await getInvitePreview(trimmedCode);
       if (!result.ok) {
         setStatusMsg(result.error.message);
+        setErrorMsg(result.error.message);
         return;
       }
       setConfirmedCode(trimmedCode);
@@ -93,7 +96,6 @@ export function JoinFamilyForm() {
       }
       setShowConfirmation(false);
       setStatusMsg(`You're now connected with ${partnerName}!`);
-      router.push("/family");
       router.refresh();
     });
   }
@@ -132,6 +134,11 @@ export function JoinFamilyForm() {
             {isPending ? "Checking…" : "Join family"}
           </button>
         </div>
+        {errorMsg && (
+          <p role="alert" className="text-sm text-destructive">
+            {errorMsg}
+          </p>
+        )}
       </form>
 
       {/* Confirmation dialog — always in DOM; hidden until triggered (AC 6, 16) */}
@@ -140,8 +147,7 @@ export function JoinFamilyForm() {
         role="dialog"
         aria-modal="true"
         aria-labelledby={headingId}
-        hidden={!showConfirmation}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        className={`fixed inset-0 z-50 items-center justify-center bg-black/50 p-4 ${showConfirmation ? "flex" : "hidden"}`}
       >
         <div className="w-full max-w-sm rounded-xl bg-surface-base p-6 shadow-lg">
           <h2

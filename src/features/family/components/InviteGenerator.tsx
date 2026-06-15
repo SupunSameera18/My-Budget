@@ -20,6 +20,8 @@ export function InviteGenerator({ familyStatus }: InviteGeneratorProps) {
   const [isPending, startTransition] = useTransition();
 
   const hasActiveInvite = familyStatus.status === "has_invite";
+  // After router.refresh(), familyStatus updates with the real invite id even
+  // while generatedCode is still in client state (showing the code display branch).
   const invite = hasActiveInvite ? familyStatus.invite : null;
 
   function handleGenerate() {
@@ -32,7 +34,10 @@ export function InviteGenerator({ familyStatus }: InviteGeneratorProps) {
         return;
       }
       setGeneratedCode(result.data.code);
+      setCopiedMsg("");
       setStatusMsg("Invite code generated");
+      // Refresh so familyStatus.invite is populated — Revoke needs the invite id
+      router.refresh();
     });
   }
 
@@ -55,9 +60,21 @@ export function InviteGenerator({ familyStatus }: InviteGeneratorProps) {
   async function handleCopy() {
     if (!generatedCode) return;
     try {
-      await navigator.clipboard.writeText(generatedCode);
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(generatedCode);
+      } else {
+        // Fallback for environments without Clipboard API (HTTP local dev)
+        const el = document.createElement("textarea");
+        el.value = generatedCode;
+        el.style.position = "fixed";
+        el.style.opacity = "0";
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand("copy");
+        document.body.removeChild(el);
+      }
       setCopiedMsg("");
-      // reset then set so aria-live re-announces on repeated copy
+      // Reset then set so aria-live re-announces on repeated copy
       requestAnimationFrame(() => setCopiedMsg("Copied!"));
     } catch {
       setCopiedMsg("Copy failed");
@@ -65,7 +82,7 @@ export function InviteGenerator({ familyStatus }: InviteGeneratorProps) {
   }
 
   const expiryLabel = invite
-    ? new Date(invite.expiresAt).toLocaleDateString(undefined, {
+    ? new Date(invite.expiresAt).toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
         year: "numeric",
@@ -97,17 +114,20 @@ export function InviteGenerator({ familyStatus }: InviteGeneratorProps) {
               {generatedCode}
             </code>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <button
               onClick={handleCopy}
               className="min-h-[44px] rounded-lg border border-hairline bg-card px-4 text-sm text-ink-primary hover:bg-surface-inset"
             >
               Copy code
             </button>
+            {copiedMsg && (
+              <span className="text-sm text-green-600">{copiedMsg}</span>
+            )}
             <button
               onClick={handleRevoke}
-              disabled={isPending}
-              aria-disabled={isPending}
+              disabled={isPending || !invite}
+              aria-disabled={isPending || !invite ? "true" : undefined}
               className="min-h-[44px] rounded-lg border border-hairline px-4 text-sm text-ink-secondary hover:bg-surface-inset disabled:opacity-50"
             >
               Revoke
@@ -115,30 +135,21 @@ export function InviteGenerator({ familyStatus }: InviteGeneratorProps) {
           </div>
         </div>
       ) : hasActiveInvite ? (
-        /* Invite exists but code not shown (subsequent page load) */
+        /* Invite exists but code not shown (subsequent page load — plaintext is gone) */
         <div className="flex flex-col gap-3">
           <p className="text-sm text-ink-secondary">
-            You have a pending invite. Share it with your partner before it
-            expires on <strong>{expiryLabel}</strong>.
+            You have a pending invite expiring on{" "}
+            <strong>{expiryLabel}</strong>. The code was shown once and
+            can&apos;t be retrieved. To share a new code, revoke this one first.
           </p>
-          <div className="flex gap-2">
-            <button
-              onClick={handleGenerate}
-              disabled={isPending}
-              aria-disabled={isPending}
-              className="min-h-[44px] rounded-lg bg-brand-accent-strong px-4 text-sm text-white hover:opacity-90 disabled:opacity-50"
-            >
-              {isPending ? "Generating…" : "Generate new code"}
-            </button>
-            <button
-              onClick={handleRevoke}
-              disabled={isPending}
-              aria-disabled={isPending}
-              className="min-h-[44px] rounded-lg border border-hairline px-4 text-sm text-ink-secondary hover:bg-surface-inset disabled:opacity-50"
-            >
-              Revoke
-            </button>
-          </div>
+          <button
+            onClick={handleRevoke}
+            disabled={isPending}
+            aria-disabled={isPending}
+            className="min-h-[44px] w-fit rounded-lg border border-hairline px-4 text-sm text-ink-secondary hover:bg-surface-inset disabled:opacity-50"
+          >
+            {isPending ? "Revoking…" : "Revoke invite"}
+          </button>
         </div>
       ) : (
         /* No invite — solo state */
