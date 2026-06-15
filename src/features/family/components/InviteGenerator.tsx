@@ -138,9 +138,9 @@ export function InviteGenerator({ familyStatus }: InviteGeneratorProps) {
         /* Invite exists but code not shown (subsequent page load — plaintext is gone) */
         <div className="flex flex-col gap-3">
           <p className="text-sm text-ink-secondary">
-            You have a pending invite expiring on{" "}
-            <strong>{expiryLabel}</strong>. The code was shown once and
-            can&apos;t be retrieved. To share a new code, revoke this one first.
+            You have a pending invite expiring on <strong>{expiryLabel}</strong>
+            . The code was shown once and can&apos;t be retrieved. To share a
+            new code, revoke this one first.
           </p>
           <button
             onClick={handleRevoke}

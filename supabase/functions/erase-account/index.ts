@@ -94,9 +94,7 @@ Deno.serve(async (req: Request) => {
 
       // P1: Delete contributions for personal goals before deleting the goals themselves
       if (personalGoals && personalGoals.length > 0) {
-        const personalGoalIds = personalGoals.map(
-          (g: { id: string }) => g.id,
-        );
+        const personalGoalIds = personalGoals.map((g: { id: string }) => g.id);
         const { error: e3 } = await adminClient
           .from("goal_contributions")
           .delete()
