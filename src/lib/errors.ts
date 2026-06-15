@@ -87,6 +87,8 @@ export enum ErrorCode {
   ReclassifyTransactionFailed = "reclassify_transaction_failed",
   // ↓ Added by Story 8.2
   SettleUpFailed = "settle_up_failed",
+  // ↓ Added by Story 8.3
+  ReconciliationFailed = "reconciliation_failed",
 }
 
 export type AppError = {

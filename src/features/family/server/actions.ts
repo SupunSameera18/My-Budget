@@ -210,6 +210,78 @@ export async function getFamilyStatus(): Promise<FamilyStatus> {
   }
 }
 
+// Returns the caller's active (non-archived) accounts with their current balance.
+// Graceful supplementary — returns null on error so CloseMonthForm still renders.
+export async function getUserAccountsForReconciliation(): Promise<Array<{
+  id: string;
+  name: string;
+  balanceMinor: number;
+  currency: string;
+}> | null> {
+  const auth = await requireUser();
+  if (!auth) return null;
+  try {
+    const { data, error } = await auth.supabase
+      .from("accounts")
+      .select("id, name, actual_balance_minor, currency")
+      .eq("user_id", auth.user.id)
+      .is("archived_at", null)
+      .order("name");
+    if (error || !data) return null;
+    return data.map((a) => ({
+      id: a.id,
+      name: a.name,
+      balanceMinor: a.actual_balance_minor,
+      currency: a.currency,
+    }));
+  } catch {
+    return null;
+  }
+}
+
+// Calls rpc_reconciliation_adjustment for each account with a non-zero delta.
+// Fires PostHog `reconciliation_completed` event on success.
+export async function closeMonth(
+  familyUnitId: string,
+  adjustments: Array<{
+    accountId: string;
+    deltaMinor: number;
+    note?: string;
+  }>,
+): Promise<Result<{ adjustmentCount: number }>> {
+  const auth = await requireUser();
+  if (!auth) return redirect("/auth/login") as never;
+
+  const nonZero = adjustments.filter((a) => a.deltaMinor !== 0);
+
+  for (const adj of nonZero) {
+    const { error } = await auth.supabase.rpc("rpc_reconciliation_adjustment", {
+      p_family_unit_id: familyUnitId,
+      p_account_id: adj.accountId,
+      p_delta_minor: adj.deltaMinor,
+      p_note: adj.note ?? null,
+      p_transaction_id: null,
+    });
+    if (error) return err(ErrorCode.ReconciliationFailed, error.message);
+  }
+
+  // PostHog: reconciliation_completed (non-fatal, feeds SM-5)
+  fetch("https://app.posthog.com/capture/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      api_key: process.env.NEXT_PUBLIC_POSTHOG_KEY,
+      event: "reconciliation_completed",
+      distinct_id: auth.user.id,
+      properties: {
+        adjustment_count: nonZero.length,
+      },
+    }),
+  }).catch(() => {});
+
+  return ok({ adjustmentCount: nonZero.length });
+}
+
 export async function getContributionAnalysis(
   periodStart?: string,
   periodEnd?: string,

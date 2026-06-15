@@ -10,6 +10,7 @@ import { JoinFamilyForm } from "@/features/family/components/JoinFamilyForm";
 import { FamilyStatusBanner } from "@/features/family/components/FamilyStatusBanner";
 import { ContributionAnalysis } from "@/features/family/components/ContributionAnalysis";
 import { SettleUpPanel } from "@/features/family/components/SettleUpPanel";
+import { CloseMonthForm } from "@/features/family/components/CloseMonthForm";
 import { currentMonthBoundaries } from "@/lib/period";
 
 export default async function FamilyPage() {
@@ -63,6 +64,13 @@ export default async function FamilyPage() {
             tally={tally}
             familyUnitId={familyStatus.familyUnitId}
             partnerDisplayName={familyStatus.partner.displayName}
+            currency={contributionData?.currency ?? "USD"}
+          />
+
+          <CloseMonthForm
+            isFamilyMode={isFamilyMode}
+            familyUnitId={familyStatus.familyUnitId}
+            tally={tally}
             currency={contributionData?.currency ?? "USD"}
           />
         </div>
