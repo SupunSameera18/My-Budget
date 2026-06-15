@@ -51,6 +51,8 @@ export type Database = {
           id: string;
           updated_at: string;
           user_id: string;
+          // ↓ Added by Story 1.7 (0007_profiles_display_name.sql)
+          display_name: string | null;
           // ↓ Added by Story 1.8
           currency: string;
           onboarding_step: number;
@@ -59,12 +61,19 @@ export type Database = {
           checklist_completed_at: string | null;
           // ↓ Added by Story 6.3
           chart_preferences: Record<string, boolean> | null;
+          // ↓ Added by Story 7.5
+          transaction_defaults: {
+            defaultType?: string;
+            defaultSplitMethod?: string;
+          } | null;
         };
         Insert: {
           created_at?: string;
           id?: string;
           updated_at?: string;
           user_id: string;
+          // ↓ Added by Story 1.7
+          display_name?: string | null;
           // ↓ Added by Story 1.8
           currency?: string;
           onboarding_step?: number;
@@ -73,12 +82,16 @@ export type Database = {
           checklist_completed_at?: string | null;
           // ↓ Added by Story 6.3
           chart_preferences?: Record<string, boolean> | null;
+          // ↓ Added by Story 7.5
+          transaction_defaults?: Record<string, string> | null;
         };
         Update: {
           created_at?: string;
           id?: string;
           updated_at?: string;
           user_id?: string;
+          // ↓ Added by Story 1.7
+          display_name?: string | null;
           // ↓ Added by Story 1.8
           currency?: string;
           onboarding_step?: number;
@@ -87,6 +100,8 @@ export type Database = {
           checklist_completed_at?: string | null;
           // ↓ Added by Story 6.3
           chart_preferences?: Record<string, boolean> | null;
+          // ↓ Added by Story 7.5
+          transaction_defaults?: Record<string, string> | null;
         };
         Relationships: [];
       };
@@ -105,6 +120,8 @@ export type Database = {
           updated_at: string;
           // ↓ Added by Story 5.1
           macro_application_id: string | null;
+          // ↓ Added by Story 7.1a
+          is_shared: boolean;
         };
         Insert: {
           id?: string;
@@ -119,6 +136,8 @@ export type Database = {
           updated_at?: string;
           // ↓ Added by Story 5.1
           macro_application_id?: string | null;
+          // ↓ Added by Story 7.1a
+          is_shared?: boolean;
         };
         Update: {
           id?: string;
@@ -133,6 +152,42 @@ export type Database = {
           updated_at?: string;
           // ↓ Added by Story 5.1
           macro_application_id?: string | null;
+          // ↓ Added by Story 7.1a
+          is_shared?: boolean;
+        };
+        Relationships: [];
+      };
+      // ↓ Added by Story 4.5 (is_shared added by Story 7.1b)
+      goals: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          target_minor: number;
+          archived_at: string | null;
+          created_at: string;
+          updated_at: string;
+          is_shared: boolean;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          name: string;
+          target_minor: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          is_shared?: boolean;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          name?: string;
+          target_minor?: number;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+          is_shared?: boolean;
         };
         Relationships: [];
       };
@@ -207,12 +262,137 @@ export type Database = {
         };
         Relationships: [];
       };
+      // ↓ Added by Story 7.2
+      invite_codes: {
+        Row: {
+          id: string;
+          family_unit_id: string;
+          creator_id: string;
+          code_hash: string;
+          expires_at: string;
+          used_at: string | null;
+          revoked_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          family_unit_id: string;
+          creator_id: string;
+          code_hash: string;
+          expires_at: string;
+          used_at?: string | null;
+          revoked_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          family_unit_id?: string;
+          creator_id?: string;
+          code_hash?: string;
+          expires_at?: string;
+          used_at?: string | null;
+          revoked_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      // ↓ Added by Story 7.2
+      redemption_attempts: {
+        Row: {
+          id: string;
+          user_id: string;
+          attempted_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          attempted_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          attempted_at?: string;
+        };
+        Relationships: [];
+      };
+      // ↓ Added by Story 7.1a
+      family_units: {
+        Row: {
+          id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      // ↓ Added by Story 7.6
+      transaction_splits: {
+        Row: {
+          id: string;
+          transaction_id: string;
+          payer_id: string;
+          payer_share_minor: number;
+          partner_share_minor: number;
+          split_method: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          transaction_id: string;
+          payer_id: string;
+          payer_share_minor: number;
+          partner_share_minor: number;
+          split_method: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          transaction_id?: string;
+          payer_id?: string;
+          payer_share_minor?: number;
+          partner_share_minor?: number;
+          split_method?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      // ↓ Added by Story 7.1a
+      family_members: {
+        Row: {
+          id: string;
+          family_unit_id: string;
+          user_id: string;
+          join_date: string;
+          joined_at: string;
+        };
+        Insert: {
+          id?: string;
+          family_unit_id: string;
+          user_id: string;
+          join_date: string;
+          joined_at?: string;
+        };
+        Update: {
+          id?: string;
+          family_unit_id?: string;
+          user_id?: string;
+          join_date?: string;
+          joined_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
-      // ↓ Added by Story 1.10
+      // ↓ Added by Story 1.10; updated 0013 (+p_subcategory_id); updated 0026 (+p_is_shared); updated 0027 (returns UUID)
       rpc_log_transaction: {
         Args: {
           p_account_id: string;
@@ -220,12 +400,83 @@ export type Database = {
           p_amount_minor: number;
           p_date: string;
           p_note?: string | null;
+          p_subcategory_id?: string | null;
+          p_is_shared?: boolean;
+        };
+        Returns: string;
+      };
+      // ↓ Added by Story 7.6
+      rpc_split_transaction: {
+        Args: {
+          p_transaction_id: string;
+          p_split_method: string;
+          p_payer_id: string;
+          p_payer_share_minor: number;
+          p_partner_share_minor: number;
         };
         Returns: undefined;
       };
       rpc_apply_macro: {
         Args: { p_macro_id: string; p_date?: string };
         Returns: string;
+      };
+      // ↓ Added by Story 7.1b
+      auth_can_view_transaction: {
+        Args: {
+          p_owner_id: string;
+          p_is_shared: boolean;
+          p_created_date: string;
+        };
+        Returns: boolean;
+      };
+      // ↓ Added by Story 7.2
+      rpc_generate_invite: {
+        Args: { p_code_hash: string; p_expires_at: string };
+        Returns: undefined;
+      };
+      rpc_revoke_invite: {
+        Args: { p_invite_id: string };
+        Returns: undefined;
+      };
+      rpc_preview_invite: {
+        Args: { p_code_hash: string };
+        Returns: string | null;
+      };
+      rpc_redeem_invite: {
+        Args: { p_code_hash: string };
+        Returns: undefined;
+      };
+      rpc_get_family_status: {
+        Args: Record<string, never>;
+        Returns: Record<string, unknown>;
+      };
+      // ↓ Added by Story 7.7
+      rpc_edit_shared_transaction: {
+        Args: {
+          p_transaction_id: string;
+          p_note: string | null;
+          p_category_id: string;
+        };
+        Returns: undefined;
+      };
+      rpc_get_transaction_owner_categories: {
+        Args: { p_transaction_id: string };
+        Returns: { cat_id: string; name: string; type: string }[];
+      };
+      // ↓ Added by Story 7.8
+      rpc_reclassify_transaction: {
+        Args: { p_transaction_id: string; p_new_is_shared: boolean };
+        Returns: undefined;
+      };
+      // ↓ Added by Story 7.9
+      rpc_get_contribution_analysis: {
+        Args: { p_period_start?: string | null; p_period_end?: string | null };
+        Returns: {
+          contributor_id: string;
+          total_paid_minor: number;
+          transaction_count: number;
+          goal_contribution_minor: number;
+        }[];
       };
     };
     Enums: {

@@ -47,6 +47,88 @@ describe("TransactionFilters", () => {
     vi.clearAllMocks();
   });
 
+  describe("scope segmented control", () => {
+    it("renders scope radiogroup in family mode", () => {
+      render(
+        <TransactionFilters
+          accounts={mockAccounts}
+          categories={mockCategories}
+          currentFilters={{ isFamilyMode: true }}
+          isFamilyMode={true}
+        />,
+      );
+      expect(
+        screen.getByRole("radiogroup", { name: /view scope/i }),
+      ).toBeTruthy();
+    });
+
+    it("scope control wrapper has hidden attribute in single-user mode", () => {
+      const { container } = render(
+        <TransactionFilters
+          accounts={mockAccounts}
+          categories={mockCategories}
+          currentFilters={{}}
+          isFamilyMode={false}
+        />,
+      );
+      const wrapper = container.querySelector("[data-scope-wrapper]");
+      expect(wrapper).toHaveAttribute("hidden");
+    });
+
+    it("scope control wrapper does not have hidden attribute in family mode", () => {
+      const { container } = render(
+        <TransactionFilters
+          accounts={mockAccounts}
+          categories={mockCategories}
+          currentFilters={{ isFamilyMode: true }}
+          isFamilyMode={true}
+        />,
+      );
+      const wrapper = container.querySelector("[data-scope-wrapper]");
+      expect(wrapper).not.toHaveAttribute("hidden");
+    });
+
+    it("clicking Personal scope adds scope=personal to URL", () => {
+      render(
+        <TransactionFilters
+          accounts={mockAccounts}
+          categories={mockCategories}
+          currentFilters={{ isFamilyMode: true }}
+          isFamilyMode={true}
+        />,
+      );
+      fireEvent.click(screen.getByRole("radio", { name: /personal/i }));
+      expect(mockReplace).toHaveBeenCalledWith("/transactions?scope=personal");
+    });
+
+    it("clicking Combined scope removes scope param from URL", () => {
+      render(
+        <TransactionFilters
+          accounts={mockAccounts}
+          categories={mockCategories}
+          currentFilters={{ isFamilyMode: true }}
+          isFamilyMode={true}
+        />,
+      );
+      fireEvent.click(screen.getByRole("radio", { name: /combined/i }));
+      expect(mockReplace).toHaveBeenCalledWith("/transactions");
+    });
+
+    it("aria-live region announces scope change", () => {
+      const { container } = render(
+        <TransactionFilters
+          accounts={mockAccounts}
+          categories={mockCategories}
+          currentFilters={{ isFamilyMode: true }}
+          isFamilyMode={true}
+        />,
+      );
+      fireEvent.click(screen.getByRole("radio", { name: /shared/i }));
+      const live = container.querySelector("[aria-live='polite']");
+      expect(live?.textContent).toMatch(/showing shared/i);
+    });
+  });
+
   describe("rendering", () => {
     it("renders Account and Category selects with options", () => {
       render(

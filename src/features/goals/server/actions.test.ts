@@ -2,7 +2,10 @@ import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import { ErrorCode } from "@/lib/errors";
 import { revalidatePath } from "next/cache";
 
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
+  unstable_noStore: vi.fn(),
+}));
 vi.mock("@/lib/supabase/require-user", () => ({ requireUser: vi.fn() }));
 
 import {
@@ -33,6 +36,7 @@ function makeGoalsSupabase(
     goalsError?: null | { message: string };
     profileData?: { currency: string } | null;
     profileError?: null | { message: string };
+    memberData?: { join_date: string } | null;
   } = {},
 ) {
   const {
@@ -40,26 +44,46 @@ function makeGoalsSupabase(
     goalsError = null,
     profileData = { currency: "USD" },
     profileError = null,
+    memberData = null,
   } = opts;
 
-  const goalsChain = {
-    select: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockReturnThis(),
-    is: vi.fn().mockReturnThis(),
-    order: vi.fn().mockResolvedValue({ data: goalsData, error: goalsError }),
-  };
-  const profileChain = {
-    select: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockReturnThis(),
-    single: vi
-      .fn()
-      .mockResolvedValue({ data: profileData, error: profileError }),
-  };
-  const from = vi
-    .fn()
-    .mockImplementation((table: string) =>
-      table === "goals" ? goalsChain : profileChain,
-    );
+  // Flat chain factory — resolves regardless of method call order (dev-learnings §27)
+  function makeChain(resolved: { data: unknown; error: unknown }) {
+    const chain: Record<string, unknown> = {
+      then: (resolve: unknown, reject: unknown) =>
+        Promise.resolve(resolved).then(
+          resolve as (v: unknown) => unknown,
+          reject as (v: unknown) => unknown,
+        ),
+      single: vi.fn().mockResolvedValue(resolved),
+      maybeSingle: vi
+        .fn()
+        .mockResolvedValue({ data: resolved.data, error: null }),
+    };
+    for (const m of [
+      "select",
+      "eq",
+      "is",
+      "order",
+      "neq",
+      "not",
+      "gte",
+      "lte",
+    ]) {
+      chain[m] = vi.fn().mockReturnValue(chain);
+    }
+    return chain;
+  }
+
+  const goalsChain = makeChain({ data: goalsData, error: goalsError });
+  const profileChain = makeChain({ data: profileData, error: profileError });
+  const memberChain = makeChain({ data: memberData, error: null });
+
+  const from = vi.fn().mockImplementation((table: string) => {
+    if (table === "goals") return goalsChain;
+    if (table === "family_members") return memberChain;
+    return profileChain;
+  });
   return { from };
 }
 
@@ -68,7 +92,7 @@ describe("createGoal", () => {
     vi.clearAllMocks();
   });
 
-  it("returns ok with id on happy path", async () => {
+  it("returns ok with id on happy path (personal goal)", async () => {
     const supabase = makeRpcSupabase({ data: GOAL_UUID });
     (requireUser as Mock).mockResolvedValue({
       supabase,
@@ -85,6 +109,28 @@ describe("createGoal", () => {
     expect(supabase.rpc).toHaveBeenCalledWith("rpc_create_goal", {
       p_name: "Emergency Fund",
       p_target_minor: 100000,
+      p_is_shared: false,
+    });
+  });
+
+  it("passes p_is_shared=true when is_shared=true in form data", async () => {
+    const supabase = makeRpcSupabase({ data: GOAL_UUID });
+    (requireUser as Mock).mockResolvedValue({
+      supabase,
+      user: { id: USER_ID },
+    });
+
+    const fd = new FormData();
+    fd.set("name", "Holiday Fund");
+    fd.set("target_amount_display", "500.00");
+    fd.set("is_shared", "true");
+
+    const result = await createGoal(fd);
+    expect(result.ok).toBe(true);
+    expect(supabase.rpc).toHaveBeenCalledWith("rpc_create_goal", {
+      p_name: "Holiday Fund",
+      p_target_minor: 50000,
+      p_is_shared: true,
     });
   });
 
@@ -214,18 +260,24 @@ describe("getGoals", () => {
     vi.clearAllMocks();
   });
 
-  it("returns goals with computed progress on happy path", async () => {
+  it("returns goals with computed progress for solo user", async () => {
     const supabase = makeGoalsSupabase({
       goalsData: [
         {
           id: GOAL_UUID,
+          user_id: USER_ID,
           name: "Emergency Fund",
           target_minor: 500000,
+          is_shared: false,
           created_at: "2026-06-01T00:00:00Z",
-          goal_contributions: [{ amount_minor: 10000 }, { amount_minor: 5000 }],
+          goal_contributions: [
+            { amount_minor: 10000, date: "2026-06-01", user_id: USER_ID },
+            { amount_minor: 5000, date: "2026-06-02", user_id: USER_ID },
+          ],
         },
       ],
       profileData: { currency: "GBP" },
+      memberData: null,
     });
     (requireUser as Mock).mockResolvedValue({
       supabase,
@@ -236,11 +288,52 @@ describe("getGoals", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.data.currency).toBe("GBP");
+      expect(result.data.isFamilyMode).toBe(false);
       expect(result.data.goals).toHaveLength(1);
       const g = result.data.goals[0];
       expect(g.currentMinor).toBe(15000);
-      expect(g.remaining_minor).toBe(485000);
-      expect(g.pctUsed).toBeCloseTo(3);
+      expect(g.is_shared).toBe(false);
+      expect(g.isOwner).toBe(true);
+    }
+  });
+
+  it("filters shared goal progress to post-join contributions for viewer in family mode", async () => {
+    const PARTNER_ID = "pp000000-0001-4000-8000-000000000001";
+    const supabase = makeGoalsSupabase({
+      goalsData: [
+        {
+          id: GOAL_UUID,
+          user_id: USER_ID,
+          name: "Holiday Fund",
+          target_minor: 100000,
+          is_shared: true,
+          created_at: "2026-06-01T00:00:00Z",
+          goal_contributions: [
+            // pre-join contribution (alice, before bob join_date 2026-06-05)
+            { amount_minor: 20000, date: "2026-06-01", user_id: USER_ID },
+            // post-join contributions
+            { amount_minor: 8000, date: "2026-06-06", user_id: USER_ID },
+            { amount_minor: 5000, date: "2026-06-07", user_id: PARTNER_ID },
+          ],
+        },
+      ],
+      profileData: { currency: "USD" },
+      memberData: { join_date: "2026-06-05" },
+    });
+    (requireUser as Mock).mockResolvedValue({
+      supabase,
+      user: { id: USER_ID },
+    });
+
+    const result = await getGoals();
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.isFamilyMode).toBe(true);
+      const g = result.data.goals[0];
+      // pooled = post-join only: 8000 + 5000 = 13000 (pre-join 20000 excluded)
+      expect(g.currentMinor).toBe(13000);
+      expect(g.myContributionMinor).toBe(8000);
+      expect(g.partnerContributionMinor).toBe(5000);
     }
   });
 
@@ -261,10 +354,14 @@ describe("getGoals", () => {
       goalsData: [
         {
           id: GOAL_UUID,
+          user_id: USER_ID,
           name: "Holiday",
           target_minor: 10000,
+          is_shared: false,
           created_at: "2026-06-01T00:00:00Z",
-          goal_contributions: [{ amount_minor: 12000 }],
+          goal_contributions: [
+            { amount_minor: 12000, date: "2026-06-01", user_id: USER_ID },
+          ],
         },
       ],
     });

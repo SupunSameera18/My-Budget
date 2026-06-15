@@ -70,9 +70,7 @@ export async function DashboardBudgetsCard() {
               <span className="truncate font-medium text-ink-primary">
                 {budget.name}
               </span>
-              <span
-                className="ml-2 shrink-0 tabular-nums text-ink-secondary"
-              >
+              <span className="ml-2 shrink-0 tabular-nums text-ink-secondary">
                 {budget.remaining_minor <= 0
                   ? `${formatMoney(Math.abs(budget.remaining_minor), currency)} over`
                   : `${formatMoney(budget.remaining_minor, currency)} left`}

@@ -21,12 +21,23 @@ export default async function TransactionPage({
 
   const trail = await getActivityTrail(id);
 
+  const isShared = result.data.transaction.is_shared;
+
   return (
     <div className="mx-auto max-w-2xl p-4">
-      <h1 className="mb-6 text-xl font-bold text-ink-primary">
-        Edit Transaction
+      <h1
+        className="mb-6 text-xl font-bold text-ink-primary"
+        aria-label={isShared ? "Edit shared transaction" : "Edit transaction"}
+      >
+        {isShared ? "Edit Shared Transaction" : "Edit Transaction"}
       </h1>
-      <TransactionEditSheet {...result.data} activityTrail={trail} />
+      <TransactionEditSheet
+        {...result.data}
+        activityTrail={trail}
+        isShared={isShared}
+        partnerName={result.data.partnerName}
+        viewerUserId={result.data.viewerUserId}
+      />
     </div>
   );
 }

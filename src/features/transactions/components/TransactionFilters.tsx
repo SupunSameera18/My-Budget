@@ -1,25 +1,44 @@
 "use client";
 
+import { useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { flushSync } from "react-dom";
 import type {
   TransactionListFilterAccount,
   TransactionListFilterCategory,
   TransactionListFilters,
 } from "@/features/transactions/schema";
+import type { Scope } from "@/features/analytics/schema";
 
 interface TransactionFiltersProps {
   accounts: TransactionListFilterAccount[];
   categories: TransactionListFilterCategory[];
   currentFilters: TransactionListFilters;
+  isFamilyMode?: boolean;
 }
+
+const SCOPE_OPTIONS: { value: Scope; label: string }[] = [
+  { value: "combined", label: "Combined" },
+  { value: "personal", label: "Personal" },
+  { value: "shared", label: "Shared" },
+];
 
 export function TransactionFilters({
   accounts,
   categories,
   currentFilters,
+  isFamilyMode = false,
 }: TransactionFiltersProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [scopeAnnouncement, setScopeAnnouncement] = useState("");
+  const scopeButtonRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const rawScope = searchParams.get("scope");
+  const currentScope: Scope =
+    rawScope === "personal" || rawScope === "shared" || rawScope === "combined"
+      ? rawScope
+      : "combined";
 
   function buildUrl(updates: Record<string, string | null>): string {
     const params = new URLSearchParams(searchParams.toString());
@@ -62,6 +81,29 @@ export function TransactionFilters({
     router.replace("/transactions");
   }
 
+  function handleScopeChange(newScope: Scope) {
+    flushSync(() => setScopeAnnouncement(""));
+    router.replace(
+      buildUrl({ scope: newScope === "combined" ? null : newScope }),
+    );
+    setScopeAnnouncement(`Showing ${newScope} transactions.`);
+  }
+
+  function handleScopeKeyDown(e: React.KeyboardEvent, currentIndex: number) {
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+      e.preventDefault();
+      const nextIndex = (currentIndex + 1) % SCOPE_OPTIONS.length;
+      handleScopeChange(SCOPE_OPTIONS[nextIndex].value);
+      scopeButtonRefs.current[nextIndex]?.focus();
+    } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const prevIndex =
+        (currentIndex - 1 + SCOPE_OPTIONS.length) % SCOPE_OPTIONS.length;
+      handleScopeChange(SCOPE_OPTIONS[prevIndex].value);
+      scopeButtonRefs.current[prevIndex]?.focus();
+    }
+  }
+
   const hasActiveFilters =
     currentFilters.account_id ||
     currentFilters.category_id ||
@@ -72,6 +114,44 @@ export function TransactionFilters({
 
   return (
     <div className="mb-4 rounded-md border border-hairline bg-surface-base p-4">
+      {/* Scope segmented control — always in DOM; hidden attribute hides from AT when not in family mode */}
+      <div aria-live="polite" role="status" className="sr-only">
+        {scopeAnnouncement}
+      </div>
+      <div
+        data-scope-wrapper=""
+        hidden={!isFamilyMode || undefined}
+        className="mb-4"
+      >
+        <p className="mb-2 text-xs font-medium text-ink-secondary">View</p>
+        <div
+          role="radiogroup"
+          aria-label="View scope"
+          className="flex rounded-md border border-hairline"
+        >
+          {SCOPE_OPTIONS.map((option, index) => (
+            <button
+              key={option.value}
+              ref={(el) => {
+                scopeButtonRefs.current[index] = el;
+              }}
+              role="radio"
+              aria-checked={currentScope === option.value}
+              tabIndex={currentScope === option.value ? 0 : -1}
+              onClick={() => handleScopeChange(option.value)}
+              onKeyDown={(e) => handleScopeKeyDown(e, index)}
+              className={`min-h-[44px] flex-1 px-3 py-2 text-sm font-medium first:rounded-l-md last:rounded-r-md focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-accent-strong ${
+                currentScope === option.value
+                  ? "bg-brand-accent-strong text-white"
+                  : "bg-surface-base text-ink-secondary hover:text-ink-primary"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="flex flex-wrap gap-4">
         {/* Account filter */}
         <div className="flex min-w-[160px] flex-col gap-1">

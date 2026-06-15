@@ -30,12 +30,15 @@ const BASE_DATA: MonthlySummaryData = {
   goals: [
     {
       id: "g1",
+      user_id: "u1",
       name: "Vacation",
       target_minor: 100000,
       currentMinor: 30000,
       remaining_minor: 70000,
       pctUsed: 30,
       created_at: "2026-01-01",
+      is_shared: false,
+      isOwner: true,
     } satisfies GoalWithProgress,
   ],
   healthScore: {

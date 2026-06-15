@@ -15,10 +15,20 @@ import {
   type BudgetPerformanceItem,
   type ThisVsLastMonthItem,
   type ExportRow,
+  type Scope,
 } from "@/features/analytics/schema";
 import type { HealthScoreResult } from "@/lib/money/health-score";
 import { getGoals } from "@/features/goals/server/actions";
 import type { GoalWithProgress } from "@/features/goals/schema";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyScopeFilter(query: any, scope: Scope, userId: string) {
+  if (scope === "personal")
+    return query.eq("is_shared", false).eq("user_id", userId);
+  if (scope === "shared") return query.eq("is_shared", true);
+  // combined: RLS handles everything, no additional filter
+  return query;
+}
 
 export async function getChartPreferences(): Promise<ChartPreferences> {
   const session = await requireUser();
@@ -107,25 +117,29 @@ export type MonthlySummaryData = {
   healthScore: HealthScoreResult | null;
 };
 
-export async function getMonthlySummaryData(period: {
-  start: string;
-  end: string;
-}): Promise<MonthlySummaryData | null> {
+export async function getMonthlySummaryData(
+  period: { start: string; end: string },
+  scope: Scope = "combined",
+): Promise<MonthlySummaryData | null> {
   const session = await requireUser();
   if (!session) return null;
   const { supabase, user } = session;
 
   try {
+    // Build scoped transaction query
+    let txnQuery = supabase
+      .from("transactions")
+      .select("amount_minor, type, category_id, is_shared, categories(name)");
+    txnQuery = applyScopeFilter(txnQuery, scope, user.id);
+    txnQuery = txnQuery
+      .gte("date", period.start)
+      .lte("date", period.end)
+      .is("archived_at", null)
+      .in("type", ["income", "expense"]);
+
     const [txnsResult, budgetsResult, goalsResult, profileResult, healthScore] =
       await Promise.all([
-        supabase
-          .from("transactions")
-          .select("amount_minor, type, category_id, categories(name)")
-          .eq("user_id", user.id)
-          .gte("date", period.start)
-          .lte("date", period.end)
-          .is("archived_at", null)
-          .in("type", ["income", "expense"]),
+        txnQuery,
         supabase
           .from("budgets")
           .select("id, name, limit_minor, budget_categories(category_id)")
@@ -148,16 +162,24 @@ export async function getMonthlySummaryData(period: {
     const budgetRows = budgetsResult.data ?? [];
 
     const incomeMinor = txns
-      .filter((t) => t.type === "income")
-      .reduce((sum, t) => sum + t.amount_minor, 0);
+      .filter((t: { type: string }) => t.type === "income")
+      .reduce(
+        (sum: number, t: { amount_minor: number }) => sum + t.amount_minor,
+        0,
+      );
     const expenseMinor = txns
-      .filter((t) => t.type === "expense")
-      .reduce((sum, t) => sum + t.amount_minor, 0);
+      .filter((t: { type: string }) => t.type === "expense")
+      .reduce(
+        (sum: number, t: { amount_minor: number }) => sum + t.amount_minor,
+        0,
+      );
     const netMinor = incomeMinor - expenseMinor;
 
     // Group by category_id (not name) to correctly aggregate if two categories share a display name
     const catMap = new Map<string, { name: string; amountMinor: number }>();
-    for (const t of txns.filter((t) => t.type === "expense")) {
+    for (const t of txns.filter(
+      (t: { type: string }) => t.type === "expense",
+    )) {
       const catName =
         (t.categories as unknown as { name: string } | null)?.name ??
         "Uncategorized";
@@ -172,27 +194,41 @@ export async function getMonthlySummaryData(period: {
       .slice(0, 3)
       .map(({ name, amountMinor }) => ({ name, amountMinor }));
 
-    const expenseTxns = txns.filter((t) => t.type === "expense");
-    const budgets = budgetRows.map((b) => {
-      const categorySet = new Set(
-        ((b.budget_categories ?? []) as Array<{ category_id: string }>).map(
-          (bc) => bc.category_id,
-        ),
-      );
-      const actualMinor = expenseTxns
-        .filter((t) => categorySet.has(t.category_id))
-        .reduce((sum, t) => sum + t.amount_minor, 0);
-      const pctUsed =
-        b.limit_minor > 0 ? (actualMinor / b.limit_minor) * 100 : 0;
-      return {
-        id: b.id,
-        name: b.name,
-        limitMinor: b.limit_minor,
-        actualMinor,
-        pctUsed,
-        hit: actualMinor >= b.limit_minor,
-      };
-    });
+    const expenseTxns = txns.filter(
+      (t: { type: string }) => t.type === "expense",
+    );
+    const budgets = budgetRows.map(
+      (b: {
+        id: string;
+        name: string;
+        limit_minor: number;
+        budget_categories: unknown;
+      }) => {
+        const categorySet = new Set(
+          ((b.budget_categories ?? []) as Array<{ category_id: string }>).map(
+            (bc) => bc.category_id,
+          ),
+        );
+        const actualMinor = expenseTxns
+          .filter((t: { category_id: string }) =>
+            categorySet.has(t.category_id),
+          )
+          .reduce(
+            (sum: number, t: { amount_minor: number }) => sum + t.amount_minor,
+            0,
+          );
+        const pctUsed =
+          b.limit_minor > 0 ? (actualMinor / b.limit_minor) * 100 : 0;
+        return {
+          id: b.id,
+          name: b.name,
+          limitMinor: b.limit_minor,
+          actualMinor,
+          pctUsed,
+          hit: actualMinor >= b.limit_minor,
+        };
+      },
+    );
 
     const goals = goalsResult.ok ? goalsResult.data.goals : [];
 
@@ -229,22 +265,25 @@ export async function getCurrency(): Promise<string> {
   }
 }
 
-export async function getSpendingByCategoryData(period: {
-  start: string;
-  end: string;
-}): Promise<SpendingByCategoryItem[] | null> {
+export async function getSpendingByCategoryData(
+  period: { start: string; end: string },
+  scope: Scope = "combined",
+): Promise<SpendingByCategoryItem[] | null> {
   const session = await requireUser();
   if (!session) return null;
   const { supabase, user } = session;
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from("transactions")
-      .select("amount_minor, category_id, categories(name)")
-      .eq("user_id", user.id)
-      .eq("type", "expense")
+      .select("amount_minor, category_id, is_shared, categories(name)")
+      .eq("type", "expense");
+    query = applyScopeFilter(query, scope, user.id);
+    query = query
       .gte("date", period.start)
       .lte("date", period.end)
       .is("archived_at", null);
+
+    const { data, error } = await query;
     if (error) return null;
     const grouped = new Map<string, number>();
     for (const t of data ?? []) {
@@ -264,6 +303,7 @@ export async function getSpendingByCategoryData(period: {
 
 export async function getIncomeVsExpensesData(
   yearMonth: string,
+  scope: Scope = "combined",
 ): Promise<MonthlyTotalsItem[] | null> {
   const session = await requireUser();
   if (!session) return null;
@@ -272,14 +312,18 @@ export async function getIncomeVsExpensesData(
     const months = last6YearMonths(yearMonth);
     const start = monthBoundaries(months[0]).start;
     const end = monthBoundaries(yearMonth).end;
-    const { data, error } = await supabase
+
+    let query = supabase
       .from("transactions")
-      .select("amount_minor, date, type")
-      .eq("user_id", user.id)
+      .select("amount_minor, date, type, is_shared");
+    query = applyScopeFilter(query, scope, user.id);
+    query = query
       .gte("date", start)
       .lte("date", end)
       .is("archived_at", null)
       .in("type", ["income", "expense"]);
+
+    const { data, error } = await query;
     if (error) return null;
     const grouped = new Map(months.map((m) => [m, { income: 0, expense: 0 }]));
     for (const t of data ?? []) {
@@ -306,14 +350,28 @@ export async function getIncomeVsExpensesData(
   }
 }
 
-export async function getBudgetPerformanceData(period: {
-  start: string;
-  end: string;
-}): Promise<BudgetPerformanceItem[] | null> {
+export async function getBudgetPerformanceData(
+  period: { start: string; end: string },
+  scope: Scope = "combined",
+): Promise<BudgetPerformanceItem[] | null> {
+  // Budget performance is always personal — scope=shared returns empty.
+  if (scope === "shared") return [];
+
   try {
     const auth = await requireUser();
     if (!auth) return null;
     const { supabase, user } = auth;
+
+    let txnsQuery = supabase
+      .from("transactions")
+      .select("amount_minor, category_id")
+      .eq("user_id", user.id)
+      .eq("type", "expense");
+    if (scope === "personal") txnsQuery = txnsQuery.eq("is_shared", false);
+    txnsQuery = txnsQuery
+      .gte("date", period.start)
+      .lte("date", period.end)
+      .is("archived_at", null);
 
     const [budgetsRes, txnsRes] = await Promise.all([
       supabase
@@ -321,14 +379,7 @@ export async function getBudgetPerformanceData(period: {
         .select("name, limit_minor, budget_categories(category_id)")
         .eq("user_id", user.id)
         .is("archived_at", null),
-      supabase
-        .from("transactions")
-        .select("amount_minor, category_id")
-        .eq("user_id", user.id)
-        .eq("type", "expense")
-        .gte("date", period.start)
-        .lte("date", period.end)
-        .is("archived_at", null),
+      txnsQuery,
     ]);
 
     if (budgetsRes.error || txnsRes.error) return null;
@@ -340,9 +391,9 @@ export async function getBudgetPerformanceData(period: {
 
     return (budgetsRes.data ?? []).map((b) => {
       const catIds = new Set(
-        (
-          (b.budget_categories as { category_id: string }[] | null) ?? []
-        ).map((bc) => bc.category_id),
+        ((b.budget_categories as { category_id: string }[] | null) ?? []).map(
+          (bc) => bc.category_id,
+        ),
       );
       const actual = txns
         .filter((t) => catIds.has(t.category_id))
@@ -395,6 +446,7 @@ export async function getExportData(period: {
 
 export async function getThisVsLastMonthData(
   yearMonth: string,
+  scope: Scope = "combined",
 ): Promise<ThisVsLastMonthItem[] | null> {
   const session = await requireUser();
   if (!session) return null;
@@ -404,23 +456,29 @@ export async function getThisVsLastMonthData(
     const current = monthBoundaries(yearMonth);
     const prev = monthBoundaries(prevMonth);
 
+    let currentQuery = supabase
+      .from("transactions")
+      .select("amount_minor, category_id, is_shared, categories(name)")
+      .eq("type", "expense");
+    currentQuery = applyScopeFilter(currentQuery, scope, user.id);
+    currentQuery = currentQuery
+      .gte("date", current.start)
+      .lte("date", current.end)
+      .is("archived_at", null);
+
+    let prevQuery = supabase
+      .from("transactions")
+      .select("amount_minor, category_id, is_shared, categories(name)")
+      .eq("type", "expense");
+    prevQuery = applyScopeFilter(prevQuery, scope, user.id);
+    prevQuery = prevQuery
+      .gte("date", prev.start)
+      .lte("date", prev.end)
+      .is("archived_at", null);
+
     const [currentResult, prevResult] = await Promise.all([
-      supabase
-        .from("transactions")
-        .select("amount_minor, category_id, categories(name)")
-        .eq("user_id", user.id)
-        .eq("type", "expense")
-        .gte("date", current.start)
-        .lte("date", current.end)
-        .is("archived_at", null),
-      supabase
-        .from("transactions")
-        .select("amount_minor, category_id, categories(name)")
-        .eq("user_id", user.id)
-        .eq("type", "expense")
-        .gte("date", prev.start)
-        .lte("date", prev.end)
-        .is("archived_at", null),
+      currentQuery,
+      prevQuery,
     ]);
 
     if (currentResult.error || prevResult.error) return null;

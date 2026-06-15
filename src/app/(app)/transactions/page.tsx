@@ -3,7 +3,11 @@ import { z } from "zod";
 import { TransactionFilters } from "@/features/transactions/components/TransactionFilters";
 import { TransactionTable } from "@/features/transactions/components/TransactionTable";
 import { getTransactionList } from "@/features/transactions/server/actions";
+import { getFamilyStatus } from "@/features/family/server/actions";
 import type { TransactionListFilters } from "@/features/transactions/schema";
+import type { Scope } from "@/features/analytics/schema";
+
+const VALID_SCOPES: Scope[] = ["personal", "shared", "combined"];
 
 export default async function TransactionsPage({
   searchParams,
@@ -15,9 +19,22 @@ export default async function TransactionsPage({
     to?: string;
     showArchivedAccounts?: string;
     showArchivedCategories?: string;
+    scope?: string;
   }>;
 }) {
-  const params = await searchParams;
+  const [params, familyStatus] = await Promise.all([
+    searchParams,
+    getFamilyStatus(),
+  ]);
+
+  const isFamilyMode = familyStatus.status === "in_family";
+  const familyUnitId =
+    familyStatus.status === "in_family" ? familyStatus.familyUnitId : undefined;
+
+  const scope: Scope =
+    isFamilyMode && VALID_SCOPES.includes(params.scope as Scope)
+      ? (params.scope as Scope)
+      : "combined";
 
   const datePattern = /^\d{4}-\d{2}-\d{2}$/;
   const filters: TransactionListFilters = {
@@ -31,6 +48,9 @@ export default async function TransactionsPage({
     to: datePattern.test(params.to ?? "") ? params.to : undefined,
     showArchivedAccounts: params.showArchivedAccounts === "1",
     showArchivedCategories: params.showArchivedCategories === "1",
+    isFamilyMode,
+    familyUnitId,
+    scope,
   };
 
   const result = await getTransactionList(filters);
@@ -47,10 +67,16 @@ export default async function TransactionsPage({
           accounts={listData.accounts}
           categories={listData.categories}
           currentFilters={filters}
+          isFamilyMode={isFamilyMode}
         />
       </Suspense>
 
-      <TransactionTable items={listData.items} currency={listData.currency} />
+      <TransactionTable
+        items={listData.items}
+        currency={listData.currency}
+        isFamilyMode={isFamilyMode}
+        familyUnitId={familyUnitId ?? null}
+      />
     </div>
   );
 }

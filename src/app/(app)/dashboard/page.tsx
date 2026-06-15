@@ -9,6 +9,8 @@ import { DashboardBudgetsCard } from "@/features/dashboard/DashboardBudgetsCard"
 import { DashboardGoalsCard } from "@/features/dashboard/DashboardGoalsCard";
 import { getDashboardProfile } from "@/features/dashboard/server/actions";
 import { HealthScoreCard } from "@/features/analytics/components/HealthScoreCard";
+import { getFamilyStatus } from "@/features/family/server/actions";
+import { FamilyRealtimeTrigger } from "@/features/family/components/FamilyRealtimeTrigger";
 
 function BreathingRoomSkeleton() {
   return (
@@ -44,7 +46,10 @@ export default async function DashboardPage() {
   const auth = await requireUser();
   if (!auth) redirect("/auth/login");
 
-  const profileResult = await getDashboardProfile();
+  const [profileResult, familyStatus] = await Promise.all([
+    getDashboardProfile(),
+    getFamilyStatus(),
+  ]);
   // Show checklist only when fetch succeeds and checklist has not been completed.
   // profileResult.ok === false (DB error) → showChecklist = false (safe fallback).
   const showChecklist =
@@ -55,6 +60,9 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4 p-4">
+      {familyStatus.status === "in_family" && (
+        <FamilyRealtimeTrigger familyUnitId={familyStatus.familyUnitId} />
+      )}
       <Suspense fallback={null}>
         <LogSuccessToast />
       </Suspense>

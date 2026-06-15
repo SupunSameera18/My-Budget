@@ -10,7 +10,12 @@ vi.mock("@/features/goals/server/actions", () => ({
 
 import { requireUser } from "@/lib/supabase/require-user";
 import { getGoals } from "@/features/goals/server/actions";
-import { getMonthlySummaryData } from "@/features/analytics/server/actions";
+import {
+  getMonthlySummaryData,
+  getSpendingByCategoryData,
+  getBudgetPerformanceData,
+  getThisVsLastMonthData,
+} from "@/features/analytics/server/actions";
 
 // ── helpers ────────────────────────────────────────────────────────────────
 const PERIOD = { start: "2026-05-01", end: "2026-05-31" };
@@ -21,18 +26,21 @@ const DEFAULT_TXNS = [
     amount_minor: 10000,
     type: "income",
     category_id: "cat-001",
+    is_shared: false,
     categories: { name: "Salary" },
   },
   {
     amount_minor: 3000,
     type: "expense",
     category_id: "cat-002",
+    is_shared: false,
     categories: { name: "Food" },
   },
   {
     amount_minor: 2000,
     type: "expense",
     category_id: "cat-003",
+    is_shared: false,
     categories: { name: "Transport" },
   },
 ];
@@ -45,6 +53,36 @@ const DEFAULT_BUDGETS = [
     budget_categories: [{ category_id: "cat-002" }],
   },
 ];
+
+/**
+ * Builds a chainable Supabase mock where every query builder method returns
+ * the same chain. The chain is thenable so it can be awaited directly.
+ * Pass `resolved` as the awaited value for the transactions table.
+ */
+function makeChain(resolved: { data: unknown; error: unknown }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const chain: any = {
+    then: (resolve: (v: unknown) => unknown, reject: (e: unknown) => unknown) =>
+      Promise.resolve(resolved).then(resolve, reject),
+    single: vi.fn().mockResolvedValue(resolved),
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+  };
+  for (const m of [
+    "select",
+    "eq",
+    "neq",
+    "is",
+    "not",
+    "order",
+    "gte",
+    "lte",
+    "limit",
+    "in",
+  ]) {
+    chain[m] = vi.fn().mockReturnValue(chain);
+  }
+  return chain;
+}
 
 function buildSupabaseMock(
   opts: {
@@ -64,40 +102,15 @@ function buildSupabaseMock(
   return {
     from: (table: string) => {
       if (table === "transactions") {
-        return {
-          select: () => ({
-            eq: () => ({
-              gte: () => ({
-                lte: () => ({
-                  is: () => ({
-                    in: () => Promise.resolve({ data: txns, error: txnsError }),
-                  }),
-                }),
-              }),
-            }),
-          }),
-        };
+        return makeChain({ data: txns, error: txnsError });
       }
       if (table === "budgets") {
-        return {
-          select: () => ({
-            eq: () => ({
-              is: () => Promise.resolve({ data: budgets, error: budgetsError }),
-            }),
-          }),
-        };
+        return makeChain({ data: budgets, error: budgetsError });
       }
       if (table === "profiles") {
-        return {
-          select: () => ({
-            eq: () => ({
-              single: () =>
-                Promise.resolve({ data: { currency }, error: null }),
-            }),
-          }),
-        };
+        return makeChain({ data: { currency }, error: null });
       }
-      return {};
+      return makeChain({ data: null, error: null });
     },
     // rpc needed because getMonthlySummaryData calls getHealthScore internally
     rpc: () => Promise.resolve({ data: null, error: null }),
@@ -147,24 +160,28 @@ describe("getMonthlySummaryData", () => {
         amount_minor: 4000,
         type: "expense",
         category_id: "c1",
+        is_shared: false,
         categories: { name: "Food" },
       },
       {
         amount_minor: 2000,
         type: "expense",
         category_id: "c2",
+        is_shared: false,
         categories: { name: "Transport" },
       },
       {
         amount_minor: 1500,
         type: "expense",
         category_id: "c3",
+        is_shared: false,
         categories: { name: "Entertainment" },
       },
       {
         amount_minor: 500,
         type: "expense",
         category_id: "c4",
+        is_shared: false,
         categories: { name: "Other" },
       },
     ];
@@ -199,6 +216,7 @@ describe("getMonthlySummaryData", () => {
         amount_minor: 6000,
         type: "expense",
         category_id: "cat-002",
+        is_shared: false,
         categories: { name: "Food" },
       },
     ];
@@ -263,5 +281,219 @@ describe("getMonthlySummaryData", () => {
     });
     const result = await getMonthlySummaryData(PERIOD);
     expect(result!.currency).toBe("EUR");
+  });
+});
+
+// ── scope filter tests ──────────────────────────────────────────────────────
+describe("scope filter — applyScopeFilter via server actions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (getGoals as Mock).mockResolvedValue({
+      ok: true,
+      data: { goals: [], currency: "USD" },
+    });
+  });
+
+  describe("getSpendingByCategoryData scope", () => {
+    it("scope=personal adds is_shared=false and user_id filter", async () => {
+      const chain = makeChain({ data: [], error: null });
+      const supabaseMock = {
+        from: () => chain,
+        rpc: () => Promise.resolve({ data: null, error: null }),
+      };
+      (requireUser as Mock).mockResolvedValue({
+        user: mockUser,
+        supabase: supabaseMock,
+      });
+
+      await getSpendingByCategoryData(PERIOD, "personal");
+
+      const eqCalls = (chain.eq as Mock).mock.calls;
+      expect(
+        eqCalls.some((c: unknown[]) => c[0] === "is_shared" && c[1] === false),
+      ).toBe(true);
+      expect(
+        eqCalls.some(
+          (c: unknown[]) => c[0] === "user_id" && c[1] === mockUser.id,
+        ),
+      ).toBe(true);
+    });
+
+    it("scope=shared adds is_shared=true filter", async () => {
+      const chain = makeChain({ data: [], error: null });
+      const supabaseMock = {
+        from: () => chain,
+        rpc: () => Promise.resolve({ data: null, error: null }),
+      };
+      (requireUser as Mock).mockResolvedValue({
+        user: mockUser,
+        supabase: supabaseMock,
+      });
+
+      await getSpendingByCategoryData(PERIOD, "shared");
+
+      const eqCalls = (chain.eq as Mock).mock.calls;
+      expect(
+        eqCalls.some((c: unknown[]) => c[0] === "is_shared" && c[1] === true),
+      ).toBe(true);
+      expect(eqCalls.some((c: unknown[]) => c[0] === "user_id")).toBe(false);
+    });
+
+    it("scope=combined adds no is_shared or user_id filter", async () => {
+      const chain = makeChain({ data: [], error: null });
+      const supabaseMock = {
+        from: () => chain,
+        rpc: () => Promise.resolve({ data: null, error: null }),
+      };
+      (requireUser as Mock).mockResolvedValue({
+        user: mockUser,
+        supabase: supabaseMock,
+      });
+
+      await getSpendingByCategoryData(PERIOD, "combined");
+
+      const eqCalls = (chain.eq as Mock).mock.calls;
+      expect(eqCalls.some((c: unknown[]) => c[0] === "is_shared")).toBe(false);
+      expect(eqCalls.some((c: unknown[]) => c[0] === "user_id")).toBe(false);
+    });
+  });
+
+  describe("getBudgetPerformanceData scope", () => {
+    it("scope=shared returns empty array immediately", async () => {
+      (requireUser as Mock).mockResolvedValue({
+        user: mockUser,
+        supabase: buildSupabaseMock(),
+      });
+      const result = await getBudgetPerformanceData(PERIOD, "shared");
+      expect(result).toEqual([]);
+    });
+
+    it("scope=personal returns budget data", async () => {
+      (requireUser as Mock).mockResolvedValue({
+        user: mockUser,
+        supabase: buildSupabaseMock(),
+      });
+      const result = await getBudgetPerformanceData(PERIOD, "personal");
+      expect(result).not.toBeNull();
+      expect(result!.length).toBeGreaterThan(0);
+    });
+
+    it("scope=personal adds is_shared=false filter to budget transactions", async () => {
+      const chain = makeChain({ data: [], error: null });
+      const supabaseMock = {
+        from: (table: string) =>
+          table === "budgets" ? makeChain({ data: [], error: null }) : chain,
+        rpc: () => Promise.resolve({ data: null, error: null }),
+      };
+      (requireUser as Mock).mockResolvedValue({
+        user: mockUser,
+        supabase: supabaseMock,
+      });
+
+      await getBudgetPerformanceData(PERIOD, "personal");
+
+      const eqCalls = (chain.eq as Mock).mock.calls;
+      expect(
+        eqCalls.some((c: unknown[]) => c[0] === "is_shared" && c[1] === false),
+      ).toBe(true);
+    });
+  });
+
+  describe("getMonthlySummaryData scope", () => {
+    it("scope=personal adds is_shared=false and user_id filter", async () => {
+      const chain = makeChain({ data: [], error: null });
+      const supabaseMock = {
+        from: (table: string) =>
+          table === "transactions"
+            ? chain
+            : makeChain({ data: [], error: null }),
+        rpc: () => Promise.resolve({ data: null, error: null }),
+      };
+      (requireUser as Mock).mockResolvedValue({
+        user: mockUser,
+        supabase: supabaseMock,
+      });
+
+      await getMonthlySummaryData(PERIOD, "personal");
+
+      const eqCalls = (chain.eq as Mock).mock.calls;
+      expect(
+        eqCalls.some((c: unknown[]) => c[0] === "is_shared" && c[1] === false),
+      ).toBe(true);
+      expect(
+        eqCalls.some(
+          (c: unknown[]) => c[0] === "user_id" && c[1] === mockUser.id,
+        ),
+      ).toBe(true);
+    });
+
+    it("scope=shared adds is_shared=true filter", async () => {
+      const chain = makeChain({ data: [], error: null });
+      const supabaseMock = {
+        from: (table: string) =>
+          table === "transactions"
+            ? chain
+            : makeChain({ data: [], error: null }),
+        rpc: () => Promise.resolve({ data: null, error: null }),
+      };
+      (requireUser as Mock).mockResolvedValue({
+        user: mockUser,
+        supabase: supabaseMock,
+      });
+
+      await getMonthlySummaryData(PERIOD, "shared");
+
+      const eqCalls = (chain.eq as Mock).mock.calls;
+      expect(
+        eqCalls.some((c: unknown[]) => c[0] === "is_shared" && c[1] === true),
+      ).toBe(true);
+      expect(eqCalls.some((c: unknown[]) => c[0] === "user_id")).toBe(false);
+    });
+  });
+
+  describe("getThisVsLastMonthData scope", () => {
+    it("scope=personal adds is_shared=false and user_id filter", async () => {
+      const chain = makeChain({ data: [], error: null });
+      const supabaseMock = {
+        from: () => chain,
+        rpc: () => Promise.resolve({ data: null, error: null }),
+      };
+      (requireUser as Mock).mockResolvedValue({
+        user: mockUser,
+        supabase: supabaseMock,
+      });
+
+      await getThisVsLastMonthData("2026-05", "personal");
+
+      const eqCalls = (chain.eq as Mock).mock.calls;
+      expect(
+        eqCalls.some((c: unknown[]) => c[0] === "is_shared" && c[1] === false),
+      ).toBe(true);
+      expect(
+        eqCalls.some(
+          (c: unknown[]) => c[0] === "user_id" && c[1] === mockUser.id,
+        ),
+      ).toBe(true);
+    });
+
+    it("scope=shared adds is_shared=true filter", async () => {
+      const chain = makeChain({ data: [], error: null });
+      const supabaseMock = {
+        from: () => chain,
+        rpc: () => Promise.resolve({ data: null, error: null }),
+      };
+      (requireUser as Mock).mockResolvedValue({
+        user: mockUser,
+        supabase: supabaseMock,
+      });
+
+      await getThisVsLastMonthData("2026-05", "shared");
+
+      const eqCalls = (chain.eq as Mock).mock.calls;
+      expect(
+        eqCalls.some((c: unknown[]) => c[0] === "is_shared" && c[1] === true),
+      ).toBe(true);
+      expect(eqCalls.some((c: unknown[]) => c[0] === "user_id")).toBe(false);
+    });
   });
 });

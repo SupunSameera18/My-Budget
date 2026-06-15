@@ -6,7 +6,9 @@ import { ErrorCode, err, ok, type Result } from "@/lib/errors";
 import {
   logTransactionSchema,
   editTransactionSchema,
+  editSharedTransactionSchema,
   type TransactionFormData,
+  type TransactionDefaults,
   type EditTransactionFormData,
   type ActivityTrailEntry,
   type TransactionListFilters,
@@ -18,6 +20,7 @@ import { getAccounts } from "@/features/accounts/server/actions";
 import { currentMonthBoundaries } from "@/lib/period";
 import { dedupeRecentNotes } from "@/lib/note-suggestions";
 import type { MacroWithTarget } from "@/features/macros/schema";
+import { splitTransaction as computeSplit } from "@/lib/money/split";
 
 export async function getTransactionFormData(): Promise<
   Result<TransactionFormData>
@@ -124,6 +127,25 @@ export async function getTransactionFormData(): Promise<
         (m.categories as unknown as { name: string } | null)?.name ?? "",
     }));
 
+    // Fetch family status + transaction defaults in parallel (non-fatal — fallback to solo/null if error)
+    const [{ data: membership }, { data: txDefaultsProfile }] =
+      await Promise.all([
+        supabase
+          .from("family_members")
+          .select("family_unit_id")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("profiles")
+          .select("transaction_defaults")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+      ]);
+    const isFamilyMode = !!membership;
+    const transactionDefaults =
+      (txDefaultsProfile?.transaction_defaults as TransactionDefaults | null) ??
+      null;
+
     return ok({
       accounts,
       categories: (categories ?? []) as TransactionFormData["categories"],
@@ -133,6 +155,8 @@ export async function getTransactionFormData(): Promise<
       subcategories: subcategories as TransactionFormData["subcategories"],
       currentBreathingRoomMinor,
       macros,
+      transactionDefaults,
+      isFamilyMode,
     });
   } catch {
     return err(
@@ -164,6 +188,8 @@ export async function logTransaction(
       ? parsed.data.subcategory_id
       : null;
 
+  const isShared = parsed.data.is_shared === "true";
+
   try {
     const auth = await requireUser();
     if (!auth) {
@@ -177,20 +203,43 @@ export async function logTransaction(
       .eq("user_id", user.id);
     const isFirstTransaction = existingCount !== null && existingCount === 0;
 
-    const { error: rpcError } = await supabase.rpc("rpc_log_transaction", {
-      p_account_id: parsed.data.account_id,
-      p_category_id: parsed.data.category_id,
-      p_amount_minor: amountMinor,
-      p_date: parsed.data.date,
-      p_note: parsed.data.note ?? null,
-      p_subcategory_id: subcategoryId,
-    });
+    const { data: newTxId, error: rpcError } = await supabase.rpc(
+      "rpc_log_transaction",
+      {
+        p_account_id: parsed.data.account_id,
+        p_category_id: parsed.data.category_id,
+        p_amount_minor: amountMinor,
+        p_date: parsed.data.date,
+        p_note: parsed.data.note ?? null,
+        p_subcategory_id: subcategoryId,
+        p_is_shared: isShared,
+      },
+    );
 
     if (rpcError) {
       return err(
         ErrorCode.TransactionCreateFailed,
         "Failed to log transaction. Please try again.",
       );
+    }
+
+    // Auto-split Shared transactions with equal split (non-fatal — tx is already logged)
+    if (isShared && newTxId) {
+      try {
+        const split = computeSplit({ amountMinor, method: "equal" });
+        await supabase
+          .rpc("rpc_split_transaction", {
+            p_transaction_id: newTxId,
+            p_split_method: "equal",
+            p_payer_id: user.id,
+            p_payer_share_minor: split.payerShareMinor,
+            p_partner_share_minor: split.partnerShareMinor,
+          })
+          .throwOnError();
+      } catch (splitErr) {
+        // Non-fatal: transaction already logged; user can re-split from edit sheet
+        console.error("[logTransaction] auto-split failed:", splitErr);
+      }
     }
 
     const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
@@ -265,10 +314,9 @@ export async function getTransaction(
     const { data: transaction, error: txnError } = await supabase
       .from("transactions")
       .select(
-        "id, user_id, account_id, category_id, subcategory_id, amount_minor, date, note, type, created_at, updated_at, archived_at",
+        "id, user_id, account_id, category_id, subcategory_id, amount_minor, date, note, type, is_shared, created_at, updated_at, archived_at",
       )
       .eq("id", id)
-      .eq("user_id", user.id)
       .is("archived_at", null)
       .maybeSingle();
 
@@ -287,12 +335,53 @@ export async function getTransaction(
       return err(ErrorCode.TransactionFetchFailed, "Failed to load accounts");
     }
 
-    const { data: categories, error: catError } = await supabase
-      .from("categories")
-      .select("id, name, type")
-      .is("archived_at", null)
-      .order("type", { ascending: true })
-      .order("name", { ascending: true });
+    // For Shared transactions where the viewer is not the owner, fetch the owner's
+    // categories via SECURITY DEFINER RPC (partner's RLS would otherwise filter them out)
+    const isViewerOwner = transaction.user_id === user.id;
+    let categories: { id: string; name: string; type: string }[] | null = null;
+    let catError: { message: string } | null = null;
+
+    // When the partner's category_id (from the transaction) is archived and absent from
+    // the owner's active category list, clear it so the UI forces picking a valid one
+    // rather than silently submitting a stale UUID that the RPC will reject with 23514.
+    let partnerCategoryIdOverride: string | null = null;
+
+    if (transaction.is_shared && !isViewerOwner) {
+      const { data: ownerCats, error: ownerCatError } = await supabase.rpc(
+        "rpc_get_transaction_owner_categories",
+        { p_transaction_id: id },
+      );
+      if (ownerCatError) {
+        catError = ownerCatError;
+      } else {
+        const mappedCats = (ownerCats ?? []).map(
+          (c: { cat_id: string; name: string; type: string }) => ({
+            id: c.cat_id,
+            name: c.name,
+            type: c.type,
+          }),
+        );
+        categories = mappedCats;
+        const activeCatIds = new Set(
+          mappedCats.map((c: { id: string }) => c.id),
+        );
+        if (
+          transaction.category_id &&
+          !activeCatIds.has(transaction.category_id)
+        ) {
+          partnerCategoryIdOverride = "";
+        }
+      }
+    } else {
+      const { data: myCats, error: myCatError } = await supabase
+        .from("categories")
+        .select("id, name, type")
+        .is("archived_at", null)
+        .order("type", { ascending: true })
+        .order("name", { ascending: true });
+      catError = myCatError;
+      categories = myCats;
+    }
 
     if (catError) {
       return err(ErrorCode.TransactionFetchFailed, "Failed to load categories");
@@ -308,7 +397,10 @@ export async function getTransaction(
     const subcategoriesEnabled = profile?.subcategories_enabled ?? false;
 
     let subcategories: { id: string; name: string; category_id: string }[] = [];
-    if (subcategoriesEnabled) {
+    // Non-owner partner cannot see or pick owner's subcategories (no RPC equivalent).
+    // Disable subcategory UI for the partner — existing subcategory_id is preserved server-side
+    // since buildSharedFormData does not include it.
+    if (subcategoriesEnabled && isViewerOwner) {
       const { data: subcatsData } = await supabase
         .from("subcategories")
         .select("id, name, category_id")
@@ -318,13 +410,60 @@ export async function getTransaction(
       subcategories = subcatsData ?? [];
     }
 
+    // Non-fatally fetch family status: partner name + partner join_date for reclassify UI
+    let partnerName: string | undefined;
+    let isFamilyMode = false;
+    let partnerJoinDate: string | null = null;
+    try {
+      const [{ data: familyStatus }, { data: partnerRow }] = await Promise.all([
+        supabase.rpc("rpc_get_family_status"),
+        supabase
+          .from("family_members")
+          .select("family_unit_id")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+      ]);
+      const raw = familyStatus as Record<string, unknown>;
+      if (raw?.status === "in_family") {
+        isFamilyMode = true;
+        if (typeof raw?.partner_name === "string") {
+          partnerName = raw.partner_name;
+        }
+        // Fetch partner join_date (needed for pre-join block UI)
+        if (partnerRow?.family_unit_id) {
+          const { data: partnerMember } = await supabase
+            .from("family_members")
+            .select("join_date")
+            .eq("family_unit_id", partnerRow.family_unit_id)
+            .neq("user_id", user.id)
+            .maybeSingle();
+          partnerJoinDate = partnerMember?.join_date ?? null;
+        }
+      }
+    } catch {
+      // Non-fatal — reclassify controls will be hidden in solo mode
+    }
+
+    const effectiveTransaction =
+      partnerCategoryIdOverride !== null
+        ? {
+            ...transaction,
+            category_id: partnerCategoryIdOverride,
+          }
+        : transaction;
+
     return ok({
-      transaction: transaction as EditTransactionFormData["transaction"],
+      transaction:
+        effectiveTransaction as EditTransactionFormData["transaction"],
       accounts: accountsResult.data,
       categories: (categories ?? []) as EditTransactionFormData["categories"],
       currency,
       subcategoriesEnabled,
       subcategories: subcategories as EditTransactionFormData["subcategories"],
+      partnerName,
+      viewerUserId: user.id,
+      isFamilyMode,
+      partnerJoinDate,
     });
   } catch {
     return err(
@@ -461,16 +600,30 @@ export async function getTransactionList(
     const validTo = datePattern.test(filters.to ?? "") ? filters.to : undefined;
 
     // Build transaction query
+    // In family mode: omit user_id filter so RLS predicate (7.1b) handles cross-user visibility.
+    // In single-user mode: keep user_id filter for performance (narrower index scan).
     let txnQuery = supabase
       .from("transactions")
       .select(
-        "id, account_id, category_id, amount_minor, date, note, type, created_at, accounts ( name ), categories ( name, type )",
+        "id, account_id, category_id, amount_minor, date, note, type, is_shared, created_at, accounts ( name ), categories ( name, type )",
       )
-      .eq("user_id", user.id) // explicit (§9 defense-in-depth)
       .is("archived_at", null) // active only
       .order("date", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(500);
+
+    if (!filters.isFamilyMode) {
+      txnQuery = txnQuery.eq("user_id", user.id);
+    } else {
+      // In family mode, apply scope filter on top of RLS
+      const scope = filters.scope ?? "combined";
+      if (scope === "personal") {
+        txnQuery = txnQuery.eq("is_shared", false).eq("user_id", user.id);
+      } else if (scope === "shared") {
+        txnQuery = txnQuery.eq("is_shared", true);
+      }
+      // combined: RLS handles everything, no additional filter
+    }
 
     if (validAccountId) txnQuery = txnQuery.eq("account_id", validAccountId);
     if (validCategoryId) txnQuery = txnQuery.eq("category_id", validCategoryId);
@@ -493,6 +646,7 @@ export async function getTransactionList(
       date: row.date,
       note: row.note,
       type: row.type as "income" | "expense",
+      is_shared: row.is_shared ?? false,
       created_at: row.created_at,
       account_name:
         (row.accounts as unknown as { name: string } | null)?.name ?? "Unknown",
@@ -546,10 +700,177 @@ export async function getTransactionList(
       accounts: (accountsData ?? []) as TransactionListData["accounts"],
       categories: (catsData ?? []) as TransactionListData["categories"],
       currency: profile?.currency ?? "USD",
+      familyUnitId: filters.familyUnitId,
     });
   } catch {
     return err(
       ErrorCode.TransactionFetchFailed,
+      "An unexpected error occurred. Please try again.",
+    );
+  }
+}
+
+export async function saveTransactionDefaults(
+  defaults: TransactionDefaults,
+): Promise<Result<void>> {
+  try {
+    const auth = await requireUser(); // requireUser FIRST (§9)
+    if (!auth)
+      return err(ErrorCode.TransactionDefaultsSaveFailed, "Not authenticated");
+    const { supabase, user } = auth;
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ transaction_defaults: defaults })
+      .eq("user_id", user.id); // explicit user_id filter (§9 defense-in-depth)
+
+    if (error)
+      return err(
+        ErrorCode.TransactionDefaultsSaveFailed,
+        "Failed to save transaction defaults",
+      );
+    return ok(undefined);
+  } catch {
+    return err(
+      ErrorCode.TransactionDefaultsSaveFailed,
+      "An unexpected error occurred. Please try again.",
+    );
+  }
+}
+
+export async function splitTransactionAction(
+  transactionId: string,
+  splitMethod: "equal" | "percentage" | "fixed",
+  payerShareMinor: number,
+  partnerShareMinor: number,
+): Promise<Result<void>> {
+  try {
+    const auth = await requireUser(); // requireUser FIRST (§9)
+    if (!auth)
+      return err(ErrorCode.SplitTransactionFailed, "Not authenticated");
+    const { supabase, user } = auth;
+
+    const idParse = z.string().uuid().safeParse(transactionId);
+    if (!idParse.success) {
+      return err(ErrorCode.SplitTransactionFailed, "Invalid transaction id");
+    }
+
+    if (payerShareMinor < 0 || partnerShareMinor < 0) {
+      return err(
+        ErrorCode.SplitTransactionFailed,
+        "Share amounts must be non-negative",
+      );
+    }
+
+    const { error } = await supabase.rpc("rpc_split_transaction", {
+      p_transaction_id: transactionId,
+      p_split_method: splitMethod,
+      p_payer_id: user.id,
+      p_payer_share_minor: payerShareMinor,
+      p_partner_share_minor: partnerShareMinor,
+    });
+
+    if (error) {
+      if (error.code === "P0001")
+        return err(
+          ErrorCode.SplitTransactionFailed,
+          "Cannot split a personal transaction",
+        );
+      if (error.code === "23514")
+        return err(
+          ErrorCode.SplitTransactionFailed,
+          "Split amounts do not add up to the transaction total",
+        );
+      if (error.code === "42501")
+        return err(
+          ErrorCode.SplitTransactionFailed,
+          "You do not have access to split this transaction",
+        );
+      return err(ErrorCode.SplitTransactionFailed, "Failed to save split");
+    }
+
+    revalidatePath("/transactions");
+    revalidatePath("/transactions/" + transactionId);
+    return ok();
+  } catch {
+    return err(
+      ErrorCode.SplitTransactionFailed,
+      "An unexpected error occurred. Please try again.",
+    );
+  }
+}
+
+export async function reclassifyTransaction(
+  transactionId: string,
+  newIsShared: boolean,
+): Promise<Result<void>> {
+  try {
+    const auth = await requireUser(); // requireUser FIRST (§9)
+    if (!auth)
+      return err(ErrorCode.ReclassifyTransactionFailed, "Not authenticated");
+    const { supabase } = auth;
+
+    const idParse = z.string().uuid().safeParse(transactionId);
+    if (!idParse.success) {
+      return err(
+        ErrorCode.ReclassifyTransactionFailed,
+        "Invalid transaction id",
+      );
+    }
+
+    const { error: rpcError } = await supabase.rpc(
+      "rpc_reclassify_transaction",
+      {
+        p_transaction_id: idParse.data,
+        p_new_is_shared: newIsShared,
+      },
+    );
+
+    if (rpcError) {
+      const code = rpcError.code;
+      if (code === "P0001") {
+        return err(
+          ErrorCode.ReclassifyTransactionFailed,
+          "Transaction is already that type.",
+        );
+      }
+      if (code === "P0002") {
+        return err(
+          ErrorCode.ReclassifyTransactionFailed,
+          "Transaction not found.",
+        );
+      }
+      if (code === "P0003") {
+        return err(
+          ErrorCode.ReclassifyTransactionFailed,
+          "This transaction predates your partner's join date and cannot be shared.",
+        );
+      }
+      if (code === "P0004") {
+        return err(
+          ErrorCode.ReclassifyTransactionFailed,
+          "This transaction is in a settled period. Use a correction entry instead.",
+        );
+      }
+      if (code === "42501") {
+        return err(
+          ErrorCode.ReclassifyTransactionFailed,
+          "You don't have permission to reclassify this transaction.",
+        );
+      }
+      return err(
+        ErrorCode.ReclassifyTransactionFailed,
+        "Failed to reclassify transaction. Please try again.",
+      );
+    }
+
+    revalidatePath("/dashboard");
+    revalidatePath("/transactions");
+    revalidatePath("/transactions/" + transactionId);
+    return ok();
+  } catch {
+    return err(
+      ErrorCode.ReclassifyTransactionFailed,
       "An unexpected error occurred. Please try again.",
     );
   }
@@ -563,17 +884,101 @@ export async function getActivityTrail(
       return [];
     const auth = await requireUser();
     if (!auth) return [];
-    const { supabase, user } = auth;
+    const { supabase } = auth;
+    // RLS policy "activity trail visibility" (0024) shows own entries + partner entries
+    // for Shared transactions — no explicit user_id filter needed here.
     const { data } = await supabase
       .from("activity_trail")
       .select(
         "id, user_id, transaction_id, change_type, changed_fields, created_at",
       )
       .eq("transaction_id", transactionId)
-      .eq("user_id", user.id) // explicit user_id filter (defense-in-depth §9)
       .order("created_at", { ascending: false });
     return (data ?? []) as ActivityTrailEntry[];
   } catch {
     return [];
+  }
+}
+
+export async function editSharedTransaction(
+  transactionId: string,
+  formData: FormData,
+): Promise<Result<void>> {
+  try {
+    const auth = await requireUser(); // requireUser FIRST (§9)
+    if (!auth)
+      return err(ErrorCode.SharedTransactionEditFailed, "Not authenticated");
+    const { supabase } = auth;
+
+    const idParse = z.string().uuid().safeParse(transactionId);
+    if (!idParse.success) {
+      return err(
+        ErrorCode.SharedTransactionEditFailed,
+        "Invalid transaction id",
+      );
+    }
+
+    const raw = Object.fromEntries(formData);
+    const parsed = editSharedTransactionSchema.safeParse(raw);
+
+    if (!parsed.success) {
+      const first = parsed.error.issues[0];
+      return err(
+        ErrorCode.SharedTransactionEditFailed,
+        first?.message ?? "Invalid transaction data",
+        String(first?.path[0] ?? ""),
+      );
+    }
+
+    const { error: rpcError } = await supabase.rpc(
+      "rpc_edit_shared_transaction",
+      {
+        p_transaction_id: transactionId,
+        p_note: parsed.data.note ?? null,
+        p_category_id: parsed.data.category_id,
+      },
+    );
+
+    if (rpcError) {
+      const code = rpcError.code;
+      if (code === "P0001") {
+        return err(
+          ErrorCode.SharedTransactionEditFailed,
+          "This is a personal transaction. Use the standard edit flow.",
+        );
+      }
+      if (code === "P0002") {
+        return err(
+          ErrorCode.SharedTransactionEditFailed,
+          "Transaction not found.",
+        );
+      }
+      if (code === "42501") {
+        return err(
+          ErrorCode.SharedTransactionEditFailed,
+          "You do not have permission to edit this transaction.",
+        );
+      }
+      if (code === "23514") {
+        return err(
+          ErrorCode.SharedTransactionEditFailed,
+          "The selected category does not belong to the transaction owner.",
+        );
+      }
+      return err(
+        ErrorCode.SharedTransactionEditFailed,
+        "Failed to update transaction. Please try again.",
+      );
+    }
+
+    revalidatePath("/dashboard");
+    revalidatePath("/transactions");
+    revalidatePath("/transactions/" + transactionId);
+    return ok();
+  } catch {
+    return err(
+      ErrorCode.SharedTransactionEditFailed,
+      "An unexpected error occurred. Please try again.",
+    );
   }
 }

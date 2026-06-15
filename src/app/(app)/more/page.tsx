@@ -1,6 +1,13 @@
 import { requireUser } from "@/lib/supabase/require-user";
 import { signOut } from "@/features/auth/server/actions";
-import { BarChart2, CalendarDays, LogOut, Settings, Target } from "lucide-react";
+import {
+  BarChart2,
+  CalendarDays,
+  LogOut,
+  Settings,
+  Target,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -60,6 +67,19 @@ export default async function MorePage() {
             className="h-5 w-5 shrink-0 text-ink-secondary"
           />
           Monthly Summary
+        </Link>
+      </div>
+
+      <div className="mb-2">
+        <Link
+          href="/family"
+          className="flex min-h-[44px] w-full items-center gap-3 rounded-md border border-hairline bg-surface-raised px-4 text-sm text-ink-primary transition-colors hover:bg-surface-inset"
+        >
+          <Users
+            strokeWidth={1.75}
+            className="h-5 w-5 shrink-0 text-ink-secondary"
+          />
+          Family
         </Link>
       </div>
 
