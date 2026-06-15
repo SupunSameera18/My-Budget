@@ -393,6 +393,40 @@ export type Database = {
         };
         Relationships: [];
       };
+      // ↓ Added by Story 8.3
+      reconciliation_adjustments: {
+        Row: {
+          id: string;
+          family_unit_id: string;
+          account_id: string;
+          transaction_id: string | null;
+          delta_minor: number;
+          note: string | null;
+          created_by: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          family_unit_id: string;
+          account_id: string;
+          transaction_id?: string | null;
+          delta_minor: number;
+          note?: string | null;
+          created_by: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          family_unit_id?: string;
+          account_id?: string;
+          transaction_id?: string | null;
+          delta_minor?: number;
+          note?: string | null;
+          created_by?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       // ↓ Added by Story 7.1a
       family_members: {
         Row: {
@@ -508,6 +542,17 @@ export type Database = {
       rpc_mark_settled: {
         Args: { p_family_unit_id: string };
         Returns: string; // UUID of the settlement record
+      };
+      // ↓ Added by Story 8.3
+      rpc_reconciliation_adjustment: {
+        Args: {
+          p_family_unit_id: string;
+          p_account_id: string;
+          p_delta_minor: number;
+          p_note?: string | null;
+          p_transaction_id?: string | null;
+        };
+        Returns: string; // UUID of the new reconciliation_adjustments row
       };
       // ↓ Added by Story 7.9
       rpc_get_contribution_analysis: {
