@@ -19,14 +19,15 @@ is the only mechanism that ever allowed cross-partner Personal visibility.
 ## Data model
 
 ### `family_members.hide_personal` (BOOLEAN NOT NULL DEFAULT false)
+
 Added in migration `0023_family_schema.sql`.
 
-| `hide_personal` (alice) | `hide_personal` (bob) | Partner sees Personal? |
-|---|---|---|
-| false | false | ✅ Yes (mutual sharing active) |
-| true | false | ❌ No (alice opted out — OR logic) |
-| false | true | ❌ No (bob opted out — OR logic) |
-| true | true | ❌ No |
+| `hide_personal` (alice) | `hide_personal` (bob) | Partner sees Personal?             |
+| ----------------------- | --------------------- | ---------------------------------- |
+| false                   | false                 | ✅ Yes (mutual sharing active)     |
+| true                    | false                 | ❌ No (alice opted out — OR logic) |
+| false                   | true                  | ❌ No (bob opted out — OR logic)   |
+| true                    | true                  | ❌ No                              |
 
 The OR logic made it **symmetric**: one partner opting out hid both partners' Personal transactions
 from each other (while owners always saw their own via Condition 1 of the predicate).
@@ -61,10 +62,12 @@ END IF;
 Post-0036, this entire branch is replaced with `RETURN false` (Personal = always owner-only).
 
 The predicate also declared two local variables that are no longer needed:
+
 ```sql
 v_caller_hide BOOLEAN;
 v_owner_hide  BOOLEAN;
 ```
+
 And no longer needed the `v_viewer_join_date DATE` variable in the else-branch
 (it was only used by the old Personal join-date check from migration 0034).
 
@@ -75,7 +78,9 @@ And no longer needed the `v_viewer_join_date DATE` variable in the else-branch
 `src/features/family/server/actions.ts` contained two functions:
 
 ### `updatePrivacyToggle(enabled: boolean): Promise<Result<void>>`
+
 Updated `family_members.hide_personal` for the authenticated user:
+
 ```typescript
 const { data, error } = await auth.supabase
   .from("family_members")
@@ -89,7 +94,9 @@ return ok();
 ```
 
 ### `getHidePersonal(): Promise<boolean>`
+
 Read back the current user's `hide_personal` flag:
+
 ```typescript
 const { data } = await auth.supabase
   .from("family_members")
@@ -110,14 +117,15 @@ Both functions were removed from `actions.ts`. Their full test suites lived in
 
 ```tsx
 interface PrivacyToggleProps {
-  initialValue: boolean;   // current hide_personal from server
-  isFamilyMode: boolean;   // hidden via HTML `hidden` attr in solo mode
+  initialValue: boolean; // current hide_personal from server
+  isFamilyMode: boolean; // hidden via HTML `hidden` attr in solo mode
 }
 ```
 
 Rendered on the Family page (`src/app/(app)/family/page.tsx`) inside the `in_family` branch,
 with `initialValue={hidePersonal}` (fetched in parallel via `getHidePersonal()`).
 Also rendered hidden in solo mode to pre-register the `aria-live` region with screen readers:
+
 ```tsx
 <PrivacyToggle initialValue={false} isFamilyMode={false} />
 ```
@@ -138,12 +146,12 @@ PrivacyToggleFailed = "privacy_toggle_failed",  // Story 7.4
 
 ## pgTAP tests removed / rewritten
 
-| File | Change |
-|---|---|
-| `supabase/tests/privacy_toggle.test.sql` | Full rewrite — now tests the always-private invariant (no toggle) |
-| `supabase/tests/rls_visibility_predicate.test.sql` | Scenarios S7–S10, S12 updated; toggle state removed |
-| `supabase/tests/family_schema.test.sql` | 4 assertions for `hide_personal` column removed (plan 31→27) |
-| `supabase/tests/join_date_visibility.test.sql` | V3 scenario updated — hide_personal removed from seed INSERT |
+| File                                               | Change                                                            |
+| -------------------------------------------------- | ----------------------------------------------------------------- |
+| `supabase/tests/privacy_toggle.test.sql`           | Full rewrite — now tests the always-private invariant (no toggle) |
+| `supabase/tests/rls_visibility_predicate.test.sql` | Scenarios S7–S10, S12 updated; toggle state removed               |
+| `supabase/tests/family_schema.test.sql`            | 4 assertions for `hide_personal` column removed (plan 31→27)      |
+| `supabase/tests/join_date_visibility.test.sql`     | V3 scenario updated — hide_personal removed from seed INSERT      |
 
 The original `privacy_toggle.test.sql` (Story 7.4) tested four toggle scenarios (P1–P4) proving
 the OR-logic symmetric behavior. Those 16 assertions are gone; the file now proves the simpler
@@ -156,6 +164,7 @@ invariant: personal transactions are unconditionally hidden from the partner.
 To bring this feature back as a user preference:
 
 1. **Add the column back:**
+
    ```sql
    ALTER TABLE public.family_members
      ADD COLUMN hide_personal BOOLEAN NOT NULL DEFAULT false;

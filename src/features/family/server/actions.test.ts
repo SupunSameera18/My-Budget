@@ -21,6 +21,10 @@ import {
   redeemInviteCode,
   getFamilyStatus,
   getContributionAnalysis,
+  getSettleTally,
+  markSettled,
+  getUserAccountsForReconciliation,
+  closeMonth,
 } from "./actions";
 import { requireUser } from "@/lib/supabase/require-user";
 
@@ -262,15 +266,6 @@ describe("getFamilyStatus", () => {
   });
 });
 
-// ── Helpers for .from() chain mocks ──────────────────────────────────────────
-
-function mockAuthWithFrom(fromImpl: (table: string) => unknown) {
-  vi.mocked(requireUser).mockResolvedValue({
-    supabase: { from: fromImpl } as never,
-    user: { id: USER_ID } as never,
-  });
-}
-
 // ── getContributionAnalysis ───────────────────────────────────────────────────
 
 const ALICE_ID = "aaaaaaaa-0000-4000-8000-000000000001";
@@ -376,5 +371,222 @@ describe("getContributionAnalysis", () => {
     makeContributionAuth(RPC_ROWS);
     await getContributionAnalysis();
     expect(vi.mocked(requireUser)).toHaveBeenCalled();
+  });
+});
+
+// ── getSettleTally ────────────────────────────────────────────────────────────
+
+const FAMILY_UNIT_ID = "aaaabbbb-0000-4000-8000-000000000001";
+
+describe("getSettleTally", () => {
+  it("returns null when not authenticated (graceful supplementary)", async () => {
+    vi.mocked(requireUser).mockResolvedValue(null);
+    const result = await getSettleTally(FAMILY_UNIT_ID);
+    expect(result).toBeNull();
+  });
+
+  it("returns null when rpc_settle_up returns an error", async () => {
+    mockAuth({ data: null, error: { code: "500", message: "db error" } });
+    const result = await getSettleTally(FAMILY_UNIT_ID);
+    expect(result).toBeNull();
+  });
+
+  it("returns the tally number on success", async () => {
+    mockAuth({ data: 5000, error: null });
+    const result = await getSettleTally(FAMILY_UNIT_ID);
+    expect(result).toBe(5000);
+  });
+
+  it("returns 0 when tally is zero (all settled)", async () => {
+    mockAuth({ data: 0, error: null });
+    const result = await getSettleTally(FAMILY_UNIT_ID);
+    expect(result).toBe(0);
+  });
+});
+
+// ── getUserAccountsForReconciliation ──────────────────────────────────────────
+
+function makeAccountsAuth(
+  accounts: unknown[] | null,
+  queryError?: { code: string; message: string } | null,
+) {
+  const orderChain = {
+    then: (r: (v: unknown) => unknown) =>
+      Promise.resolve({ data: accounts, error: queryError ?? null }).then(r),
+  };
+  const isChain = { order: vi.fn().mockReturnValue(orderChain) };
+  const eqChain = { is: vi.fn().mockReturnValue(isChain) };
+  const selectChain = { eq: vi.fn().mockReturnValue(eqChain) };
+  const fromImpl = vi
+    .fn()
+    .mockReturnValue({ select: vi.fn().mockReturnValue(selectChain) });
+
+  vi.mocked(requireUser).mockResolvedValue({
+    supabase: { from: fromImpl } as never,
+    user: { id: USER_ID } as never,
+  });
+  return fromImpl;
+}
+
+describe("getUserAccountsForReconciliation", () => {
+  it("returns null when not authenticated", async () => {
+    vi.mocked(requireUser).mockResolvedValue(null);
+    const result = await getUserAccountsForReconciliation();
+    expect(result).toBeNull();
+  });
+
+  it("returns null when query errors", async () => {
+    makeAccountsAuth(null, { code: "500", message: "db error" });
+    const result = await getUserAccountsForReconciliation();
+    expect(result).toBeNull();
+  });
+
+  it("returns mapped account array on success", async () => {
+    makeAccountsAuth([
+      {
+        id: "acc-1",
+        name: "Checking",
+        actual_balance_minor: 10000,
+        currency: "USD",
+      },
+      {
+        id: "acc-2",
+        name: "Savings",
+        actual_balance_minor: 5000,
+        currency: "USD",
+      },
+    ]);
+    const result = await getUserAccountsForReconciliation();
+    expect(result).not.toBeNull();
+    expect(result).toHaveLength(2);
+    expect(result![0]).toEqual({
+      id: "acc-1",
+      name: "Checking",
+      balanceMinor: 10000,
+      currency: "USD",
+    });
+  });
+
+  it("returns empty array when user has no accounts", async () => {
+    makeAccountsAuth([]);
+    const result = await getUserAccountsForReconciliation();
+    expect(result).toEqual([]);
+  });
+});
+
+// ── closeMonth ────────────────────────────────────────────────────────────────
+
+describe("closeMonth", () => {
+  it("calls requireUser first", async () => {
+    mockAuth({ data: "adj-uuid-1", error: null });
+    await closeMonth(FAMILY_UNIT_ID, [
+      { accountId: "acc-1", deltaMinor: -500 },
+    ]);
+    expect(vi.mocked(requireUser)).toHaveBeenCalled();
+  });
+
+  it("returns redirect when not authenticated", async () => {
+    vi.mocked(requireUser).mockResolvedValue(null);
+    const result = await closeMonth(FAMILY_UNIT_ID, []);
+    expect(result).toBeUndefined();
+  });
+
+  it("skips zero-delta adjustments before calling RPC", async () => {
+    const rpc = mockAuth({ data: "adj-uuid-1", error: null });
+    await closeMonth(FAMILY_UNIT_ID, [
+      { accountId: "acc-1", deltaMinor: 0 },
+      { accountId: "acc-2", deltaMinor: -500 },
+    ]);
+    // rpc should be called once (only non-zero delta)
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith(
+      "rpc_reconciliation_adjustment",
+      expect.objectContaining({
+        p_account_id: "acc-2",
+        p_delta_minor: -500,
+      }),
+    );
+  });
+
+  it("returns ok with adjustmentCount on success", async () => {
+    mockAuth({ data: "adj-uuid-1", error: null });
+    const result = await closeMonth(FAMILY_UNIT_ID, [
+      { accountId: "acc-1", deltaMinor: -500 },
+      { accountId: "acc-2", deltaMinor: 200 },
+    ]);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data.adjustmentCount).toBe(2);
+  });
+
+  it("returns ReconciliationFailed on RPC error and stops", async () => {
+    const rpc = vi
+      .fn()
+      .mockResolvedValueOnce({ data: "id-1", error: null })
+      .mockResolvedValueOnce({
+        data: null,
+        error: { code: "42501", message: "not a member" },
+      });
+    vi.mocked(requireUser).mockResolvedValue({
+      supabase: { rpc } as never,
+      user: { id: USER_ID } as never,
+    });
+    const result = await closeMonth(FAMILY_UNIT_ID, [
+      { accountId: "acc-1", deltaMinor: -500 },
+      { accountId: "acc-2", deltaMinor: 200 },
+      { accountId: "acc-3", deltaMinor: 100 },
+    ]);
+    expect(result.ok).toBe(false);
+    if (!result.ok)
+      expect(result.error.code).toBe(ErrorCode.ReconciliationFailed);
+    // Third call should not have been made (stopped on error)
+    expect(rpc).toHaveBeenCalledTimes(2);
+  });
+
+  it("fires PostHog reconciliation_completed on success (non-fatal)", async () => {
+    mockAuth({ data: "adj-uuid-1", error: null });
+    vi.mocked(fetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      ok: true,
+    } as Response);
+    await closeMonth(FAMILY_UNIT_ID, [
+      { accountId: "acc-1", deltaMinor: -500 },
+    ]);
+    expect(fetch).toHaveBeenCalledWith(
+      "https://app.posthog.com/capture/",
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
+  it("returns ok with adjustmentCount=0 when all adjustments are zero-delta", async () => {
+    const rpc = mockAuth({ data: null, error: null });
+    const result = await closeMonth(FAMILY_UNIT_ID, [
+      { accountId: "acc-1", deltaMinor: 0 },
+    ]);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data.adjustmentCount).toBe(0);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+});
+
+// ── markSettled ───────────────────────────────────────────────────────────────
+
+describe("markSettled", () => {
+  it("calls requireUser first", async () => {
+    mockAuth({ data: "uuid-settlement-id", error: null });
+    await markSettled(FAMILY_UNIT_ID);
+    expect(vi.mocked(requireUser)).toHaveBeenCalled();
+  });
+
+  it("returns ok with settlementId on success", async () => {
+    mockAuth({ data: "settlement-uuid-123", error: null });
+    const result = await markSettled(FAMILY_UNIT_ID);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data.settlementId).toBe("settlement-uuid-123");
+  });
+
+  it("returns SettleUpFailed on RPC error", async () => {
+    mockAuth({ data: null, error: { code: "42501", message: "not a member" } });
+    const result = await markSettled(FAMILY_UNIT_ID);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe(ErrorCode.SettleUpFailed);
   });
 });

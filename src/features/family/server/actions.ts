@@ -11,6 +11,39 @@ import type {
   ContributionAnalysisData,
 } from "@/features/family/schema";
 
+// Returns the current settle-up tally (signed bigint as number) for the family unit.
+// Graceful supplementary — returns null on error so the family page still renders.
+export async function getSettleTally(
+  familyUnitId: string,
+): Promise<number | null> {
+  const auth = await requireUser();
+  if (!auth) return null;
+  try {
+    const { data, error } = await auth.supabase.rpc("rpc_settle_up", {
+      p_family_unit_id: familyUnitId,
+    });
+    if (error) return null;
+    return data as number;
+  } catch {
+    return null;
+  }
+}
+
+// Calls rpc_mark_settled to write a settlement watermark for the current period.
+export async function markSettled(
+  familyUnitId: string,
+): Promise<Result<{ settlementId: string }>> {
+  const auth = await requireUser();
+  if (!auth) return redirect("/auth/login") as never;
+
+  const { data, error } = await auth.supabase.rpc("rpc_mark_settled", {
+    p_family_unit_id: familyUnitId,
+  });
+
+  if (error) return err(ErrorCode.SettleUpFailed, error.message);
+  return ok({ settlementId: data as string });
+}
+
 export async function generateInviteCode(): Promise<Result<{ code: string }>> {
   const auth = await requireUser();
   if (!auth) return redirect("/auth/login") as never;
@@ -175,6 +208,78 @@ export async function getFamilyStatus(): Promise<FamilyStatus> {
   } catch {
     return { status: "solo" };
   }
+}
+
+// Returns the caller's active (non-archived) accounts with their current balance.
+// Graceful supplementary — returns null on error so CloseMonthForm still renders.
+export async function getUserAccountsForReconciliation(): Promise<Array<{
+  id: string;
+  name: string;
+  balanceMinor: number;
+  currency: string;
+}> | null> {
+  const auth = await requireUser();
+  if (!auth) return null;
+  try {
+    const { data, error } = await auth.supabase
+      .from("accounts")
+      .select("id, name, actual_balance_minor, currency")
+      .eq("user_id", auth.user.id)
+      .is("archived_at", null)
+      .order("name");
+    if (error || !data) return null;
+    return data.map((a) => ({
+      id: a.id,
+      name: a.name,
+      balanceMinor: a.actual_balance_minor,
+      currency: a.currency,
+    }));
+  } catch {
+    return null;
+  }
+}
+
+// Calls rpc_reconciliation_adjustment for each account with a non-zero delta.
+// Fires PostHog `reconciliation_completed` event on success.
+export async function closeMonth(
+  familyUnitId: string,
+  adjustments: Array<{
+    accountId: string;
+    deltaMinor: number;
+    note?: string;
+  }>,
+): Promise<Result<{ adjustmentCount: number }>> {
+  const auth = await requireUser();
+  if (!auth) return redirect("/auth/login") as never;
+
+  const nonZero = adjustments.filter((a) => a.deltaMinor !== 0);
+
+  for (const adj of nonZero) {
+    const { error } = await auth.supabase.rpc("rpc_reconciliation_adjustment", {
+      p_family_unit_id: familyUnitId,
+      p_account_id: adj.accountId,
+      p_delta_minor: adj.deltaMinor,
+      p_note: adj.note ?? null,
+      p_transaction_id: null,
+    });
+    if (error) return err(ErrorCode.ReconciliationFailed, error.message);
+  }
+
+  // PostHog: reconciliation_completed (non-fatal, feeds SM-5)
+  fetch("https://app.posthog.com/capture/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      api_key: process.env.NEXT_PUBLIC_POSTHOG_KEY,
+      event: "reconciliation_completed",
+      distinct_id: auth.user.id,
+      properties: {
+        adjustment_count: nonZero.length,
+      },
+    }),
+  }).catch(() => {});
+
+  return ok({ adjustmentCount: nonZero.length });
 }
 
 export async function getContributionAnalysis(
