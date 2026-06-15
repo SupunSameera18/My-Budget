@@ -427,6 +427,46 @@ export type Database = {
         };
         Relationships: [];
       };
+      // ↓ Added by Story 9.1
+      notifications: {
+        Row: {
+          id: string;
+          user_id: string;
+          type:
+            | "logging_reminder"
+            | "budget_threshold"
+            | "month_end_summary"
+            | "partner_shared_transaction";
+          title: string;
+          body: string;
+          link: string | null;
+          metadata: Record<string, unknown>;
+          read_at: string | null;
+          dismissed_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          type:
+            | "logging_reminder"
+            | "budget_threshold"
+            | "month_end_summary"
+            | "partner_shared_transaction";
+          title: string;
+          body: string;
+          link?: string | null;
+          metadata?: Record<string, unknown>;
+          read_at?: string | null;
+          dismissed_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          read_at?: string | null;
+          dismissed_at?: string | null;
+        };
+        Relationships: [];
+      };
       // ↓ Added by Story 7.1a
       family_members: {
         Row: {
