@@ -2,7 +2,7 @@
 -- Story 8.1: Settle-Up Tally Math — pgTAP suite
 -- UUID block: 11111111-8001-4000-8000-* (alice=001, bob=002, stranger=003, family_unit=010)
 --
--- Assertions (8 total):
+-- Assertions (9 total):
 --   S7: No splits → returns 0
 --   S8: Personal transaction (is_shared=false) → excluded from tally
 --   S1: Alice (payer) calls rpc_settle_up with one equal split → positive tally
@@ -11,9 +11,10 @@
 --   S4: After watermark inserted, rpc_settle_up returns 0 (split before cutoff)
 --   S5: Stranger (non-family-member) calls rpc_settle_up → returns 0
 --   S6: Two watermarks — only latest counts; only splits after latest watermark included
+--   S9: Stranger cannot SELECT directly from settlements (RLS cross-unit test)
 
 BEGIN;
-SELECT plan(8);
+SELECT plan(9);
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Seed: users, categories, family unit, account
@@ -225,6 +226,20 @@ SELECT is(
   public.rpc_settle_up('11111111-8001-4000-8000-000000000010'),
   2000::bigint,
   'S6: two watermarks — only splits after 2026-05-25 counted; tx3 (alice paid) → tally +2000'
+);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- S9: Stranger cannot SELECT directly from settlements (RLS cross-unit test)
+--     §9 rule: "New table → owner-only RLS + a pgTAP cross-user test"
+-- ─────────────────────────────────────────────────────────────────────────────
+SET LOCAL ROLE authenticated;
+SET LOCAL "request.jwt.claims" TO '{"sub":"11111111-8001-4000-8000-000000000003"}';
+
+SELECT is(
+  (SELECT count(*)::int FROM public.settlements
+   WHERE family_unit_id = '11111111-8001-4000-8000-000000000010'),
+  0,
+  'S9: stranger cannot read settlements rows — RLS blocks cross-unit SELECT'
 );
 
 SELECT * FROM finish();

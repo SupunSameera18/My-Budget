@@ -93,7 +93,7 @@ BEGIN
   FROM public.transaction_splits ts
   JOIN public.transactions t ON t.id = ts.transaction_id
   WHERE t.is_shared = true
-    AND (v_cutoff IS NULL OR t.date > v_cutoff::date)
+    AND (v_cutoff IS NULL OR t.date > (v_cutoff AT TIME ZONE 'UTC')::date)
     AND public.auth_can_view_transaction(t.user_id, t.is_shared, t.date)
     AND (ts.payer_id = v_caller OR ts.payer_id = v_partner_id);
 
