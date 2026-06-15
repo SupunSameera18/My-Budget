@@ -195,6 +195,9 @@ Deno.serve(async (req: Request) => {
         .is("revoked_at", null);
       if (e15) throw e15;
 
+      // Delete notifications (Story 9.1 — migration 0040)
+      await adminClient.from("notifications").delete().eq("user_id", userId);
+
       // Step 5: Delete auth user — POINT OF NO RETURN
       const { error: deleteError } =
         await adminClient.auth.admin.deleteUser(userId);
@@ -275,6 +278,9 @@ Deno.serve(async (req: Request) => {
         .eq("creator_id", userId)
         .is("revoked_at", null);
       if (s10) throw s10;
+
+      // Delete notifications (Story 9.1 — migration 0040)
+      await adminClient.from("notifications").delete().eq("user_id", userId);
 
       // Delete auth user — POINT OF NO RETURN
       const { error: deleteError } =

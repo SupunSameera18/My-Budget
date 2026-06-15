@@ -2,6 +2,7 @@ import { requireUser } from "@/lib/supabase/require-user";
 import { signOut } from "@/features/auth/server/actions";
 import {
   BarChart2,
+  Bell,
   CalendarDays,
   LogOut,
   Settings,
@@ -29,6 +30,19 @@ export default async function MorePage() {
 
       <div className="mb-2">
         <ThemeToggle />
+      </div>
+
+      <div className="mb-2">
+        <Link
+          href="/notifications"
+          className="flex min-h-[44px] w-full items-center gap-3 rounded-md border border-hairline bg-surface-raised px-4 text-sm text-ink-primary transition-colors hover:bg-surface-inset"
+        >
+          <Bell
+            strokeWidth={1.75}
+            className="h-5 w-5 shrink-0 text-ink-secondary"
+          />
+          Notifications
+        </Link>
       </div>
 
       <div className="mb-2">
