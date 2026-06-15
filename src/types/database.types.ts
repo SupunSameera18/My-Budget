@@ -504,6 +504,11 @@ export type Database = {
         Args: { p_family_unit_id: string };
         Returns: number;
       };
+      // ↓ Added by Story 8.2
+      rpc_mark_settled: {
+        Args: { p_family_unit_id: string };
+        Returns: string; // UUID of the settlement record
+      };
       // ↓ Added by Story 7.9
       rpc_get_contribution_analysis: {
         Args: { p_period_start?: string | null; p_period_end?: string | null };

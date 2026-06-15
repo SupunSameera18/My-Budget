@@ -21,6 +21,8 @@ import {
   redeemInviteCode,
   getFamilyStatus,
   getContributionAnalysis,
+  getSettleTally,
+  markSettled,
 } from "./actions";
 import { requireUser } from "@/lib/supabase/require-user";
 
@@ -262,15 +264,6 @@ describe("getFamilyStatus", () => {
   });
 });
 
-// ── Helpers for .from() chain mocks ──────────────────────────────────────────
-
-function mockAuthWithFrom(fromImpl: (table: string) => unknown) {
-  vi.mocked(requireUser).mockResolvedValue({
-    supabase: { from: fromImpl } as never,
-    user: { id: USER_ID } as never,
-  });
-}
-
 // ── getContributionAnalysis ───────────────────────────────────────────────────
 
 const ALICE_ID = "aaaaaaaa-0000-4000-8000-000000000001";
@@ -376,5 +369,59 @@ describe("getContributionAnalysis", () => {
     makeContributionAuth(RPC_ROWS);
     await getContributionAnalysis();
     expect(vi.mocked(requireUser)).toHaveBeenCalled();
+  });
+});
+
+// ── getSettleTally ────────────────────────────────────────────────────────────
+
+const FAMILY_UNIT_ID = "aaaabbbb-0000-4000-8000-000000000001";
+
+describe("getSettleTally", () => {
+  it("returns null when not authenticated (graceful supplementary)", async () => {
+    vi.mocked(requireUser).mockResolvedValue(null);
+    const result = await getSettleTally(FAMILY_UNIT_ID);
+    expect(result).toBeNull();
+  });
+
+  it("returns null when rpc_settle_up returns an error", async () => {
+    mockAuth({ data: null, error: { code: "500", message: "db error" } });
+    const result = await getSettleTally(FAMILY_UNIT_ID);
+    expect(result).toBeNull();
+  });
+
+  it("returns the tally number on success", async () => {
+    mockAuth({ data: 5000, error: null });
+    const result = await getSettleTally(FAMILY_UNIT_ID);
+    expect(result).toBe(5000);
+  });
+
+  it("returns 0 when tally is zero (all settled)", async () => {
+    mockAuth({ data: 0, error: null });
+    const result = await getSettleTally(FAMILY_UNIT_ID);
+    expect(result).toBe(0);
+  });
+});
+
+// ── markSettled ───────────────────────────────────────────────────────────────
+
+describe("markSettled", () => {
+  it("calls requireUser first", async () => {
+    mockAuth({ data: "uuid-settlement-id", error: null });
+    await markSettled(FAMILY_UNIT_ID);
+    expect(vi.mocked(requireUser)).toHaveBeenCalled();
+  });
+
+  it("returns ok with settlementId on success", async () => {
+    mockAuth({ data: "settlement-uuid-123", error: null });
+    const result = await markSettled(FAMILY_UNIT_ID);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data.settlementId).toBe("settlement-uuid-123");
+  });
+
+  it("returns SettleUpFailed on RPC error", async () => {
+    mockAuth({ data: null, error: { code: "42501", message: "not a member" } });
+    const result = await markSettled(FAMILY_UNIT_ID);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe(ErrorCode.SettleUpFailed);
   });
 });

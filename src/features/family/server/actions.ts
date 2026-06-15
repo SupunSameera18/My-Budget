@@ -11,6 +11,39 @@ import type {
   ContributionAnalysisData,
 } from "@/features/family/schema";
 
+// Returns the current settle-up tally (signed bigint as number) for the family unit.
+// Graceful supplementary — returns null on error so the family page still renders.
+export async function getSettleTally(
+  familyUnitId: string,
+): Promise<number | null> {
+  const auth = await requireUser();
+  if (!auth) return null;
+  try {
+    const { data, error } = await auth.supabase.rpc("rpc_settle_up", {
+      p_family_unit_id: familyUnitId,
+    });
+    if (error) return null;
+    return data as number;
+  } catch {
+    return null;
+  }
+}
+
+// Calls rpc_mark_settled to write a settlement watermark for the current period.
+export async function markSettled(
+  familyUnitId: string,
+): Promise<Result<{ settlementId: string }>> {
+  const auth = await requireUser();
+  if (!auth) return redirect("/auth/login") as never;
+
+  const { data, error } = await auth.supabase.rpc("rpc_mark_settled", {
+    p_family_unit_id: familyUnitId,
+  });
+
+  if (error) return err(ErrorCode.SettleUpFailed, error.message);
+  return ok({ settlementId: data as string });
+}
+
 export async function generateInviteCode(): Promise<Result<{ code: string }>> {
   const auth = await requireUser();
   if (!auth) return redirect("/auth/login") as never;
