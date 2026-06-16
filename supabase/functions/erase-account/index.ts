@@ -202,6 +202,13 @@ Deno.serve(async (req: Request) => {
         .eq("user_id", userId);
       if (eNotif1) throw eNotif1;
 
+      // Delete push subscriptions (Story 9.6 — migration 0045)
+      const { error: ePush1 } = await adminClient
+        .from("push_subscriptions")
+        .delete()
+        .eq("user_id", userId);
+      if (ePush1) throw ePush1;
+
       // Step 5: Delete auth user — POINT OF NO RETURN
       const { error: deleteError } =
         await adminClient.auth.admin.deleteUser(userId);
@@ -289,6 +296,13 @@ Deno.serve(async (req: Request) => {
         .delete()
         .eq("user_id", userId);
       if (eNotif2) throw eNotif2;
+
+      // Delete push subscriptions (Story 9.6 — migration 0045)
+      const { error: ePush2 } = await adminClient
+        .from("push_subscriptions")
+        .delete()
+        .eq("user_id", userId);
+      if (ePush2) throw ePush2;
 
       // Delete auth user — POINT OF NO RETURN
       const { error: deleteError } =

@@ -22,7 +22,11 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(href + "/");
 }
 
-export function BottomNav() {
+interface BottomNavProps {
+  unreadCount?: number;
+}
+
+export function BottomNav({ unreadCount = 0 }: BottomNavProps) {
   const pathname = usePathname();
 
   return (
@@ -57,7 +61,17 @@ export function BottomNav() {
                 : "text-ink-secondary"
             }`}
           >
-            <Icon strokeWidth={1.75} className="h-5 w-5" />
+            <span className="relative">
+              <Icon strokeWidth={1.75} className="h-5 w-5" />
+              {item.label === "More" && unreadCount > 0 && (
+                <span
+                  className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-brand-accent text-[10px] font-bold text-white"
+                  aria-label={`${unreadCount} unread notifications`}
+                >
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </span>
             <span className="text-[10px] leading-none">{item.label}</span>
           </Link>
         );

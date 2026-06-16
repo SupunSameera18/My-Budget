@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BottomNav } from "@/components/nav/BottomNav";
 import { Sidebar } from "@/components/nav/Sidebar";
+import { getUnreadNotificationCount } from "@/features/notifications/server/actions";
 
 export default async function AppLayout({
   children,
@@ -25,6 +26,9 @@ export default async function AppLayout({
     redirect("/onboarding");
   }
 
+  // Graceful supplementary — getUnreadNotificationCount() returns 0 on error.
+  const unreadCount = await getUnreadNotificationCount();
+
   return (
     <div data-testid="app-shell" className="flex h-dvh">
       <Sidebar />
@@ -32,7 +36,7 @@ export default async function AppLayout({
         <main className="flex-1 overflow-y-auto pb-[env(safe-area-inset-bottom)] md:pb-0">
           {children}
         </main>
-        <BottomNav />
+        <BottomNav unreadCount={unreadCount} />
       </div>
     </div>
   );
