@@ -10,6 +10,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  golden-suite-guard:
+    name: Flag edits to golden-suite expectation files
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for golden-suite test edits
+        run: |
+          # Golden suites encode ratified contracts (e.g. AR-15 privacy model).
+          # A diff here isn't blocked — it may be a legitimate, deliberate
+          # contract change — but it must be called out for human review.
+          GOLDEN_FILES="supabase/tests/rls_visibility_predicate.test.sql"
+          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- $GOLDEN_FILES)
+          if [ -n "$CHANGED" ]; then
+            echo "::warning::Golden-suite expectation file(s) changed in this PR: $CHANGED — verify this is a deliberate, ratified contract change (see file header for the AR-15 / phase-2-implementation-plan.md §1 contract) and not a silent test-weakening."
+          fi
+
   verify:
     name: Verify (typecheck, lint, format, unit, db lint, pgTAP, e2e)
     runs-on: ubuntu-latest

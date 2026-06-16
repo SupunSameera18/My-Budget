@@ -1,13 +1,30 @@
 -- Story 7.1b: RLS visibility predicate golden suite
+-- ⚠ GOLDEN SUITE — POST-0034 / AR-15 CONTRACT. This file asserts the ratified
+-- privacy model (architecture.md AR-15, phase-2-implementation-plan.md §1):
+--   Shared   → ALWAYS visible to family members, regardless of join date,
+--              including in aggregates AND notifications.
+--   Personal → NEVER visible to the partner, under any condition.
+-- The only visibility gate is the is_shared boolean — join_date gates
+-- NOTHING in this contract (display/audit metadata only). Do not reintroduce
+-- a join-date filter into this suite's expectations without updating AR-15
+-- first; a CI guard (.github/workflows — see ci-guard-golden-suites job)
+-- flags any diff to this file's expectation values for manual review.
+--
+-- History:
 -- Updated in 0036: Personal transactions are always owner-only (no toggle).
 -- Updated in 0046 (E9 retro finding): migration 0034 removed the join-date
 -- restriction on Shared transactions ("Shared row: always visible to family
 -- members — no join-date restriction", see auth_can_view_transaction). S4/S5/
 -- S12b/S12c originally asserted the PRE-0034 invariant (pre-join Shared rows
 -- invisible) and had silently gone stale — they now assert the current,
--- documented behavior instead. The join_date column still gates whether a
--- Shared transaction triggers a *notification* (Story 9.5/9.7), but it no
--- longer gates RLS *visibility* — those are two different invariants.
+-- documented behavior instead.
+-- Updated in 0049 (Phase 2 Task 1): the partner-notification join-date gate
+-- (rpc_notify_partner_shared_transaction) and the Shared Goal pool's
+-- join-date filters (auth_can_view_goal, goal_contributions policy,
+-- rpc_contribute_goal) were also removed — there is now exactly ONE
+-- visibility/notification rule, with no exceptions. See shared_goals.test.sql
+-- and rpc_notify_partner_shared_transaction.test.sql for the matching
+-- assertions in those surfaces.
 -- UUID block: eeeeeeee-* (reserved for 7.1b per dev-learnings §5)
 --   eeeeeeee-eeee-4eee-8eee-000000000001 = alice (solo + family creator)
 --   eeeeeeee-eeee-4eee-8eee-000000000002 = bob   (joins alice's family, later join_date)

@@ -18,12 +18,15 @@
 --
 -- Scenarios (AC: 7, 14):
 --   P0: pre-asserts — fixture state proven non-vacuous
---   S1: pre-join block — tx_pre_join cannot become Shared (P0003)
+--   S1 (0049): pre-join transaction CAN become Shared — migration 0049 removed the
+--       pre-join block that 0046 had reintroduced (finalized rule, AR-15: Shared is
+--       always visible regardless of date, so there is nothing to gate on join date)
 --   S2: Personal→Shared allowed — tx_personal flips, split auto-created, trail written
 --   S3: Shared→Personal — tx_shared flips, split hard-deleted, trail written
 --   S4: AC14 — bob sees 0 rows for tx_shared after S3 reclassification
 --   S5: non-owner — bob cannot reclassify alice's tx_personal (42501)
---   S6: already same type — alice tries Personal→Personal on tx_pre_join (P0001)
+--   S6: already same type — alice tries Shared→Shared on tx_pre_join (P0001; tx_pre_join
+--       is now Shared after S1 flipped it)
 --
 -- Story 9.7 — privacy-aware notification cleanup on Shared→Personal:
 --   T-new-1: partner notification DELETED when push_notified_at IS NULL
@@ -217,27 +220,26 @@ SELECT is(
 );
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- S1: Pre-join block — tx_pre_join (dated 2026-02-01) cannot become Shared
---     Bob joined 2026-03-01, so 2026-02-01 < 2026-03-01 → P0003
+-- S1 (0049): tx_pre_join (dated 2026-02-01, before bob's 2026-03-01 join) CAN
+--     now become Shared — migration 0049 removed the pre-join block (AR-15).
 -- ═══════════════════════════════════════════════════════════════════════════
 SET LOCAL ROLE authenticated;
 SET LOCAL "request.jwt.claims" TO '{"sub":"11111111-7008-4000-8000-000000000001"}';
 
-SELECT throws_ok(
+SELECT lives_ok(
   $$ SELECT public.rpc_reclassify_transaction(
        '11111111-7008-4000-8000-000000000021'::uuid,
        true
      ) $$,
-  'P0003', NULL::text,
-  'S1: pre-join transaction (2026-02-01 < bob join 2026-03-01) raises P0003'
+  'S1: pre-join transaction (2026-02-01 < bob join 2026-03-01) no longer raises — Shared is always visible (AR-15)'
 );
 
 SET LOCAL ROLE postgres;
 
 SELECT is(
   (SELECT is_shared FROM public.transactions WHERE id = '11111111-7008-4000-8000-000000000021'),
-  false,
-  'S1: tx_pre_join is_shared unchanged after P0003 rejection'
+  true,
+  'S1: tx_pre_join is_shared flipped to true (pre-join block removed)'
 );
 
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -375,8 +377,8 @@ SELECT is(
 );
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- S6: Already same type — alice tries Personal→Personal on tx_pre_join
---     (tx_pre_join is still is_shared=false from P0/S1)
+-- S6: Already same type — alice tries Shared→Shared on tx_pre_join
+--     (tx_pre_join is now is_shared=true after S1 flipped it)
 -- ═══════════════════════════════════════════════════════════════════════════
 SET LOCAL ROLE authenticated;
 SET LOCAL "request.jwt.claims" TO '{"sub":"11111111-7008-4000-8000-000000000001"}';
@@ -384,10 +386,10 @@ SET LOCAL "request.jwt.claims" TO '{"sub":"11111111-7008-4000-8000-000000000001"
 SELECT throws_ok(
   $$ SELECT public.rpc_reclassify_transaction(
        '11111111-7008-4000-8000-000000000021'::uuid,
-       false
+       true
      ) $$,
   'P0001', NULL::text,
-  'S6: already-personal tx_pre_join raises P0001 (already that type)'
+  'S6: already-shared tx_pre_join raises P0001 (already that type)'
 );
 
 SET LOCAL ROLE postgres;

@@ -3,7 +3,7 @@
 -- UUID block: 11111111-7011-4000-8000-* (alice=001, bob=002)
 
 BEGIN;
-SELECT plan(16);
+SELECT plan(17);
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Seed: alice (goal owner) and bob (family partner)
@@ -78,8 +78,25 @@ SELECT is(
 );
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- T4: bob can read his own contribution and alice's post-join contribution
---     (RLS: own contributions always visible; partner post-join also visible)
+-- T3c (0049): bob can back-date a contribution before his own join_date
+--     (2026-06-01 < bob's join_date 2026-06-05). Migration 0049 removed the
+--     P0003 back-date guard — the Shared goal pool accepts contributions for
+--     any date, matching "Shared = always" (AR-15).
+-- ─────────────────────────────────────────────────────────────────────────────
+SET LOCAL ROLE authenticated;
+SET LOCAL "request.jwt.claims" TO '{"sub":"11111111-7011-4000-8000-000000000002"}';
+
+SELECT lives_ok(
+  $$SELECT public.rpc_contribute_goal('11111111-7011-4000-8000-000000000020', 2500, '2026-06-01')$$,
+  'T3c: bob back-dating a contribution before his join_date no longer raises P0003'
+);
+
+SET LOCAL ROLE postgres;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- T4: bob can read his own contribution AND alice's pre-join contribution
+--     (finalized rule — AR-15: Shared goal pool is always visible, regardless
+--     of join date; 0049 removed the date >= join_date filter)
 -- ─────────────────────────────────────────────────────────────────────────────
 
 -- Seed alice's contributions: one pre-join (2026-05-30) and one post-join (2026-06-06)
@@ -90,33 +107,34 @@ INSERT INTO public.goal_contributions (goal_id, user_id, amount_minor, date) VAL
 SET LOCAL ROLE authenticated;
 SET LOCAL "request.jwt.claims" TO '{"sub":"11111111-7011-4000-8000-000000000002"}';
 
--- bob's join_date = 2026-06-05; should see: own (5000) + alice post-join (8000) = 2 rows, NOT alice pre-join
+-- bob's join_date = 2026-06-05; should see: own x2 (5000 + 2500 back-dated from T3c)
+-- + BOTH alice contributions (pre-join 10000 + post-join 8000) = 4 rows —
+-- pool is always visible regardless of date (AR-15)
 SELECT is(
   (SELECT COUNT(*)::int FROM public.goal_contributions
    WHERE goal_id = '11111111-7011-4000-8000-000000000020'),
-  2,
-  'T4: bob sees own contribution + alice post-join contribution (not pre-join)'
+  4,
+  'T4: bob sees both own contributions + BOTH alice contributions (pre- and post-join)'
 );
 
 SELECT is(
   (SELECT COALESCE(SUM(amount_minor), 0)::bigint FROM public.goal_contributions
    WHERE goal_id = '11111111-7011-4000-8000-000000000020'),
-  13000::bigint,
-  'T4b: pooled progress for bob = 5000 (bob) + 8000 (alice post-join)'
+  25500::bigint,
+  'T4b: pooled progress for bob = 5000 + 2500 (bob) + 10000 (alice pre-join) + 8000 (alice post-join)'
 );
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- T5: alice sees all her own contributions + bob's post-join contribution
---     alice join_date = 2026-06-01; bob contribution date = 2026-06-06 (post alice join)
+-- T5: alice sees all her own contributions + bob's contributions (always visible)
 -- ─────────────────────────────────────────────────────────────────────────────
 SET LOCAL "request.jwt.claims" TO '{"sub":"11111111-7011-4000-8000-000000000001"}';
 
--- alice sees: own pre-join (10000) + own post-join (8000) + bob post-join (5000) = 3 rows
+-- alice sees: own pre-join (10000) + own post-join (8000) + bob's two (5000 + 2500) = 4 rows
 SELECT is(
   (SELECT COUNT(*)::int FROM public.goal_contributions
    WHERE goal_id = '11111111-7011-4000-8000-000000000020'),
-  3,
-  'T5: alice sees all own contributions + bob post-join contribution'
+  4,
+  'T5: alice sees all own contributions + both bob contributions'
 );
 
 -- ─────────────────────────────────────────────────────────────────────────────
