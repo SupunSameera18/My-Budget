@@ -250,7 +250,12 @@ export async function logTransaction(
         })
         .then(
           () => {},
-          () => {},
+          (notifyErr) => {
+            console.error(
+              "[logTransaction] partner notification failed:",
+              notifyErr,
+            );
+          },
         );
     }
 

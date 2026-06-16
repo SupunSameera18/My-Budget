@@ -22,10 +22,11 @@
 --   T8: caller (alice) is never notified — notification goes to partner only
 --   T9: non-family user (dave) → no notification, no error
 --   T10: non-existent transaction id → returns silently, no error, no notifications
+--   T11: auth guard — non-owner caller (dave) passing alice's transaction_id is blocked, no duplicate notification
 
 BEGIN;
 
-SELECT plan(10);
+SELECT plan(11);
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- SEED (as postgres — bypasses RLS)
@@ -240,6 +241,24 @@ SET LOCAL "request.jwt.claims" TO '{"sub":"11111111-9005-4000-8000-000000000001"
 SELECT lives_ok(
   $$ SELECT public.rpc_notify_partner_shared_transaction('11111111-9005-4000-8000-000000000099'::uuid) $$,
   'T10: non-existent transaction id returns silently without error'
+);
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- T11: auth guard — non-owner caller (dave) passing alice's transaction_id is blocked
+-- ═══════════════════════════════════════════════════════════════════════════
+SET LOCAL ROLE authenticated;
+SET LOCAL "request.jwt.claims" TO '{"sub":"11111111-9005-4000-8000-000000000003"}';
+
+SELECT public.rpc_notify_partner_shared_transaction('11111111-9005-4000-8000-000000000020'::uuid);
+
+SET LOCAL ROLE postgres;
+
+SELECT is(
+  (SELECT COUNT(*)::int FROM public.notifications
+   WHERE user_id = '11111111-9005-4000-8000-000000000002'
+     AND type = 'partner_shared_transaction'),
+  1,
+  'T11: non-owner (dave) calling with alice''s transaction_id is blocked by the auth guard — no duplicate notification'
 );
 
 SELECT * FROM finish();
