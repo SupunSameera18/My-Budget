@@ -240,6 +240,18 @@ export async function logTransaction(
         // Non-fatal: transaction already logged; user can re-split from edit sheet
         console.error("[logTransaction] auto-split failed:", splitErr);
       }
+
+      // Non-fatal: notify partner about new shared transaction. Fire-and-forget —
+      // never await or check the result, a notification failure must never
+      // degrade the transaction-logging flow.
+      supabase
+        .rpc("rpc_notify_partner_shared_transaction", {
+          p_transaction_id: newTxId,
+        })
+        .then(
+          () => {},
+          () => {},
+        );
     }
 
     const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;

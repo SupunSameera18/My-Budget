@@ -666,6 +666,11 @@ export type Database = {
           goal_contribution_minor: number;
         }[];
       };
+      // ↓ Added by Story 9.5
+      rpc_notify_partner_shared_transaction: {
+        Args: { p_transaction_id: string };
+        Returns: void;
+      };
     };
     Enums: {
       [_ in never]: never;
