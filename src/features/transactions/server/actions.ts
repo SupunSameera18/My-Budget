@@ -817,6 +817,8 @@ export async function splitTransactionAction(
   }
 }
 
+// rpc_reclassify_transaction (migration 0046) handles partner notification cleanup
+// for Shared→Personal: deletes if push_notified_at IS NULL, dismisses if push delivered.
 export async function reclassifyTransaction(
   transactionId: string,
   newIsShared: boolean,

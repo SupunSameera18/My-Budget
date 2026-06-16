@@ -10,6 +10,7 @@
 --   11111111-9005-4000-8000-000000000021 = shared transaction dated before bob's join_date
 --   11111111-9005-4000-8000-000000000022 = personal transaction (is_shared=false)
 --   11111111-9005-4000-8000-000000000023 = dave's standalone transaction (no family)
+--   11111111-9005-4000-8000-000000000024 = shared transaction used only for T12 (dismiss-then-reshare)
 --
 -- Scenarios:
 --   T1: happy path — notification created for partner
@@ -23,10 +24,12 @@
 --   T9: non-family user (dave) → no notification, no error
 --   T10: non-existent transaction id → returns silently, no error, no notifications
 --   T11: auth guard — non-owner caller (dave) passing alice's transaction_id is blocked, no duplicate notification
+--   T12: code-review follow-up (0047) — a dismissed notification no longer blocks
+--        a fresh re-notify for the same transaction_id (dismiss-then-reshare cycle)
 
 BEGIN;
 
-SELECT plan(11);
+SELECT plan(12);
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- SEED (as postgres — bypasses RLS)
@@ -97,6 +100,16 @@ SELECT
   '11111111-9005-4000-8000-000000000031',
   (SELECT id FROM public.categories WHERE user_id = '11111111-9005-4000-8000-000000000003' AND type = 'expense' LIMIT 1),
   100, CURRENT_DATE, 'expense', true;
+
+-- Shared transaction used only for T12 (dismiss-then-reshare idempotency)
+INSERT INTO public.transactions
+  (id, user_id, account_id, category_id, amount_minor, date, type, is_shared)
+SELECT
+  '11111111-9005-4000-8000-000000000024',
+  '11111111-9005-4000-8000-000000000001',
+  '11111111-9005-4000-8000-000000000030',
+  (SELECT id FROM public.categories WHERE user_id = '11111111-9005-4000-8000-000000000001' AND type = 'expense' LIMIT 1),
+  750, CURRENT_DATE, 'expense', true;
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- T1: happy path — notification created for partner (bob)
@@ -259,6 +272,46 @@ SELECT is(
      AND type = 'partner_shared_transaction'),
   1,
   'T11: non-owner (dave) calling with alice''s transaction_id is blocked by the auth guard — no duplicate notification'
+);
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- T12: code-review follow-up (0047) — dismiss-then-reshare cycle
+--     1. alice shares tx_024 → bob gets a notification
+--     2. bob's notification is dismissed (simulating 0046's Shared→Personal
+--        Case B cleanup, without re-running the full reclassify flow)
+--     3. alice "re-shares" by calling notify again for the same tx_024
+--     Expect: a fresh, non-dismissed notification now exists for bob —
+--     the old dismissed row no longer blocks the idempotency check.
+-- ═══════════════════════════════════════════════════════════════════════════
+SET LOCAL ROLE authenticated;
+SET LOCAL "request.jwt.claims" TO '{"sub":"11111111-9005-4000-8000-000000000001"}';
+
+SELECT public.rpc_notify_partner_shared_transaction('11111111-9005-4000-8000-000000000024'::uuid);
+
+SET LOCAL ROLE postgres;
+
+-- Simulate 0046's Case B cleanup (push already delivered → dismissed, not deleted)
+UPDATE public.notifications
+   SET dismissed_at = now(), read_at = COALESCE(read_at, now())
+ WHERE user_id = '11111111-9005-4000-8000-000000000002'
+   AND type = 'partner_shared_transaction'
+   AND (metadata->>'transaction_id') = '11111111-9005-4000-8000-000000000024';
+
+SET LOCAL ROLE authenticated;
+SET LOCAL "request.jwt.claims" TO '{"sub":"11111111-9005-4000-8000-000000000001"}';
+
+SELECT public.rpc_notify_partner_shared_transaction('11111111-9005-4000-8000-000000000024'::uuid);
+
+SET LOCAL ROLE postgres;
+
+SELECT is(
+  (SELECT COUNT(*)::int FROM public.notifications
+   WHERE user_id = '11111111-9005-4000-8000-000000000002'
+     AND type = 'partner_shared_transaction'
+     AND (metadata->>'transaction_id') = '11111111-9005-4000-8000-000000000024'
+     AND dismissed_at IS NULL),
+  1,
+  'T12: dismissed notification no longer blocks a fresh re-notify for the same transaction_id'
 );
 
 SELECT * FROM finish();
