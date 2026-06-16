@@ -66,6 +66,10 @@ export type Database = {
             defaultType?: string;
             defaultSplitMethod?: string;
           } | null;
+          // ↓ Added by Story 9.2
+          reminder_enabled: boolean;
+          reminder_time: string | null;
+          reminder_timezone: string | null;
         };
         Insert: {
           created_at?: string;
@@ -84,6 +88,10 @@ export type Database = {
           chart_preferences?: Record<string, boolean> | null;
           // ↓ Added by Story 7.5
           transaction_defaults?: Record<string, string> | null;
+          // ↓ Added by Story 9.2
+          reminder_enabled?: boolean;
+          reminder_time?: string | null;
+          reminder_timezone?: string | null;
         };
         Update: {
           created_at?: string;
@@ -102,6 +110,10 @@ export type Database = {
           chart_preferences?: Record<string, boolean> | null;
           // ↓ Added by Story 7.5
           transaction_defaults?: Record<string, string> | null;
+          // ↓ Added by Story 9.2
+          reminder_enabled?: boolean;
+          reminder_time?: string | null;
+          reminder_timezone?: string | null;
         };
         Relationships: [];
       };

@@ -1,3 +1,9 @@
+export interface ReminderPreferences {
+  reminder_enabled: boolean;
+  reminder_time: string | null;
+  reminder_timezone: string | null;
+}
+
 export type NotificationType =
   | "logging_reminder"
   | "budget_threshold"
