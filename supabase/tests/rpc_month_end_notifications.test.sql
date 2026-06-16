@@ -9,7 +9,7 @@
 
 BEGIN;
 
-SELECT plan(9);
+SELECT plan(10);
 
 -- ──────────────────────────────────────────────────────────────────────────────
 -- Seed: alice, bob, charlie users (trigger auto-creates profile on auth.users INSERT)
@@ -159,6 +159,15 @@ SELECT is(
      AND type = 'month_end_summary'),
   0::bigint,
   'T9: charlie (transactions only in current month) gets no month_end_summary notification'
+);
+
+-- T10: EXECUTE privilege lockdown — neither authenticated nor anon can call this
+-- SECURITY DEFINER RPC directly (it's pg_cron-only). Guards against PostgreSQL's
+-- default PUBLIC grant on newly created functions silently re-opening this.
+SELECT ok(
+  NOT has_function_privilege('authenticated', 'public.rpc_send_month_end_summary_notifications()', 'EXECUTE')
+  AND NOT has_function_privilege('anon', 'public.rpc_send_month_end_summary_notifications()', 'EXECUTE'),
+  'T10: neither authenticated nor anon has EXECUTE on rpc_send_month_end_summary_notifications'
 );
 
 SELECT * FROM finish();

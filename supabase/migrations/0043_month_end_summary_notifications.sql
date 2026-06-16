@@ -73,6 +73,11 @@ $$;
 -- Note: no GRANT EXECUTE to authenticated — function is called only by pg_cron (runs as postgres).
 -- Granting to authenticated would let any logged-in user trigger mass notifications for all users
 -- (same rule applied in 0041/0042 review patches — §9 enforced check).
+-- REVOKE EXECUTE FROM PUBLIC is required here: PostgreSQL grants EXECUTE on newly created
+-- functions to PUBLIC by default, so simply omitting the GRANT does not actually lock this
+-- down — without this REVOKE, any role inheriting from PUBLIC (e.g. authenticated, anon) could
+-- still call this SECURITY DEFINER function and mass-notify every profile in the system.
+REVOKE EXECUTE ON FUNCTION public.rpc_send_month_end_summary_notifications() FROM PUBLIC;
 
 -- pg_cron: fire at 00:05 UTC on the 1st of every month (idempotent: unschedule before scheduling)
 SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = 'month-end-summary-notifications';
