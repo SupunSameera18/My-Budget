@@ -11,6 +11,10 @@
 --   11111111-7008-4000-8000-000000000031 = tx_n1 (Story 9.7: shared, push NOT yet delivered)
 --   11111111-7008-4000-8000-000000000032 = tx_n2 (Story 9.7: shared, push already delivered)
 --   11111111-7008-4000-8000-000000000033 = tx_n3 (Story 9.7: personal, reclassified to shared)
+--   11111111-7008-4000-8000-000000000034 = tx_n4 (Story 9.7 review: alice's shared, UNRELATED — must survive tx_n1's cleanup)
+--   11111111-7008-4000-8000-000000000004 = carol (no family — used for T-new-5, no-partner cleanup branch)
+--   11111111-7008-4000-8000-000000000014 = carol account
+--   11111111-7008-4000-8000-000000000035 = tx_no_partner (carol's shared, used for T-new-5)
 --
 -- Scenarios (AC: 7, 14):
 --   P0: pre-asserts — fixture state proven non-vacuous
@@ -26,10 +30,12 @@
 --   T-new-2: partner notification dismissed when push already delivered
 --   T-new-3: Personal→Shared reclassification does not insert a partner notification
 --   T-new-4: Personal→Shared with no pre-existing partner notification — no errors, no side effects
+--   T-new-5 (review): Shared→Personal cleanup with NO partner at all — no error, nothing to clean up
+--   T-new-6 (review): Shared→Personal cleanup leaves an UNRELATED notification untouched
 
 BEGIN;
 
-SELECT plan(22);
+SELECT plan(25);
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- SEED (as postgres — bypasses RLS)
@@ -39,15 +45,20 @@ SET LOCAL ROLE postgres;
 INSERT INTO auth.users (id, email, raw_user_meta_data)
 VALUES
   ('11111111-7008-4000-8000-000000000001', 'alice-7008@test.com', '{}'),
-  ('11111111-7008-4000-8000-000000000002', 'bob-7008@test.com',   '{}');
+  ('11111111-7008-4000-8000-000000000002', 'bob-7008@test.com',   '{}'),
+  ('11111111-7008-4000-8000-000000000004', 'carol-7008@test.com', '{}');
 
 SELECT public.seed_default_categories('11111111-7008-4000-8000-000000000001');
 SELECT public.seed_default_categories('11111111-7008-4000-8000-000000000002');
+SELECT public.seed_default_categories('11111111-7008-4000-8000-000000000004');
 
 INSERT INTO public.accounts (id, user_id, name, type, currency, actual_balance_minor)
 VALUES
   ('11111111-7008-4000-8000-000000000011', '11111111-7008-4000-8000-000000000001', 'Alice 7008 Cash', 'cash', 'USD', 0),
-  ('11111111-7008-4000-8000-000000000012', '11111111-7008-4000-8000-000000000002', 'Bob 7008 Cash',   'cash', 'USD', 0);
+  ('11111111-7008-4000-8000-000000000012', '11111111-7008-4000-8000-000000000002', 'Bob 7008 Cash',   'cash', 'USD', 0),
+  ('11111111-7008-4000-8000-000000000014', '11111111-7008-4000-8000-000000000004', 'Carol 7008 Cash', 'cash', 'USD', 0);
+
+-- carol is NOT a family member (standalone user — no partner) — used for T-new-5
 
 INSERT INTO public.family_units (id)
 VALUES ('11111111-7008-4000-8000-000000000010');
@@ -126,6 +137,27 @@ SELECT
   (SELECT id FROM public.categories WHERE user_id = '11111111-7008-4000-8000-000000000001' AND type = 'expense' LIMIT 1),
   700, '2026-04-05', 'expense', false;
 
+-- tx_n4: alice's shared, date AFTER bob's join date — UNRELATED transaction used
+-- only for T-new-6 (proves tx_n1's cleanup doesn't touch other notifications)
+INSERT INTO public.transactions
+  (id, user_id, account_id, category_id, amount_minor, date, type, is_shared)
+SELECT
+  '11111111-7008-4000-8000-000000000034',
+  '11111111-7008-4000-8000-000000000001',
+  '11111111-7008-4000-8000-000000000011',
+  (SELECT id FROM public.categories WHERE user_id = '11111111-7008-4000-8000-000000000001' AND type = 'expense' LIMIT 1),
+  900, '2026-04-06', 'expense', true;
+
+-- tx_no_partner: carol's shared (carol has no partner) — used for T-new-5
+INSERT INTO public.transactions
+  (id, user_id, account_id, category_id, amount_minor, date, type, is_shared)
+SELECT
+  '11111111-7008-4000-8000-000000000035',
+  '11111111-7008-4000-8000-000000000004',
+  '11111111-7008-4000-8000-000000000014',
+  (SELECT id FROM public.categories WHERE user_id = '11111111-7008-4000-8000-000000000004' AND type = 'expense' LIMIT 1),
+  300, '2026-04-07', 'expense', true;
+
 -- Seed partner (bob) notifications referencing tx_n1 / tx_n2, as postgres
 -- superuser (INSERT is revoked from authenticated — migration 0040).
 INSERT INTO public.notifications (user_id, type, title, body, link, metadata, push_notified_at)
@@ -148,6 +180,19 @@ VALUES (
   '/transactions/11111111-7008-4000-8000-000000000032',
   jsonb_build_object('transaction_id', '11111111-7008-4000-8000-000000000032'),
   now() -- T-new-2: push already delivered
+);
+
+-- Unrelated notification for bob referencing tx_n4 — must survive tx_n1's
+-- cleanup untouched (T-new-6 precision check on the metadata->>'transaction_id' filter)
+INSERT INTO public.notifications (user_id, type, title, body, link, metadata, push_notified_at)
+VALUES (
+  '11111111-7008-4000-8000-000000000002', -- bob
+  'partner_shared_transaction',
+  'Partner added a shared transaction',
+  'A new shared transaction was logged.',
+  '/transactions/11111111-7008-4000-8000-000000000034',
+  jsonb_build_object('transaction_id', '11111111-7008-4000-8000-000000000034'),
+  NULL -- not yet delivered — same Case A bucket as tx_n1, but a different transaction_id
 );
 
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -424,6 +469,47 @@ SELECT is(
   (SELECT is_shared FROM public.transactions WHERE id = '11111111-7008-4000-8000-000000000033'),
   true,
   'T-new-4: tx_n3 flipped to shared with no errors (no pre-existing partner notification)'
+);
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Review T-new-5: Shared→Personal cleanup with NO partner at all
+--     carol has no family/partner — the v_partner_id lookup in the cleanup
+--     block resolves to NULL, so the cleanup is a no-op (IF v_partner_id IS
+--     NOT NULL guard skips it). Expect: no error, tx flips to personal.
+-- ═══════════════════════════════════════════════════════════════════════════
+SET LOCAL ROLE authenticated;
+SET LOCAL "request.jwt.claims" TO '{"sub":"11111111-7008-4000-8000-000000000004"}';
+
+SELECT lives_ok(
+  $$ SELECT public.rpc_reclassify_transaction(
+       '11111111-7008-4000-8000-000000000035'::uuid,
+       false
+     ) $$,
+  'T-new-5: Shared→Personal with no partner at all raises no error'
+);
+
+SET LOCAL ROLE postgres;
+
+SELECT is(
+  (SELECT is_shared FROM public.transactions WHERE id = '11111111-7008-4000-8000-000000000035'),
+  false,
+  'T-new-5: tx_no_partner flipped to personal despite carol having no partner to clean up notifications for'
+);
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Review T-new-6: Shared→Personal cleanup leaves an UNRELATED notification
+--     untouched (precision check on the metadata->>'transaction_id' filter).
+--     tx_n1's cleanup already ran earlier (T-new-1); tx_n4's notification
+--     was seeded in the same Case A bucket (push_notified_at IS NULL) but
+--     references a DIFFERENT transaction_id and must still be present.
+-- ═══════════════════════════════════════════════════════════════════════════
+SELECT is(
+  (SELECT COUNT(*)::int FROM public.notifications
+   WHERE user_id = '11111111-7008-4000-8000-000000000002'
+     AND type = 'partner_shared_transaction'
+     AND (metadata->>'transaction_id') = '11111111-7008-4000-8000-000000000034'),
+  1,
+  'T-new-6: bob''s unrelated notification for tx_n4 survives tx_n1''s cleanup untouched'
 );
 
 SELECT * FROM finish();
