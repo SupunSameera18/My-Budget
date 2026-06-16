@@ -81,8 +81,13 @@ export default async function SummaryPage({ searchParams }: PageProps) {
           period={period}
           currency={data.currency}
           selectedMonth={selectedMonth}
+          scope={scope}
         />
-        <ExportPdfButton period={period} selectedMonth={selectedMonth} />
+        <ExportPdfButton
+          period={period}
+          selectedMonth={selectedMonth}
+          scope={scope}
+        />
       </div>
     </div>
   );

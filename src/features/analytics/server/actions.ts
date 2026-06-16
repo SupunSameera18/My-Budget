@@ -409,20 +409,24 @@ export async function getBudgetPerformanceData(
   }
 }
 
-export async function getExportData(period: {
-  start: string;
-  end: string;
-}): Promise<ExportRow[] | null> {
+export async function getExportData(
+  period: {
+    start: string;
+    end: string;
+  },
+  scope: Scope = "combined",
+): Promise<ExportRow[] | null> {
   const auth = await requireUser();
   if (!auth) return null;
   const { supabase, user } = auth;
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from("transactions")
       .select(
         "date, amount_minor, type, note, accounts(name), categories(name)",
-      )
-      .eq("user_id", user.id)
+      );
+    query = applyScopeFilter(query, scope, user.id);
+    const { data, error } = await query
       .gte("date", period.start)
       .lte("date", period.end)
       .is("archived_at", null)
