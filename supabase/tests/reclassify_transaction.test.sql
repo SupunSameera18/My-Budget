@@ -8,6 +8,9 @@
 --   11111111-7008-4000-8000-000000000021 = tx_pre_join  (alice's personal, date BEFORE bob join)
 --   11111111-7008-4000-8000-000000000022 = tx_personal  (alice's personal, date AFTER bob join)
 --   11111111-7008-4000-8000-000000000023 = tx_shared    (alice's shared, with existing split)
+--   11111111-7008-4000-8000-000000000031 = tx_n1 (Story 9.7: shared, push NOT yet delivered)
+--   11111111-7008-4000-8000-000000000032 = tx_n2 (Story 9.7: shared, push already delivered)
+--   11111111-7008-4000-8000-000000000033 = tx_n3 (Story 9.7: personal, reclassified to shared)
 --
 -- Scenarios (AC: 7, 14):
 --   P0: pre-asserts — fixture state proven non-vacuous
@@ -17,10 +20,16 @@
 --   S4: AC14 — bob sees 0 rows for tx_shared after S3 reclassification
 --   S5: non-owner — bob cannot reclassify alice's tx_personal (42501)
 --   S6: already same type — alice tries Personal→Personal on tx_pre_join (P0001)
+--
+-- Story 9.7 — privacy-aware notification cleanup on Shared→Personal:
+--   T-new-1: partner notification DELETED when push_notified_at IS NULL
+--   T-new-2: partner notification dismissed when push already delivered
+--   T-new-3: Personal→Shared reclassification does not insert a partner notification
+--   T-new-4: Personal→Shared with no pre-existing partner notification — no errors, no side effects
 
 BEGIN;
 
-SELECT plan(18);
+SELECT plan(22);
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- SEED (as postgres — bypasses RLS)
@@ -86,6 +95,60 @@ VALUES
   ('11111111-7008-4000-8000-000000000023',
    '11111111-7008-4000-8000-000000000001',
    400, 400, 'equal');
+
+-- tx_n1: alice's shared, date AFTER bob's join date — used for T-new-1 (push not yet delivered)
+INSERT INTO public.transactions
+  (id, user_id, account_id, category_id, amount_minor, date, type, is_shared)
+SELECT
+  '11111111-7008-4000-8000-000000000031',
+  '11111111-7008-4000-8000-000000000001',
+  '11111111-7008-4000-8000-000000000011',
+  (SELECT id FROM public.categories WHERE user_id = '11111111-7008-4000-8000-000000000001' AND type = 'expense' LIMIT 1),
+  500, '2026-04-03', 'expense', true;
+
+-- tx_n2: alice's shared, date AFTER bob's join date — used for T-new-2 (push already delivered)
+INSERT INTO public.transactions
+  (id, user_id, account_id, category_id, amount_minor, date, type, is_shared)
+SELECT
+  '11111111-7008-4000-8000-000000000032',
+  '11111111-7008-4000-8000-000000000001',
+  '11111111-7008-4000-8000-000000000011',
+  (SELECT id FROM public.categories WHERE user_id = '11111111-7008-4000-8000-000000000001' AND type = 'expense' LIMIT 1),
+  600, '2026-04-04', 'expense', true;
+
+-- tx_n3: alice's personal, date AFTER bob's join date — used for T-new-3/T-new-4 (Personal→Shared)
+INSERT INTO public.transactions
+  (id, user_id, account_id, category_id, amount_minor, date, type, is_shared)
+SELECT
+  '11111111-7008-4000-8000-000000000033',
+  '11111111-7008-4000-8000-000000000001',
+  '11111111-7008-4000-8000-000000000011',
+  (SELECT id FROM public.categories WHERE user_id = '11111111-7008-4000-8000-000000000001' AND type = 'expense' LIMIT 1),
+  700, '2026-04-05', 'expense', false;
+
+-- Seed partner (bob) notifications referencing tx_n1 / tx_n2, as postgres
+-- superuser (INSERT is revoked from authenticated — migration 0040).
+INSERT INTO public.notifications (user_id, type, title, body, link, metadata, push_notified_at)
+VALUES (
+  '11111111-7008-4000-8000-000000000002', -- bob
+  'partner_shared_transaction',
+  'Partner added a shared transaction',
+  'A new shared transaction was logged.',
+  '/transactions/11111111-7008-4000-8000-000000000031',
+  jsonb_build_object('transaction_id', '11111111-7008-4000-8000-000000000031'),
+  NULL -- T-new-1: push not yet delivered
+);
+
+INSERT INTO public.notifications (user_id, type, title, body, link, metadata, push_notified_at)
+VALUES (
+  '11111111-7008-4000-8000-000000000002', -- bob
+  'partner_shared_transaction',
+  'Partner added a shared transaction',
+  'A new shared transaction was logged.',
+  '/transactions/11111111-7008-4000-8000-000000000032',
+  jsonb_build_object('transaction_id', '11111111-7008-4000-8000-000000000032'),
+  now() -- T-new-2: push already delivered
+);
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- P0: Pre-asserts — fixture state proven non-vacuous (AC: 7 — non-vacuous requirement)
@@ -283,6 +346,85 @@ SELECT throws_ok(
 );
 
 SET LOCAL ROLE postgres;
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Story 9.7 — T-new-1: Shared→Personal, push NOT yet delivered
+--     Expect: bob's notification row for tx_n1 is hard-DELETED
+-- ═══════════════════════════════════════════════════════════════════════════
+SET LOCAL ROLE authenticated;
+SET LOCAL "request.jwt.claims" TO '{"sub":"11111111-7008-4000-8000-000000000001"}';
+
+SELECT public.rpc_reclassify_transaction(
+  '11111111-7008-4000-8000-000000000031'::uuid,
+  false
+);
+
+SET LOCAL ROLE postgres;
+
+SELECT is(
+  (SELECT COUNT(*)::int FROM public.notifications
+   WHERE user_id = '11111111-7008-4000-8000-000000000002'
+     AND type = 'partner_shared_transaction'
+     AND (metadata->>'transaction_id') = '11111111-7008-4000-8000-000000000031'),
+  0,
+  'T-new-1: bob''s notification for tx_n1 deleted (push_notified_at was NULL)'
+);
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Story 9.7 — T-new-2: Shared→Personal, push ALREADY delivered
+--     Expect: bob's notification row for tx_n2 is dismissed (not deleted)
+-- ═══════════════════════════════════════════════════════════════════════════
+SET LOCAL ROLE authenticated;
+SET LOCAL "request.jwt.claims" TO '{"sub":"11111111-7008-4000-8000-000000000001"}';
+
+SELECT public.rpc_reclassify_transaction(
+  '11111111-7008-4000-8000-000000000032'::uuid,
+  false
+);
+
+SET LOCAL ROLE postgres;
+
+SELECT is(
+  (SELECT dismissed_at IS NOT NULL FROM public.notifications
+   WHERE user_id = '11111111-7008-4000-8000-000000000002'
+     AND type = 'partner_shared_transaction'
+     AND (metadata->>'transaction_id') = '11111111-7008-4000-8000-000000000032'),
+  true,
+  'T-new-2: bob''s notification for tx_n2 dismissed (push_notified_at was set)'
+);
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Story 9.7 — T-new-3: Personal→Shared does not insert a partner notification
+--     (rpc_reclassify_transaction itself never inserts notifications;
+--      that is rpc_notify_partner_shared_transaction's job, called separately)
+-- ═══════════════════════════════════════════════════════════════════════════
+SET LOCAL ROLE authenticated;
+SET LOCAL "request.jwt.claims" TO '{"sub":"11111111-7008-4000-8000-000000000001"}';
+
+SELECT public.rpc_reclassify_transaction(
+  '11111111-7008-4000-8000-000000000033'::uuid,
+  true
+);
+
+SET LOCAL ROLE postgres;
+
+SELECT is(
+  (SELECT COUNT(*)::int FROM public.notifications
+   WHERE user_id = '11111111-7008-4000-8000-000000000002'
+     AND (metadata->>'transaction_id') = '11111111-7008-4000-8000-000000000033'),
+  0,
+  'T-new-3: Personal→Shared reclassification inserts 0 partner notifications'
+);
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Story 9.7 — T-new-4: Personal→Shared with no pre-existing partner notification
+--     Expect: no errors, tx_n3 flips to shared (side-effect-free on notifications)
+-- ═══════════════════════════════════════════════════════════════════════════
+SELECT is(
+  (SELECT is_shared FROM public.transactions WHERE id = '11111111-7008-4000-8000-000000000033'),
+  true,
+  'T-new-4: tx_n3 flipped to shared with no errors (no pre-existing partner notification)'
+);
 
 SELECT * FROM finish();
 
