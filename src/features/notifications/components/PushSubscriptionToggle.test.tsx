@@ -166,4 +166,41 @@ describe("PushSubscriptionToggle", () => {
     );
     expect(await screen.findByText(/enable phone alerts/i)).toBeInTheDocument();
   });
+
+  it("still calls unsubscribePush (server cleanup) when the browser-level unsubscribe() throws", async () => {
+    const existing = {
+      endpoint: "https://fcm.example.com/existing",
+      unsubscribe: vi.fn().mockRejectedValue(new Error("revoked")),
+    };
+    mockServiceWorkerSupport(existing);
+    vi.mocked(unsubscribePush).mockResolvedValue({ ok: true, data: undefined });
+
+    render(<PushSubscriptionToggle />);
+    const disableButton = await screen.findByRole("button", {
+      name: /disable/i,
+    });
+    fireEvent.click(disableButton);
+
+    await waitFor(() =>
+      expect(unsubscribePush).toHaveBeenCalledWith(existing.endpoint),
+    );
+    expect(await screen.findByText(/enable phone alerts/i)).toBeInTheDocument();
+  });
+
+  it("shows a distinct misconfiguration message when the VAPID public key is malformed", async () => {
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY = "not-valid-base64url!!!";
+    mockServiceWorkerSupport(null);
+    mockNotificationPermission("granted");
+
+    render(<PushSubscriptionToggle />);
+    const button = await screen.findByRole("button", {
+      name: /enable phone alerts/i,
+    });
+    fireEvent.click(button);
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent(/misconfigured/i),
+    );
+    expect(subscribePush).not.toHaveBeenCalled();
+  });
 });

@@ -5,11 +5,7 @@ import type { PushSubscriptionJSON } from "@/features/notifications/schema";
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
 vi.mock("@/lib/supabase/require-user", () => ({ requireUser: vi.fn() }));
 
-import {
-  subscribePush,
-  unsubscribePush,
-  getPushSubscriptionCount,
-} from "./push-actions";
+import { subscribePush, unsubscribePush } from "./push-actions";
 import { requireUser } from "@/lib/supabase/require-user";
 import { redirect } from "next/navigation";
 
@@ -82,7 +78,7 @@ describe("subscribePush", () => {
       }),
       expect.objectContaining({
         onConflict: "user_id,endpoint",
-        ignoreDuplicates: true,
+        ignoreDuplicates: false,
       }),
     );
   });
@@ -143,35 +139,5 @@ describe("unsubscribePush", () => {
     expect(result.ok).toBe(false);
     if (!result.ok)
       expect(result.error.code).toBe(ErrorCode.PushUnsubscribeFailed);
-  });
-});
-
-// ── getPushSubscriptionCount (graceful supplementary) ───────────────────────
-
-describe("getPushSubscriptionCount", () => {
-  it("returns 0 when unauthenticated", async () => {
-    vi.mocked(requireUser).mockResolvedValue(null);
-    const count = await getPushSubscriptionCount();
-    expect(count).toBe(0);
-  });
-
-  it("returns the count on success", async () => {
-    const chain = makeChain({ count: 2 });
-    mockAuth(chain);
-    const count = await getPushSubscriptionCount();
-    expect(count).toBe(2);
-  });
-
-  it("returns 0 on DB error", async () => {
-    const chain = makeChain({ error: { message: "boom" }, count: null });
-    mockAuth(chain);
-    const count = await getPushSubscriptionCount();
-    expect(count).toBe(0);
-  });
-
-  it("returns 0 if requireUser throws", async () => {
-    vi.mocked(requireUser).mockRejectedValue(new Error("network"));
-    const count = await getPushSubscriptionCount();
-    expect(count).toBe(0);
   });
 });

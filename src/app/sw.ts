@@ -24,9 +24,13 @@ serwist.addEventListeners();
 // Note: this file runs in the service worker's own JS context — it cannot import
 // from `src/lib/...`. All push handler logic must be self-contained here.
 self.addEventListener("push", (event: PushEvent) => {
-  const data =
-    (event.data?.json() as { title?: string; body?: string; url?: string }) ??
-    {};
+  let data: { title?: string; body?: string; url?: string } = {};
+  try {
+    data = event.data?.json() ?? {};
+  } catch {
+    // Non-JSON payload — fall back to defaults rather than dropping the
+    // notification entirely.
+  }
 
   const notificationPromise = self.registration.showNotification(
     data.title ?? "My Budget",

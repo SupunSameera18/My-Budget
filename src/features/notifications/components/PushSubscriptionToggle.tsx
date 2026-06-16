@@ -62,10 +62,20 @@ export function PushSubscriptionToggle() {
         return;
       }
 
+      let applicationServerKey: BufferSource;
+      try {
+        applicationServerKey = urlBase64ToUint8Array(vapidKey) as BufferSource;
+      } catch {
+        // Distinct from the generic catch below — a malformed key is a
+        // configuration error, not a runtime/network failure.
+        setStatusMsg("Phone alerts are misconfigured. Please try again later.");
+        return;
+      }
+
       const registration = await navigator.serviceWorker.ready;
       const sub = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidKey) as BufferSource,
+        applicationServerKey,
       });
 
       const result = await subscribePush(
@@ -95,7 +105,15 @@ export function PushSubscriptionToggle() {
       const registration = await navigator.serviceWorker.ready;
       const sub = await registration.pushManager.getSubscription();
       const endpoint = sub?.endpoint;
-      await sub?.unsubscribe();
+
+      // The browser-level unsubscribe is best-effort: if it throws (e.g. the
+      // subscription was already revoked outside the app), the server-side
+      // delete below must still run so we don't leave a stale row.
+      try {
+        await sub?.unsubscribe();
+      } catch {
+        // Ignored — server-side cleanup below is what actually matters.
+      }
 
       if (endpoint) {
         const result = await unsubscribePush(endpoint);

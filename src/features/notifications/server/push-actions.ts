@@ -19,7 +19,10 @@ export async function subscribePush(
       p256dh: subscription.keys.p256dh,
       auth: subscription.keys.auth,
     },
-    { onConflict: "user_id,endpoint", ignoreDuplicates: true },
+    // ignoreDuplicates: false — browsers periodically rotate p256dh/auth for
+    // the same endpoint; re-subscribing must overwrite the stale keys, not
+    // silently keep them (a kept-stale row would fail every push send).
+    { onConflict: "user_id,endpoint", ignoreDuplicates: false },
   );
 
   if (error) return err(ErrorCode.PushSubscribeFailed, error.message);
@@ -38,22 +41,4 @@ export async function unsubscribePush(endpoint: string): Promise<Result<void>> {
 
   if (error) return err(ErrorCode.PushUnsubscribeFailed, error.message);
   return ok(undefined);
-}
-
-// Graceful supplementary — returns 0 on any error so the toggle UI never breaks.
-export async function getPushSubscriptionCount(): Promise<number> {
-  try {
-    const auth = await requireUser();
-    if (!auth) return 0;
-
-    const { count, error } = await auth.supabase
-      .from("push_subscriptions")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", auth.user.id);
-
-    if (error) return 0;
-    return count ?? 0;
-  } catch {
-    return 0;
-  }
 }

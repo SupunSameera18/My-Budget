@@ -20,9 +20,12 @@ Deno.serve(async (req: Request) => {
     return new Response(null, { headers: CORS_HEADERS });
   }
 
-  // Auth guard: require an Authorization header (service role or valid JWT).
+  // Auth guard: this function processes ALL users' pending notifications in
+  // bulk, so it must be service-role-only — never reachable with the public
+  // anon key (which is itself a valid JWT and would otherwise pass a bare
+  // "header present" check).
   const authHeader = req.headers.get("Authorization");
-  if (!authHeader) {
+  if (authHeader !== `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`) {
     return new Response("Unauthorized", {
       status: 401,
       headers: CORS_HEADERS,
@@ -53,17 +56,27 @@ Deno.serve(async (req: Request) => {
 
     for (const notification of pendingNotifications) {
       // Get all push subscriptions for this user.
-      const { data: subscriptions } = await adminClient
+      const { data: subscriptions, error: subsError } = await adminClient
         .from("push_subscriptions")
         .select("endpoint, p256dh, auth")
         .eq("user_id", notification.user_id);
 
+      if (subsError) {
+        // Transient query failure — do NOT mark as notified; leave
+        // push_notified_at null so this notification is retried next run.
+        console.error("push_subscriptions lookup failed:", subsError);
+        continue;
+      }
+
       if (!subscriptions || subscriptions.length === 0) {
         // No push subscription — mark as notified (won't get push, has inbox).
-        await adminClient
+        const { error: markError } = await adminClient
           .from("notifications")
           .update({ push_notified_at: new Date().toISOString() })
           .eq("id", notification.id);
+        if (markError) {
+          console.error("failed to mark notification as notified:", markError);
+        }
         continue;
       }
 
@@ -103,10 +116,18 @@ Deno.serve(async (req: Request) => {
       }
 
       // Mark notification as push-delivered.
-      await adminClient
+      const { error: deliveredError } = await adminClient
         .from("notifications")
         .update({ push_notified_at: new Date().toISOString() })
         .eq("id", notification.id);
+      if (deliveredError) {
+        // If this fails after a successful send, the notification will be
+        // resent next run — log loudly so it's visible, but don't fail the batch.
+        console.error(
+          "failed to mark notification as push-delivered (risk of duplicate resend):",
+          deliveredError,
+        );
+      }
     }
 
     return new Response(JSON.stringify({ delivered }), {
