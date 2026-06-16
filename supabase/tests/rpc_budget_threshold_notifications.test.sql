@@ -5,7 +5,7 @@
 
 BEGIN;
 
-SELECT plan(10);
+SELECT plan(12);
 
 -- ──────────────────────────────────────────────────────────────────────────────
 -- Seed: alice user + profile (trigger auto-creates profile on auth.users INSERT)
@@ -238,6 +238,22 @@ SELECT is(
    LIMIT 1),
   10000::bigint,
   'T10: rpc_check_budget_thresholds sets budget_limit_minor = 10000 on the new event'
+);
+
+-- T11/T12: EXECUTE privilege lockdown — neither authenticated nor anon can call
+-- these SECURITY DEFINER RPCs directly (both are pg_cron-only). Guards against
+-- PostgreSQL's default PUBLIC grant on newly created functions silently
+-- re-opening this (E9 retro finding D0; migration 0048).
+SELECT ok(
+  NOT has_function_privilege('authenticated', 'public.rpc_check_budget_thresholds()', 'EXECUTE')
+  AND NOT has_function_privilege('anon', 'public.rpc_check_budget_thresholds()', 'EXECUTE'),
+  'T11: neither authenticated nor anon has EXECUTE on rpc_check_budget_thresholds'
+);
+
+SELECT ok(
+  NOT has_function_privilege('authenticated', 'public.rpc_process_budget_threshold_notifications()', 'EXECUTE')
+  AND NOT has_function_privilege('anon', 'public.rpc_process_budget_threshold_notifications()', 'EXECUTE'),
+  'T12: neither authenticated nor anon has EXECUTE on rpc_process_budget_threshold_notifications'
 );
 
 SELECT * FROM finish();

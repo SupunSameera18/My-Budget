@@ -1,17 +1,25 @@
 -- Story 7.1b: RLS visibility predicate golden suite
 -- Updated in 0036: Personal transactions are always owner-only (no toggle).
+-- Updated in 0046 (E9 retro finding): migration 0034 removed the join-date
+-- restriction on Shared transactions ("Shared row: always visible to family
+-- members — no join-date restriction", see auth_can_view_transaction). S4/S5/
+-- S12b/S12c originally asserted the PRE-0034 invariant (pre-join Shared rows
+-- invisible) and had silently gone stale — they now assert the current,
+-- documented behavior instead. The join_date column still gates whether a
+-- Shared transaction triggers a *notification* (Story 9.5/9.7), but it no
+-- longer gates RLS *visibility* — those are two different invariants.
 -- UUID block: eeeeeeee-* (reserved for 7.1b per dev-learnings §5)
 --   eeeeeeee-eeee-4eee-8eee-000000000001 = alice (solo + family creator)
 --   eeeeeeee-eeee-4eee-8eee-000000000002 = bob   (joins alice's family, later join_date)
 --   eeeeeeee-eeee-4eee-8eee-000000000003 = carol  (stranger, no family relation)
 --   eeeeeeee-eeee-4eee-8eee-000000000010 = alice's family_unit
 --
--- Visibility scenarios exercised (28 assertions):
+-- Visibility scenarios exercised (29 assertions):
 --   S1: owner reads own Personal row (no family)
 --   S2: owner reads own Shared row (no family)
 --   S3: stranger reads another user's Personal row
---   S4: pre-join Shared — row created before viewer's join_date (direct)
---   S5: pre-join Shared — aggregate COUNT for later joiner
+--   S4: pre-join Shared — visible to a later-joining family member (direct; no date gate since 0034)
+--   S5: pre-join Shared — aggregate COUNT for later joiner (visible; no date gate since 0034)
 --   S6: post-join Shared — row created on/after viewer's join_date (visible to both)
 --   S7: Personal — owner sees own; partner CANNOT see (always blocked)
 --   S8: partner cannot see other member's Personal (symmetric)
@@ -21,7 +29,7 @@
 
 BEGIN;
 
-SELECT plan(28);
+SELECT plan(29);
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- SEED (as postgres — bypasses RLS)
@@ -153,7 +161,9 @@ SELECT is(
 );
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- S4: pre-join Shared — invisible to later joiner (direct)
+-- S4: pre-join Shared — visible to a later-joining family member (direct)
+-- Migration 0034 removed the join-date restriction on Shared transactions:
+-- "Shared row: always visible to family members — no join-date restriction."
 -- ═══════════════════════════════════════════════════════════════════════════
 -- Pre-assert: row exists as superuser
 SET LOCAL ROLE postgres;
@@ -170,20 +180,20 @@ SET LOCAL "request.jwt.claims" TO '{"sub":"eeeeeeee-eeee-4eee-8eee-000000000002"
 SELECT is(
   (SELECT COUNT(*)::int FROM public.transactions
    WHERE id = 'eeeeeeee-eeee-4eee-8eee-000000000022'),
-  0,
-  'S4: bob cannot see alice pre-join Shared row (direct lookup)'
+  1,
+  'S4: bob CAN see alice pre-join Shared row (no join-date gate on Shared visibility since 0034; direct lookup)'
 );
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- S5: pre-join Shared — invisible via aggregate COUNT
+-- S5: pre-join Shared — visible via aggregate COUNT (no join-date gate since 0034)
 -- ═══════════════════════════════════════════════════════════════════════════
 SELECT is(
   (SELECT COUNT(*)::int FROM public.transactions
    WHERE user_id = 'eeeeeeee-eeee-4eee-8eee-000000000001'
      AND is_shared = true
      AND date < '2026-02-01'),
-  0,
-  'S5: bob aggregate count of alice pre-join Shared rows = 0'
+  1,
+  'S5: bob aggregate count of alice pre-join Shared rows = 1 (no join-date gate on Shared visibility)'
 );
 
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -307,7 +317,7 @@ SET LOCAL "request.jwt.claims" TO '{"sub":"eeeeeeee-eeee-4eee-8eee-000000000002"
 
 -- bob's own Personal row (tx 5: eeee..0025) → is_shared=false bucket
 -- alice's post-join Shared (tx 3: eeee..0023) → is_shared=true bucket
--- alice's pre-join Shared (tx 2: eeee..0022) → must NOT appear in any bucket
+-- alice's pre-join Shared (tx 2: eeee..0022) → is_shared=true bucket too (no join-date gate since 0034)
 -- alice's Personal (tx 1: eeee..0021) → BLOCKED (personal is always owner-only)
 
 -- Personal bucket (is_shared=false): only bob's own Personal (alice's is blocked)
@@ -317,11 +327,11 @@ SELECT is(
   'S12a: Personal bucket contains only bob own Personal (alice Personal always blocked)'
 );
 
--- Shared bucket (is_shared=true): only alice's post-join Shared
+-- Shared bucket (is_shared=true): alice's pre-join AND post-join Shared rows (no join-date gate since 0034)
 SELECT is(
   (SELECT COUNT(*)::int FROM public.transactions WHERE is_shared = true),
-  1,
-  'S12b: Shared bucket contains only alice post-join Shared row (pre-join excluded)'
+  2,
+  'S12b: Shared bucket contains both alice Shared rows (pre-join + post-join; no join-date gate on Shared)'
 );
 
 -- Pre-assert: the pre-join Shared row physically exists (non-vacuous)
@@ -336,12 +346,12 @@ SELECT is(
 SET LOCAL ROLE authenticated;
 SET LOCAL "request.jwt.claims" TO '{"sub":"eeeeeeee-eeee-4eee-8eee-000000000002"}';
 
--- Pre-join row must NOT appear in Shared bucket for bob
+-- Pre-join row DOES appear in Shared bucket for bob (no join-date gate since 0034)
 SELECT is(
   (SELECT COUNT(*)::int FROM public.transactions
    WHERE id = 'eeeeeeee-eeee-4eee-8eee-000000000022'),
-  0,
-  'S12c: alice pre-join Shared row does not leak into bob scope-filter query'
+  1,
+  'S12c: alice pre-join Shared row appears in bob scope-filter query (no join-date gate on Shared visibility)'
 );
 
 -- ═══════════════════════════════════════════════════════════════════════════

@@ -5,7 +5,7 @@
 
 BEGIN;
 
-SELECT plan(8);
+SELECT plan(9);
 
 -- ──────────────────────────────────────────────────────────────────────────────
 -- Seed users
@@ -171,6 +171,16 @@ SELECT is(
      AND type = 'logging_reminder'),
   0::bigint,
   'T8: bob has reminder_enabled=false — 0 notifications inserted'
+);
+
+-- T9: EXECUTE privilege lockdown — neither authenticated nor anon can call this
+-- SECURITY DEFINER RPC directly (it's pg_cron-only). Guards against PostgreSQL's
+-- default PUBLIC grant on newly created functions silently re-opening this
+-- (E9 retro finding D0; migration 0048).
+SELECT ok(
+  NOT has_function_privilege('authenticated', 'public.rpc_send_logging_reminders()', 'EXECUTE')
+  AND NOT has_function_privilege('anon', 'public.rpc_send_logging_reminders()', 'EXECUTE'),
+  'T9: neither authenticated nor anon has EXECUTE on rpc_send_logging_reminders'
 );
 
 SELECT * FROM finish();

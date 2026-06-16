@@ -22,10 +22,11 @@ describe("ProgressBar", () => {
     expect(bar.style.background).toContain("201, 162, 75");
   });
 
-  it("fill uses amber when pctUsed > 100 (over budget)", () => {
+  it("fill uses red when pctUsed >= 100 (over budget)", () => {
     render(<ProgressBar pctUsed={120} />);
     const bar = screen.getByRole("progressbar");
-    expect(bar.style.background).toContain("201, 162, 75");
+    // jsdom converts #E05252 → rgb(224, 82, 82)
+    expect(bar.style.background).toContain("224, 82, 82");
   });
 
   it("fill width is capped at 100% when pctUsed > 100", () => {

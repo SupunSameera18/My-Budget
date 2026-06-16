@@ -1,6 +1,13 @@
 -- pgTAP: rpc_get_contribution_analysis
 -- Story 7.9: Contribution Analysis
 --
+-- Updated (E9 retro finding): migration 0034 removed the join-date filter
+-- from the shared_txns CTE ("No join_date filter — Shared transactions are
+-- visible regardless of date"). T2/T3/T5/T7 originally asserted the PRE-0034
+-- invariant (pre-join Shared excluded from contribution totals) and had
+-- silently gone stale — they now assert the current, documented behavior:
+-- the pre-join tx (tx#22, 999 minor) counts toward alice's total.
+--
 -- UUID block: 11111111-7009-* (dev-learnings §22 convention)
 --   alice  : 11111111-7009-4000-8000-000000000001
 --   bob    : 11111111-7009-4000-8000-000000000002
@@ -140,9 +147,10 @@ SELECT is(
 SET LOCAL role TO authenticated;
 SET LOCAL "request.jwt.claims" TO '{"sub": "11111111-7009-4000-8000-000000000001"}';
 
--- Alice's total: 600 (payer_share tx#1) + 0 (no-split tx#2, alice not owner) + 200 (tx#24, no-split, alice owner)
--- But tx#24 is still is_shared=true at this point — so it's included
--- alice_total = 600 + 0 + 200 = 800
+-- Alice's total: 600 (payer_share tx#1) + 0 (no-split tx#2, alice not owner)
+--   + 999 (tx#22, pre-join Shared, no-split, alice owner — no join-date gate since 0034)
+--   + 200 (tx#24, no-split, alice owner)
+-- alice_total = 600 + 0 + 999 + 200 = 1799
 -- bob_total = 400 (partner_share tx#1) + 800 (full amount tx#2, no-split, bob owner) = 1200
 
 -- First check: RPC returns 2 rows
@@ -156,8 +164,8 @@ SELECT is(
   (SELECT total_paid_minor
      FROM public.rpc_get_contribution_analysis(NULL, NULL)
     WHERE contributor_id = '11111111-7009-4000-8000-000000000001'),
-  800::bigint,
-  'T2: alice total_paid = 800 (600 payer_share + 200 no-split owner)'
+  1799::bigint,
+  'T2: alice total_paid = 1799 (600 payer_share + 999 pre-join no-split owner + 200 no-split owner)'
 );
 
 SELECT is(
@@ -172,12 +180,12 @@ SELECT is(
   (SELECT transaction_count
      FROM public.rpc_get_contribution_analysis(NULL, NULL)
     WHERE contributor_id = '11111111-7009-4000-8000-000000000001'),
-  3::bigint,
-  'T2: transaction_count = 3 shared txns (tx#1, tx#2, tx#24 all shared)'
+  4::bigint,
+  'T2: transaction_count = 4 shared txns (tx#1, tx#2, tx#22, tx#24 all shared)'
 );
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- T3: Pre-join transaction is excluded
+-- T3: Pre-join transaction is included (no join-date gate on Shared since 0034)
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Non-vacuous: pre-assert pre-join tx exists
 SELECT is(
@@ -187,14 +195,15 @@ SELECT is(
   'T3: pre-join shared tx exists in DB'
 );
 
--- Pre-join tx (999 minor, dated 2025-12-31) must NOT appear in totals
--- If it were included, alice's total would be 800+999=1799 — but we expect 800
+-- Pre-join tx (999 minor, dated 2025-12-31) DOES appear in totals (migration 0034
+-- removed the join_date filter from the shared_txns CTE — confirmed by the value
+-- already including the 999 contribution from T2 above)
 SELECT is(
   (SELECT total_paid_minor
      FROM public.rpc_get_contribution_analysis(NULL, NULL)
     WHERE contributor_id = '11111111-7009-4000-8000-000000000001'),
-  800::bigint,
-  'T3: pre-join tx excluded from alice total (still 800)'
+  1799::bigint,
+  'T3: pre-join tx included in alice total (no join-date gate on Shared contributions)'
 );
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -212,8 +221,8 @@ SELECT is(
   (SELECT total_paid_minor
      FROM public.rpc_get_contribution_analysis(NULL, NULL)
     WHERE contributor_id = '11111111-7009-4000-8000-000000000001'),
-  800::bigint,
-  'T4: personal tx excluded from alice total (still 800)'
+  1799::bigint,
+  'T4: personal tx excluded from alice total (still 1799)'
 );
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -237,13 +246,13 @@ SELECT is(
   'T5: tx#24 reclassified to Personal'
 );
 
--- alice total drops from 800 → 600 (tx#24 removed)
+-- alice total drops from 1799 → 1599 (tx#24's 200 removed)
 SELECT is(
   (SELECT total_paid_minor
      FROM public.rpc_get_contribution_analysis(NULL, NULL)
     WHERE contributor_id = '11111111-7009-4000-8000-000000000001'),
-  600::bigint,
-  'T5: reclassified tx excluded from alice total (now 600)'
+  1599::bigint,
+  'T5: reclassified tx excluded from alice total (now 1599)'
 );
 
 -- ─────────────────────────────────────────────────────────000000000000000──────
@@ -290,8 +299,8 @@ SELECT is(
   (SELECT total_paid_minor
      FROM public.rpc_get_contribution_analysis(NULL, NULL)
     WHERE contributor_id = '11111111-7009-4000-8000-000000000001'),
-  600::bigint,
-  'T7: bob sees alice total = 600 (symmetric view)'
+  1599::bigint,
+  'T7: bob sees alice total = 1599 (symmetric view)'
 );
 
 -- ─────────────────────────────────────────────────────────────────────────────

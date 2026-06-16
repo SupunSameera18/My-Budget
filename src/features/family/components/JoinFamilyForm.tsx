@@ -128,7 +128,7 @@ export function JoinFamilyForm() {
             ref={triggerRef}
             type="submit"
             disabled={isPending || !code.trim()}
-            aria-disabled={isPending || !code.trim()}
+            aria-disabled={isPending || !code.trim() ? "true" : undefined}
             className="min-h-[44px] rounded-lg bg-brand-accent-strong px-4 text-sm text-white hover:opacity-90 disabled:opacity-50"
           >
             {isPending ? "Checking…" : "Join family"}
@@ -147,7 +147,8 @@ export function JoinFamilyForm() {
         role="dialog"
         aria-modal="true"
         aria-labelledby={headingId}
-        className={`fixed inset-0 z-50 items-center justify-center bg-black/50 p-4 ${showConfirmation ? "flex" : "hidden"}`}
+        hidden={!showConfirmation || undefined}
+        className={`${showConfirmation ? "flex" : ""} fixed inset-0 z-50 items-center justify-center bg-black/50 p-4`}
       >
         <div className="w-full max-w-sm rounded-xl bg-surface-base p-6 shadow-lg">
           <h2
@@ -164,7 +165,7 @@ export function JoinFamilyForm() {
             <button
               onClick={handleConfirm}
               disabled={isPending}
-              aria-disabled={isPending}
+              aria-disabled={isPending || undefined}
               className="min-h-[44px] flex-1 rounded-lg bg-brand-accent-strong text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
             >
               {isPending ? "Joining…" : "Join family"}
@@ -172,7 +173,7 @@ export function JoinFamilyForm() {
             <button
               onClick={() => setShowConfirmation(false)}
               disabled={isPending}
-              aria-disabled={isPending}
+              aria-disabled={isPending || undefined}
               className="min-h-[44px] flex-1 rounded-lg border border-hairline text-sm text-ink-secondary hover:bg-surface-inset disabled:opacity-50"
             >
               Cancel
