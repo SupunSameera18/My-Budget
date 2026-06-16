@@ -93,7 +93,7 @@ export enum ErrorCode {
   NotificationsFetchFailed = "notifications_fetch_failed",
   NotificationUpdateFailed = "notification_update_failed",
   // ↓ Added by Story 9.2
-  ReminderSaveFailed = "REMINDER_SAVE_FAILED",
+  ReminderSaveFailed = "reminder_save_failed",
 }
 
 export type AppError = {

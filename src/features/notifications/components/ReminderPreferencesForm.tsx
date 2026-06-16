@@ -50,18 +50,6 @@ export function ReminderPreferencesForm({
   const [statusMsg, setStatusMsg] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  function save(prefs: ReminderPreferences) {
-    setStatusMsg("");
-    startTransition(async () => {
-      const result = await saveReminderPreferences(prefs);
-      if (result.ok) {
-        setStatusMsg("Saved.");
-      } else {
-        setStatusMsg("Failed to save. Please try again.");
-      }
-    });
-  }
-
   function handleToggle() {
     const newEnabled = !enabled;
     const prev = { enabled, time, timezone };
@@ -87,23 +75,43 @@ export function ReminderPreferencesForm({
 
   function handleTimeBlur(e: React.FocusEvent<HTMLInputElement>) {
     const newTime = e.target.value;
+    const prevTime = time;
     setTime(newTime);
     if (!enabled) return;
-    save({
-      reminder_enabled: true,
-      reminder_time: newTime,
-      reminder_timezone: timezone,
+    setStatusMsg("");
+    startTransition(async () => {
+      const result = await saveReminderPreferences({
+        reminder_enabled: true,
+        reminder_time: newTime,
+        reminder_timezone: timezone,
+      });
+      if (result.ok) {
+        setStatusMsg("Saved.");
+      } else {
+        setTime(prevTime);
+        setStatusMsg("Failed to save. Please try again.");
+      }
     });
   }
 
   function handleTimezoneBlur(e: React.FocusEvent<HTMLSelectElement>) {
     const newTz = e.target.value;
+    const prevTz = timezone;
     setTimezone(newTz);
     if (!enabled) return;
-    save({
-      reminder_enabled: true,
-      reminder_time: time,
-      reminder_timezone: newTz,
+    setStatusMsg("");
+    startTransition(async () => {
+      const result = await saveReminderPreferences({
+        reminder_enabled: true,
+        reminder_time: time,
+        reminder_timezone: newTz,
+      });
+      if (result.ok) {
+        setStatusMsg("Saved.");
+      } else {
+        setTimezone(prevTz);
+        setStatusMsg("Failed to save. Please try again.");
+      }
     });
   }
 

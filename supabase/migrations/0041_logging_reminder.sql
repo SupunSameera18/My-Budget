@@ -78,9 +78,9 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.rpc_send_logging_reminders() TO authenticated;
-
 -- pg_cron: run every minute (idempotent: unschedule before scheduling)
+-- Note: no GRANT EXECUTE to authenticated — function is called only by pg_cron (runs as postgres).
+-- Granting to authenticated would allow any logged-in user to trigger mass notifications for all users.
 SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = 'send-logging-reminders';
 SELECT cron.schedule(
   'send-logging-reminders',

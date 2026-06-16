@@ -30,6 +30,27 @@ export async function getReminderPreferences(): Promise<ReminderPreferences | nu
   }
 }
 
+const VALID_TIMEZONES = [
+  "UTC",
+  "America/New_York",
+  "America/Chicago",
+  "America/Denver",
+  "America/Los_Angeles",
+  "America/Sao_Paulo",
+  "Europe/London",
+  "Europe/Paris",
+  "Europe/Berlin",
+  "Europe/Moscow",
+  "Asia/Kolkata",
+  "Asia/Colombo",
+  "Asia/Dubai",
+  "Asia/Singapore",
+  "Asia/Tokyo",
+  "Asia/Shanghai",
+  "Australia/Sydney",
+  "Pacific/Auckland",
+] as const;
+
 const reminderSchema = z
   .object({
     reminder_enabled: z.boolean(),
@@ -37,7 +58,14 @@ const reminderSchema = z
       .string()
       .regex(/^\d{2}:\d{2}$/)
       .nullable(),
-    reminder_timezone: z.string().min(1).max(100).nullable(),
+    reminder_timezone: z
+      .string()
+      .min(1)
+      .max(100)
+      .refine((val) => VALID_TIMEZONES.includes(val as (typeof VALID_TIMEZONES)[number]), {
+        message: "Invalid timezone",
+      })
+      .nullable(),
   })
   .refine(
     (val) =>
