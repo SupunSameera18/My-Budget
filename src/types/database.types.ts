@@ -651,6 +651,11 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: void;
       };
+      // ↓ Added by Story 9.4
+      rpc_send_month_end_summary_notifications: {
+        Args: Record<PropertyKey, never>;
+        Returns: void;
+      };
       // ↓ Added by Story 7.9
       rpc_get_contribution_analysis: {
         Args: { p_period_start?: string | null; p_period_end?: string | null };
