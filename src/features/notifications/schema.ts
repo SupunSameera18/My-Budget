@@ -21,3 +21,14 @@ export interface Notification {
   dismissed_at: string | null;
   created_at: string;
 }
+
+// Plain-object shape of the browser's PushSubscription.toJSON() — a class
+// instance with methods cannot cross the server-action serialization
+// boundary, so the client must call `.toJSON()` before passing it.
+export interface PushSubscriptionJSON {
+  endpoint: string;
+  keys: {
+    p256dh: string;
+    auth: string;
+  };
+}

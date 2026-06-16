@@ -440,6 +440,7 @@ export type Database = {
         Relationships: [];
       };
       // ↓ Added by Story 9.1
+      // ↓ Extended by Story 9.6 (push_notified_at)
       notifications: {
         Row: {
           id: string;
@@ -456,6 +457,7 @@ export type Database = {
           read_at: string | null;
           dismissed_at: string | null;
           created_at: string;
+          push_notified_at: string | null;
         };
         Insert: {
           id?: string;
@@ -472,11 +474,35 @@ export type Database = {
           read_at?: string | null;
           dismissed_at?: string | null;
           created_at?: string;
+          push_notified_at?: string | null;
         };
         Update: {
           read_at?: string | null;
           dismissed_at?: string | null;
         };
+        Relationships: [];
+      };
+      // ↓ Added by Story 9.6
+      push_subscriptions: {
+        Row: {
+          id: string;
+          user_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          user_agent: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          user_agent?: string | null;
+          created_at?: string;
+        };
+        Update: never;
         Relationships: [];
       };
       // ↓ Added by Story 4.2; extended by Story 9.3 (budget_limit_minor)

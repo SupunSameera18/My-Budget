@@ -26,8 +26,8 @@ VALUES (
 SELECT columns_are(
   'public',
   'notifications',
-  ARRAY['id','user_id','type','title','body','link','metadata','read_at','dismissed_at','created_at'],
-  'T1: notifications has all expected columns'
+  ARRAY['id','user_id','type','title','body','link','metadata','read_at','dismissed_at','created_at','push_notified_at'],
+  'T1: notifications has all expected columns (push_notified_at added Story 9.6)'
 );
 
 -- T2: postgres-role INSERT seeded successfully → 1 row exists for alice

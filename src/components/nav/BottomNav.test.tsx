@@ -71,4 +71,27 @@ describe("BottomNav", () => {
     expect(txLink.className).toContain("text-ink-secondary");
     expect(txLink.className).not.toContain("text-brand-accent");
   });
+
+  it("does not render an unread badge when unreadCount is 0", () => {
+    (navigation.usePathname as Mock).mockReturnValue("/dashboard");
+    render(<BottomNav unreadCount={0} />);
+    expect(
+      screen.queryByLabelText(/unread notifications/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders an unread badge with the count on the More item", () => {
+    (navigation.usePathname as Mock).mockReturnValue("/dashboard");
+    render(<BottomNav unreadCount={3} />);
+    const badge = screen.getByLabelText("3 unread notifications");
+    expect(badge).toBeInTheDocument();
+    expect(badge).toHaveTextContent("3");
+  });
+
+  it("caps the displayed badge count at '9+'", () => {
+    (navigation.usePathname as Mock).mockReturnValue("/dashboard");
+    render(<BottomNav unreadCount={15} />);
+    const badge = screen.getByLabelText("15 unread notifications");
+    expect(badge).toHaveTextContent("9+");
+  });
 });
