@@ -619,6 +619,10 @@ export async function getTransactionList(
     // Build transaction query
     // In family mode: omit user_id filter so RLS predicate (7.1b) handles cross-user visibility.
     // In single-user mode: keep user_id filter for performance (narrower index scan).
+    // Fetch one extra row beyond the page size to detect truncation without a
+    // separate COUNT query — a flat 500-row cap with no signal silently hid
+    // older transactions for active users (Phase 2 gap analysis, 3-4).
+    const TRANSACTION_LIST_PAGE_SIZE = 500;
     let txnQuery = supabase
       .from("transactions")
       .select(
@@ -627,7 +631,7 @@ export async function getTransactionList(
       .is("archived_at", null) // active only
       .order("date", { ascending: false })
       .order("created_at", { ascending: false })
-      .limit(500);
+      .limit(TRANSACTION_LIST_PAGE_SIZE + 1);
 
     if (!filters.isFamilyMode) {
       txnQuery = txnQuery.eq("user_id", user.id);
@@ -655,7 +659,12 @@ export async function getTransactionList(
       );
     }
 
-    const items: TransactionListItem[] = (txnData ?? []).map((row) => ({
+    const hasMore = (txnData ?? []).length > TRANSACTION_LIST_PAGE_SIZE;
+    const pagedTxnData = hasMore
+      ? (txnData ?? []).slice(0, TRANSACTION_LIST_PAGE_SIZE)
+      : (txnData ?? []);
+
+    const items: TransactionListItem[] = pagedTxnData.map((row) => ({
       id: row.id,
       account_id: row.account_id,
       category_id: row.category_id,
@@ -718,6 +727,7 @@ export async function getTransactionList(
       categories: (catsData ?? []) as TransactionListData["categories"],
       currency: profile?.currency ?? "USD",
       familyUnitId: filters.familyUnitId,
+      hasMore,
     });
   } catch {
     return err(
@@ -857,12 +867,6 @@ export async function reclassifyTransaction(
         return err(
           ErrorCode.ReclassifyTransactionFailed,
           "Transaction not found.",
-        );
-      }
-      if (code === "P0003") {
-        return err(
-          ErrorCode.ReclassifyTransactionFailed,
-          "This transaction predates your partner's join date and cannot be shared.",
         );
       }
       if (code === "P0004") {

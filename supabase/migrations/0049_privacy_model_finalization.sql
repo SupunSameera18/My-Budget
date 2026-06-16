@@ -209,7 +209,7 @@ BEGIN
   END IF;
 
   -- Settled-period guard: implemented in Task 2b (rpc_reclassify_transaction
-  -- now raises P0004 against settle_up_periods; see 0050_settled_period_guard.sql).
+  -- raises P0004 against the settlements watermark; see 0051_settled_period_guard.sql).
 
   IF p_new_is_shared = true THEN
     -- ── Personal → Shared ──────────────────────────────────────────────────

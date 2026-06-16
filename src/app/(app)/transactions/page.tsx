@@ -56,7 +56,13 @@ export default async function TransactionsPage({
   const result = await getTransactionList(filters);
   const listData = result.ok
     ? result.data
-    : { items: [], accounts: [], categories: [], currency: "USD" };
+    : {
+        items: [],
+        accounts: [],
+        categories: [],
+        currency: "USD",
+        hasMore: false,
+      };
 
   return (
     <div className="mx-auto max-w-5xl p-4">
@@ -77,6 +83,12 @@ export default async function TransactionsPage({
         isFamilyMode={isFamilyMode}
         familyUnitId={familyUnitId ?? null}
       />
+      {listData.hasMore && (
+        <p className="mt-4 text-center text-sm text-ink-secondary">
+          Showing the {listData.items.length} most recent matching transactions.
+          Narrow your filters to see more specific results.
+        </p>
+      )}
     </div>
   );
 }

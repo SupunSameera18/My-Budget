@@ -35,7 +35,11 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(href + "/");
 }
 
-export function Sidebar() {
+interface SidebarProps {
+  unreadCount?: number;
+}
+
+export function Sidebar({ unreadCount = 0 }: SidebarProps) {
   const pathname = usePathname();
 
   return (
@@ -63,7 +67,17 @@ export function Sidebar() {
                     : "text-ink-secondary hover:bg-surface-inset hover:text-ink-primary"
                 }`}
               >
-                <Icon strokeWidth={1.75} className="h-5 w-5 shrink-0" />
+                <span className="relative shrink-0">
+                  <Icon strokeWidth={1.75} className="h-5 w-5" />
+                  {item.label === "Notifications" && unreadCount > 0 && (
+                    <span
+                      className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-brand-accent text-[10px] font-bold text-white"
+                      aria-label={`${unreadCount} unread notifications`}
+                    >
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
+                </span>
                 <span className="text-sm">{item.label}</span>
               </Link>
             );

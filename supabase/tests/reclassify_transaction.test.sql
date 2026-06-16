@@ -38,7 +38,7 @@
 
 BEGIN;
 
-SELECT plan(25);
+SELECT plan(30);
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- SEED (as postgres — bypasses RLS)
@@ -512,6 +512,117 @@ SELECT is(
      AND (metadata->>'transaction_id') = '11111111-7008-4000-8000-000000000034'),
   1,
   'T-new-6: bob''s unrelated notification for tx_n4 survives tx_n1''s cleanup untouched'
+);
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Phase 2 Task 2b: settled-period guard (0051) — FR-15a / FR-49
+--   Seed a settlement watermark at 2026-05-01 for the family unit, then prove
+--   both reclassification directions are blocked for dates on/before it, and
+--   still allowed for a date after it.
+-- ═══════════════════════════════════════════════════════════════════════════
+SET LOCAL ROLE postgres;
+
+INSERT INTO public.settlements
+  (family_unit_id, settled_by_id, amount_minor, direction, settled_at, period_label)
+VALUES (
+  '11111111-7008-4000-8000-000000000010',
+  '11111111-7008-4000-8000-000000000001',
+  500, 'a_to_b', '2026-05-01 12:00:00+00', '2026-04'
+);
+
+-- tx_settled_shared: alice's shared tx dated BEFORE the watermark
+INSERT INTO public.transactions
+  (id, user_id, account_id, category_id, amount_minor, date, type, is_shared)
+SELECT
+  '11111111-7008-4000-8000-000000000036',
+  '11111111-7008-4000-8000-000000000001',
+  '11111111-7008-4000-8000-000000000011',
+  (SELECT id FROM public.categories WHERE user_id = '11111111-7008-4000-8000-000000000001' AND type = 'expense' LIMIT 1),
+  400, '2026-04-15', 'expense', true;
+
+INSERT INTO public.transaction_splits
+  (transaction_id, payer_id, payer_share_minor, partner_share_minor, split_method)
+VALUES
+  ('11111111-7008-4000-8000-000000000036',
+   '11111111-7008-4000-8000-000000000001',
+   200, 200, 'equal');
+
+-- tx_settled_personal: alice's personal tx dated BEFORE the watermark
+INSERT INTO public.transactions
+  (id, user_id, account_id, category_id, amount_minor, date, type, is_shared)
+SELECT
+  '11111111-7008-4000-8000-000000000037',
+  '11111111-7008-4000-8000-000000000001',
+  '11111111-7008-4000-8000-000000000011',
+  (SELECT id FROM public.categories WHERE user_id = '11111111-7008-4000-8000-000000000001' AND type = 'expense' LIMIT 1),
+  450, '2026-04-20', 'expense', false;
+
+-- tx_post_settle: alice's personal tx dated AFTER the watermark — unaffected
+INSERT INTO public.transactions
+  (id, user_id, account_id, category_id, amount_minor, date, type, is_shared)
+SELECT
+  '11111111-7008-4000-8000-000000000038',
+  '11111111-7008-4000-8000-000000000001',
+  '11111111-7008-4000-8000-000000000011',
+  (SELECT id FROM public.categories WHERE user_id = '11111111-7008-4000-8000-000000000001' AND type = 'expense' LIMIT 1),
+  333, '2026-05-10', 'expense', false;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- T-new-7: Shared→Personal on a pre-watermark date raises P0004
+-- ─────────────────────────────────────────────────────────────────────────────
+SET LOCAL ROLE authenticated;
+SET LOCAL "request.jwt.claims" TO '{"sub":"11111111-7008-4000-8000-000000000001"}';
+
+SELECT throws_ok(
+  $$ SELECT public.rpc_reclassify_transaction(
+       '11111111-7008-4000-8000-000000000036'::uuid,
+       false
+     ) $$,
+  'P0004', NULL::text,
+  'T-new-7: Shared→Personal on a pre-watermark (settled) date raises P0004'
+);
+
+SET LOCAL ROLE postgres;
+
+SELECT is(
+  (SELECT is_shared FROM public.transactions WHERE id = '11111111-7008-4000-8000-000000000036'),
+  true,
+  'T-new-7: tx_settled_shared unchanged after P0004 rejection'
+);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- T-new-8: Personal→Shared on a pre-watermark date ALSO raises P0004
+--     (retroactively injecting a split into an already-settled tally)
+-- ─────────────────────────────────────────────────────────────────────────────
+SET LOCAL ROLE authenticated;
+SET LOCAL "request.jwt.claims" TO '{"sub":"11111111-7008-4000-8000-000000000001"}';
+
+SELECT throws_ok(
+  $$ SELECT public.rpc_reclassify_transaction(
+       '11111111-7008-4000-8000-000000000037'::uuid,
+       true
+     ) $$,
+  'P0004', NULL::text,
+  'T-new-8: Personal→Shared on a pre-watermark (settled) date raises P0004'
+);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- T-new-9: a date AFTER the watermark is unaffected by the settled-period guard
+-- ─────────────────────────────────────────────────────────────────────────────
+SELECT lives_ok(
+  $$ SELECT public.rpc_reclassify_transaction(
+       '11111111-7008-4000-8000-000000000038'::uuid,
+       true
+     ) $$,
+  'T-new-9: post-watermark date reclassifies without error (settled-period guard does not apply)'
+);
+
+SET LOCAL ROLE postgres;
+
+SELECT is(
+  (SELECT is_shared FROM public.transactions WHERE id = '11111111-7008-4000-8000-000000000038'),
+  true,
+  'T-new-9: tx_post_settle successfully flipped to shared'
 );
 
 SELECT * FROM finish();

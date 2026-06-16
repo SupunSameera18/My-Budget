@@ -71,48 +71,31 @@ export async function getBudgets(): Promise<Result<BudgetWithActual[]>> {
     if (!auth) return err(ErrorCode.BudgetFetchFailed, "Not authenticated");
     const { supabase, user } = auth;
 
-    const [budgetsResult, txnsResult] = await Promise.all([
-      supabase
-        .from("budgets")
-        .select("*, budget_categories(category_id, categories(name))")
-        .eq("user_id", user.id)
-        .is("archived_at", null)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("transactions")
-        .select("amount_minor, date, category_id")
-        .eq("user_id", user.id)
-        .eq("type", "expense")
-        .is("archived_at", null),
-    ]);
+    const budgetsResult = await supabase
+      .from("budgets")
+      .select("*, budget_categories(category_id, categories(name))")
+      .eq("user_id", user.id)
+      .is("archived_at", null)
+      .order("created_at", { ascending: false });
 
     if (budgetsResult.error) {
       return err(ErrorCode.BudgetFetchFailed, "Failed to load budgets.");
     }
 
-    if (txnsResult.error) {
-      return err(ErrorCode.BudgetFetchFailed, "Failed to load budgets.");
+    const rawBudgets = budgetsResult.data ?? [];
+
+    // No budgets → no need to query transactions at all.
+    if (rawBudgets.length === 0) {
+      return ok([]);
     }
 
-    const expenseTxns = (txnsResult.data ?? []) as {
-      amount_minor: number;
-      date: string;
-      category_id: string;
-    }[];
-
-    const result: BudgetWithActual[] = (budgetsResult.data ?? []).map((b) => {
+    // Compute each budget's period boundaries up front so the transaction
+    // query can be scoped to the earliest period start across all budgets.
+    // Without this, an unbounded fetch hits Supabase's default 1000-row cap
+    // and silently truncates `actual_minor`/`pct_used` once a user has logged
+    // more than 1000 lifetime expense transactions (Phase 2 gap analysis, 4-1).
+    const budgetsWithPeriod = rawBudgets.map((b) => {
       const rawBudget = b as Budget & { budget_categories: unknown[] };
-
-      const categories = (
-        (rawBudget.budget_categories ?? []) as Array<{
-          category_id: string;
-          categories: { name: string } | null;
-        }>
-      ).map((bc) => ({
-        id: bc.category_id,
-        name: bc.categories?.name ?? "Unknown",
-      }));
-
       const budget: Budget = {
         id: rawBudget.id,
         user_id: rawBudget.user_id,
@@ -125,22 +108,70 @@ export async function getBudgets(): Promise<Result<BudgetWithActual[]>> {
         created_at: rawBudget.created_at,
         updated_at: rawBudget.updated_at,
       };
-
-      const { start, end } = computePeriodBoundaries(budget);
-      const categorySet = new Set(categories.map((c) => c.id));
-
-      const actual_minor = expenseTxns
-        .filter(
-          (t) =>
-            categorySet.has(t.category_id) && t.date >= start && t.date <= end,
-        )
-        .reduce((sum, t) => sum + t.amount_minor, 0);
-
-      const remaining_minor = budget.limit_minor - actual_minor;
-      const pct_used = (actual_minor / budget.limit_minor) * 100;
-
-      return { ...budget, categories, actual_minor, remaining_minor, pct_used };
+      const categories = (
+        (rawBudget.budget_categories ?? []) as Array<{
+          category_id: string;
+          categories: { name: string } | null;
+        }>
+      ).map((bc) => ({
+        id: bc.category_id,
+        name: bc.categories?.name ?? "Unknown",
+      }));
+      return { budget, categories, period: computePeriodBoundaries(budget) };
     });
+
+    const earliestPeriodStart = budgetsWithPeriod
+      .map((b) => b.period.start)
+      .filter((start): start is string => !!start)
+      .sort()[0];
+
+    let txnsQuery = supabase
+      .from("transactions")
+      .select("amount_minor, date, category_id")
+      .eq("user_id", user.id)
+      .eq("type", "expense")
+      .is("archived_at", null);
+    if (earliestPeriodStart) {
+      txnsQuery = txnsQuery.gte("date", earliestPeriodStart);
+    }
+
+    const txnsResult = await txnsQuery;
+
+    if (txnsResult.error) {
+      return err(ErrorCode.BudgetFetchFailed, "Failed to load budgets.");
+    }
+
+    const expenseTxns = (txnsResult.data ?? []) as {
+      amount_minor: number;
+      date: string;
+      category_id: string;
+    }[];
+
+    const result: BudgetWithActual[] = budgetsWithPeriod.map(
+      ({ budget, categories, period: { start, end } }) => {
+        const categorySet = new Set(categories.map((c) => c.id));
+
+        const actual_minor = expenseTxns
+          .filter(
+            (t) =>
+              categorySet.has(t.category_id) &&
+              t.date >= start &&
+              t.date <= end,
+          )
+          .reduce((sum, t) => sum + t.amount_minor, 0);
+
+        const remaining_minor = budget.limit_minor - actual_minor;
+        const pct_used = (actual_minor / budget.limit_minor) * 100;
+
+        return {
+          ...budget,
+          categories,
+          actual_minor,
+          remaining_minor,
+          pct_used,
+        };
+      },
+    );
 
     return ok(result);
   } catch {

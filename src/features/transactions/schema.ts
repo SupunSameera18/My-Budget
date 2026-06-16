@@ -182,4 +182,6 @@ export type TransactionListData = {
   categories: TransactionListFilterCategory[];
   currency: string;
   familyUnitId?: string;
+  /** True when more matching transactions exist beyond the 500-row page. */
+  hasMore: boolean;
 };

@@ -31,7 +31,7 @@ export default async function AppLayout({
 
   return (
     <div data-testid="app-shell" className="flex h-dvh">
-      <Sidebar />
+      <Sidebar unreadCount={unreadCount} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <main className="flex-1 overflow-y-auto pb-[env(safe-area-inset-bottom)] md:pb-0">
           {children}

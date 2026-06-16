@@ -7,10 +7,21 @@ import { ok, err, ErrorCode } from "@/lib/errors";
 import type { Result } from "@/lib/errors";
 import type { Notification } from "@/features/notifications/schema";
 
-export async function getNotifications(): Promise<Result<Notification[]>> {
+const NOTIFICATIONS_PAGE_SIZE = 50;
+
+export interface NotificationsPage {
+  notifications: Notification[];
+  /** True when more non-dismissed notifications exist beyond this page. */
+  hasMore: boolean;
+}
+
+export async function getNotifications(): Promise<Result<NotificationsPage>> {
   const auth = await requireUser();
   if (!auth) return redirect("/auth/login") as never;
 
+  // Fetch one extra row to detect truncation without a separate COUNT query —
+  // a flat cap with no signal silently hid older notifications (Phase 2 gap
+  // analysis, 9-1).
   const { data, error } = await auth.supabase
     .from("notifications")
     .select(
@@ -18,10 +29,16 @@ export async function getNotifications(): Promise<Result<Notification[]>> {
     )
     .is("dismissed_at", null)
     .order("created_at", { ascending: false })
-    .limit(50);
+    .limit(NOTIFICATIONS_PAGE_SIZE + 1);
 
   if (error) return err(ErrorCode.NotificationsFetchFailed, error.message);
-  return ok((data ?? []) as Notification[]);
+
+  const rows = (data ?? []) as Notification[];
+  const hasMore = rows.length > NOTIFICATIONS_PAGE_SIZE;
+  return ok({
+    notifications: hasMore ? rows.slice(0, NOTIFICATIONS_PAGE_SIZE) : rows,
+    hasMore,
+  });
 }
 
 const idSchema = z.string().uuid();

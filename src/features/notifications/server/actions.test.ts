@@ -79,12 +79,15 @@ describe("getNotifications", () => {
     expect(vi.mocked(redirect)).toHaveBeenCalledWith("/auth/login");
   });
 
-  it("returns ok([]) when no notifications exist", async () => {
+  it("returns ok({ notifications: [], hasMore: false }) when no notifications exist", async () => {
     const chain = makeChain({ data: [] });
     mockAuth(chain);
     const result = await getNotifications();
     expect(result.ok).toBe(true);
-    if (result.ok) expect(result.data).toEqual([]);
+    if (result.ok) {
+      expect(result.data.notifications).toEqual([]);
+      expect(result.data.hasMore).toBe(false);
+    }
   });
 
   it("returns ok(notifications) when data returned", async () => {
@@ -103,7 +106,33 @@ describe("getNotifications", () => {
     mockAuth(chain);
     const result = await getNotifications();
     expect(result.ok).toBe(true);
-    if (result.ok) expect(result.data).toHaveLength(1);
+    if (result.ok) {
+      expect(result.data.notifications).toHaveLength(1);
+      expect(result.data.hasMore).toBe(false);
+    }
+  });
+
+  it("sets hasMore=true and trims to 50 when 51 rows are returned (4-1/9-1 truncation signal)", async () => {
+    const rows = Array.from({ length: 51 }, (_, i) => ({
+      id: `33333333-9001-4000-8000-${String(i).padStart(12, "0")}`,
+      type: "budget_threshold",
+      title: `Alert ${i}`,
+      body: "80% used",
+      link: null,
+      metadata: {},
+      read_at: null,
+      dismissed_at: null,
+      created_at: "2026-06-16T00:00:00Z",
+    }));
+    const chain = makeChain({ data: rows });
+    mockAuth(chain);
+    const result = await getNotifications();
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.notifications).toHaveLength(50);
+      expect(result.data.hasMore).toBe(true);
+    }
+    expect(chain.limit).toHaveBeenCalledWith(51);
   });
 
   it("returns err(NotificationsFetchFailed) on DB error", async () => {
