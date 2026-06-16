@@ -62,9 +62,13 @@ const reminderSchema = z
       .string()
       .min(1)
       .max(100)
-      .refine((val) => VALID_TIMEZONES.includes(val as (typeof VALID_TIMEZONES)[number]), {
-        message: "Invalid timezone",
-      })
+      .refine(
+        (val) =>
+          VALID_TIMEZONES.includes(val as (typeof VALID_TIMEZONES)[number]),
+        {
+          message: "Invalid timezone",
+        },
+      )
       .nullable(),
   })
   .refine(

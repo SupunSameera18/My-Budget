@@ -479,6 +479,46 @@ export type Database = {
         };
         Relationships: [];
       };
+      // ↓ Added by Story 4.2; extended by Story 9.3 (budget_limit_minor)
+      budget_threshold_events: {
+        Row: {
+          id: string;
+          budget_id: string;
+          user_id: string;
+          period_start: string;
+          period_end: string;
+          pct_used: number;
+          actual_minor: number;
+          budget_limit_minor: number;
+          fired_at: string;
+          processed_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          budget_id: string;
+          user_id: string;
+          period_start: string;
+          period_end: string;
+          pct_used: number;
+          actual_minor: number;
+          budget_limit_minor?: number;
+          fired_at?: string;
+          processed_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          budget_id?: string;
+          user_id?: string;
+          period_start?: string;
+          period_end?: string;
+          pct_used?: number;
+          actual_minor?: number;
+          budget_limit_minor?: number;
+          fired_at?: string;
+          processed_at?: string | null;
+        };
+        Relationships: [];
+      };
       // ↓ Added by Story 7.1a
       family_members: {
         Row: {
@@ -605,6 +645,11 @@ export type Database = {
           p_transaction_id?: string | null;
         };
         Returns: string; // UUID of the new reconciliation_adjustments row
+      };
+      // ↓ Added by Story 9.3
+      rpc_process_budget_threshold_notifications: {
+        Args: Record<PropertyKey, never>;
+        Returns: void;
       };
       // ↓ Added by Story 7.9
       rpc_get_contribution_analysis: {

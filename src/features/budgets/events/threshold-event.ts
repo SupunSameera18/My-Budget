@@ -13,6 +13,7 @@ export type BudgetThresholdEventPayload = {
   period_end: string; // ISO date: YYYY-MM-DD
   pct_used: number; // e.g. 82.5 for 82.5%
   actual_minor: number; // integer minor units
+  budget_limit_minor: number; // integer minor units — added Story 9.3 (deferred from 4.2)
   fired_at: string; // ISO timestamp
   processed_at: string | null;
 };
