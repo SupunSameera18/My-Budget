@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { DownloadDataButton } from "@/features/settings/components/DownloadDataButton";
 import { TransactionDefaultsForm } from "@/features/settings/components/TransactionDefaultsForm";
 import { DeleteAccountSection } from "@/features/settings/components/DeleteAccountSection";
+import { ReminderPreferencesForm } from "@/features/notifications/components/ReminderPreferencesForm";
+import { getReminderPreferences } from "@/features/notifications/server/reminder-actions";
 import type { TransactionDefaults } from "@/features/transactions/schema";
 
 export default async function SettingsPage() {
@@ -11,8 +13,8 @@ export default async function SettingsPage() {
   if (!auth) redirect("/auth/login");
   const { supabase, user } = auth;
 
-  // Fetch family status and transaction defaults (non-fatal; fallback to solo/null)
-  const [membershipResult, profileResult] = await Promise.all([
+  // Fetch family status, transaction defaults, and reminder prefs in parallel (non-fatal)
+  const [membershipResult, profileResult, reminderPrefs] = await Promise.all([
     supabase
       .from("family_members")
       .select("family_unit_id")
@@ -23,6 +25,7 @@ export default async function SettingsPage() {
       .select("transaction_defaults")
       .eq("user_id", user.id)
       .maybeSingle(),
+    getReminderPreferences(),
   ]);
   const isFamilyMode = !!membershipResult.data;
   const transactionDefaults =
@@ -64,6 +67,17 @@ export default async function SettingsPage() {
           isFamilyMode={isFamilyMode}
         />
       </div>
+      {reminderPrefs && (
+        <section aria-labelledby="reminder-heading" className="mt-6">
+          <h2
+            id="reminder-heading"
+            className="mb-3 text-sm font-semibold text-ink-primary"
+          >
+            Log Reminder
+          </h2>
+          <ReminderPreferencesForm initialPrefs={reminderPrefs} />
+        </section>
+      )}
       <section className="mt-6">
         <h2 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-ink-secondary">
           Privacy &amp; Data

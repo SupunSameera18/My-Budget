@@ -1,11 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import {
-  render,
-  screen,
-  fireEvent,
-  waitFor,
-  act,
-} from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { JoinFamilyForm } from "./JoinFamilyForm";
 
 vi.mock("next/navigation", () => ({
@@ -108,13 +102,13 @@ describe("JoinFamilyForm — confirmation dialog", () => {
 
     await waitFor(() => screen.getByRole("dialog"));
 
-    await act(async () => {
-      fireEvent.keyDown(document, { key: "Escape" });
-    });
+    fireEvent.keyDown(document, { key: "Escape" });
 
-    expect(screen.getByRole("dialog", { hidden: true })).toHaveAttribute(
-      "hidden",
-    );
+    await waitFor(() => {
+      expect(screen.getByRole("dialog", { hidden: true })).toHaveAttribute(
+        "hidden",
+      );
+    });
   });
 
   it("'Join family' button in dialog calls redeemInviteCode", async () => {

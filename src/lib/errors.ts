@@ -89,6 +89,14 @@ export enum ErrorCode {
   SettleUpFailed = "settle_up_failed",
   // ↓ Added by Story 8.3
   ReconciliationFailed = "reconciliation_failed",
+  // ↓ Added by Story 9.1
+  NotificationsFetchFailed = "notifications_fetch_failed",
+  NotificationUpdateFailed = "notification_update_failed",
+  // ↓ Added by Story 9.2
+  ReminderSaveFailed = "reminder_save_failed",
+  // ↓ Added by Story 9.6
+  PushSubscribeFailed = "push_subscribe_failed",
+  PushUnsubscribeFailed = "push_unsubscribe_failed",
 }
 
 export type AppError = {

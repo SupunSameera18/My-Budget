@@ -66,6 +66,10 @@ export type Database = {
             defaultType?: string;
             defaultSplitMethod?: string;
           } | null;
+          // ↓ Added by Story 9.2
+          reminder_enabled: boolean;
+          reminder_time: string | null;
+          reminder_timezone: string | null;
         };
         Insert: {
           created_at?: string;
@@ -84,6 +88,10 @@ export type Database = {
           chart_preferences?: Record<string, boolean> | null;
           // ↓ Added by Story 7.5
           transaction_defaults?: Record<string, string> | null;
+          // ↓ Added by Story 9.2
+          reminder_enabled?: boolean;
+          reminder_time?: string | null;
+          reminder_timezone?: string | null;
         };
         Update: {
           created_at?: string;
@@ -102,6 +110,10 @@ export type Database = {
           chart_preferences?: Record<string, boolean> | null;
           // ↓ Added by Story 7.5
           transaction_defaults?: Record<string, string> | null;
+          // ↓ Added by Story 9.2
+          reminder_enabled?: boolean;
+          reminder_time?: string | null;
+          reminder_timezone?: string | null;
         };
         Relationships: [];
       };
@@ -427,6 +439,112 @@ export type Database = {
         };
         Relationships: [];
       };
+      // ↓ Added by Story 9.1
+      // ↓ Extended by Story 9.6 (push_notified_at)
+      notifications: {
+        Row: {
+          id: string;
+          user_id: string;
+          type:
+            | "logging_reminder"
+            | "budget_threshold"
+            | "month_end_summary"
+            | "partner_shared_transaction";
+          title: string;
+          body: string;
+          link: string | null;
+          metadata: Record<string, unknown>;
+          read_at: string | null;
+          dismissed_at: string | null;
+          created_at: string;
+          push_notified_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          type:
+            | "logging_reminder"
+            | "budget_threshold"
+            | "month_end_summary"
+            | "partner_shared_transaction";
+          title: string;
+          body: string;
+          link?: string | null;
+          metadata?: Record<string, unknown>;
+          read_at?: string | null;
+          dismissed_at?: string | null;
+          created_at?: string;
+          push_notified_at?: string | null;
+        };
+        Update: {
+          read_at?: string | null;
+          dismissed_at?: string | null;
+        };
+        Relationships: [];
+      };
+      // ↓ Added by Story 9.6
+      push_subscriptions: {
+        Row: {
+          id: string;
+          user_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          user_agent: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          user_agent?: string | null;
+          created_at?: string;
+        };
+        Update: never;
+        Relationships: [];
+      };
+      // ↓ Added by Story 4.2; extended by Story 9.3 (budget_limit_minor)
+      budget_threshold_events: {
+        Row: {
+          id: string;
+          budget_id: string;
+          user_id: string;
+          period_start: string;
+          period_end: string;
+          pct_used: number;
+          actual_minor: number;
+          budget_limit_minor: number;
+          fired_at: string;
+          processed_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          budget_id: string;
+          user_id: string;
+          period_start: string;
+          period_end: string;
+          pct_used: number;
+          actual_minor: number;
+          budget_limit_minor?: number;
+          fired_at?: string;
+          processed_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          budget_id?: string;
+          user_id?: string;
+          period_start?: string;
+          period_end?: string;
+          pct_used?: number;
+          actual_minor?: number;
+          budget_limit_minor?: number;
+          fired_at?: string;
+          processed_at?: string | null;
+        };
+        Relationships: [];
+      };
       // ↓ Added by Story 7.1a
       family_members: {
         Row: {
@@ -554,6 +672,16 @@ export type Database = {
         };
         Returns: string; // UUID of the new reconciliation_adjustments row
       };
+      // ↓ Added by Story 9.3
+      rpc_process_budget_threshold_notifications: {
+        Args: Record<PropertyKey, never>;
+        Returns: void;
+      };
+      // ↓ Added by Story 9.4
+      rpc_send_month_end_summary_notifications: {
+        Args: Record<PropertyKey, never>;
+        Returns: void;
+      };
       // ↓ Added by Story 7.9
       rpc_get_contribution_analysis: {
         Args: { p_period_start?: string | null; p_period_end?: string | null };
@@ -563,6 +691,11 @@ export type Database = {
           transaction_count: number;
           goal_contribution_minor: number;
         }[];
+      };
+      // ↓ Added by Story 9.5
+      rpc_notify_partner_shared_transaction: {
+        Args: { p_transaction_id: string };
+        Returns: void;
       };
     };
     Enums: {

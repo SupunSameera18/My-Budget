@@ -10,13 +10,22 @@
 --   11111111-7003-4000-8000-000000000023 = alice Personal tx (always hidden from bob)
 --   11111111-7003-4000-8000-000000000024 = bob Shared tx POST-JOIN (2026-02-10 >= alice join)
 --
+-- Updated (E9 retro finding): migration 0034 removed the join-date
+-- restriction on Shared transactions ("Shared row: always visible to family
+-- members — no join-date restriction", see auth_can_view_transaction). V1/V5/
+-- V6 originally asserted the PRE-0034 invariant (pre-join Shared invisible)
+-- and had silently gone stale — they now assert the current, documented
+-- behavior instead. join_date still gates whether a Shared transaction
+-- triggers a *notification* (Story 9.5/9.7) — that is a separate invariant
+-- from RLS *visibility*, which this suite covers.
+--
 -- Proves the 7.1b predicate works correctly across all AC 13-14 scenarios:
---   V1: alice pre-join Shared -> bob sees 0 (direct)
+--   V1: alice pre-join Shared -> bob sees it too (no join-date gate since 0034)
 --   V2: alice post-join Shared -> bob sees 1 (direct); alice sees 1 (symmetric)
 --   V3: alice Personal -> bob sees 0 (personal is always owner-only)
 --   V4: bob post-join Shared -> alice sees 1
---   V5: aggregate COUNT for bob (WHERE user_id=alice AND is_shared=true) = 1 (only post-join)
---   V6: aggregate COUNT for bob (WHERE is_shared=true) = 2 (alice post-join + bob own; pre-join excluded)
+--   V5: aggregate COUNT for bob (WHERE user_id=alice AND is_shared=true) = 2 (pre-join + post-join, no date gate)
+--   V6: aggregate COUNT for bob (WHERE is_shared=true) = 3 (alice pre-join + alice post-join + bob own)
 
 BEGIN;
 
@@ -110,8 +119,8 @@ SET LOCAL "request.jwt.claims" TO '{"sub":"11111111-7003-4000-8000-000000000002"
 SELECT is(
   (SELECT COUNT(*)::int FROM public.transactions
    WHERE id = '11111111-7003-4000-8000-000000000021'),
-  0,
-  'V1: bob cannot see alice Shared tx dated before his join_date'
+  1,
+  'V1: bob CAN see alice Shared tx dated before his join_date (no join-date gate on Shared visibility since 0034)'
 );
 
 -- ==========================================================================
@@ -190,7 +199,7 @@ SELECT is(
 );
 
 -- ==========================================================================
--- V5: aggregate -- bob view of alice Shared txs = 1 (only post-join from alice)
+-- V5: aggregate -- bob view of alice Shared txs = 2 (pre-join + post-join; no date gate since 0034)
 -- ==========================================================================
 SET LOCAL "request.jwt.claims" TO '{"sub":"11111111-7003-4000-8000-000000000002"}';
 
@@ -198,18 +207,18 @@ SELECT is(
   (SELECT COUNT(*)::int FROM public.transactions
    WHERE user_id = '11111111-7003-4000-8000-000000000001'
      AND is_shared = true),
-  1,
-  'V5: bob aggregate of alice Shared txs = 1 (pre-join excluded by RLS predicate)'
+  2,
+  'V5: bob aggregate of alice Shared txs = 2 (pre-join + post-join; no join-date gate on Shared visibility)'
 );
 
 -- ==========================================================================
--- V6: aggregate WHERE is_shared=true -- pre-join excluded even with explicit filter
+-- V6: aggregate WHERE is_shared=true -- no join-date gate, all Shared rows count
 -- ==========================================================================
 SELECT is(
   (SELECT COUNT(*)::int FROM public.transactions
    WHERE is_shared = true),
-  2,
-  'V6: bob Shared bucket = 2 (alice post-join + bob own); pre-join row excluded via RLS'
+  3,
+  'V6: bob Shared bucket = 3 (alice pre-join + alice post-join + bob own; no join-date gate)'
 );
 
 SELECT * FROM finish();
