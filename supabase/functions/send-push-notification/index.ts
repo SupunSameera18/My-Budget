@@ -63,7 +63,10 @@ Deno.serve(async (req: Request) => {
       .in("user_id", uniqueUserIds);
 
     if (subsError) {
-      console.error("send-push-notification: failed to fetch subscriptions", subsError);
+      console.error(
+        "send-push-notification: failed to fetch subscriptions",
+        subsError,
+      );
       // Fall through with no subscriptions — notifications will be marked without push delivery
     }
 

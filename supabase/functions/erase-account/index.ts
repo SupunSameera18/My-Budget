@@ -264,8 +264,15 @@ Deno.serve(async (req: Request) => {
         const { error: s0b } = await adminClient
           .from("transaction_splits")
           .delete()
-          .in("transaction_id", txIds.map((t: { id: string }) => t.id));
-        if (s0b) console.error("erase-account: solo transaction_splits (owner) delete error", s0b);
+          .in(
+            "transaction_id",
+            txIds.map((t: { id: string }) => t.id),
+          );
+        if (s0b)
+          console.error(
+            "erase-account: solo transaction_splits (owner) delete error",
+            s0b,
+          );
       }
 
       const { error: s1 } = await adminClient
