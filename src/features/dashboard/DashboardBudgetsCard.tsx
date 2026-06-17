@@ -1,26 +1,15 @@
 import Link from "next/link";
-import { requireUser } from "@/lib/supabase/require-user";
-import { getBudgets } from "@/features/budgets/server/actions";
+import { getBudgets, getUserCurrency } from "@/features/budgets/server/actions";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { formatMoney } from "@/lib/format";
 
 export async function DashboardBudgetsCard() {
-  const auth = await requireUser();
-  if (!auth) return null;
-  const { supabase, user } = auth;
-
-  const [budgetsResult, profileRes] = await Promise.all([
+  const [budgetsResult, currency] = await Promise.all([
     getBudgets(),
-    supabase
-      .from("profiles")
-      .select("currency")
-      .eq("user_id", user.id)
-      .single(),
+    getUserCurrency(),
   ]);
 
   if (!budgetsResult.ok) return null;
-
-  const currency = profileRes.data?.currency ?? "USD";
   const allBudgets = budgetsResult.data;
   const totalBudgets = allBudgets.length;
 

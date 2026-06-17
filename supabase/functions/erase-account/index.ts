@@ -51,6 +51,17 @@ Deno.serve(async (req: Request) => {
     });
   }
 
+  // W1 (Phase 2 gap analysis, 7-12): per-IP / per-user rate limiting on this
+  // endpoint is a deployment-time concern (Supabase Edge Function rate limits
+  // in the project dashboard, or a WAF rule upstream). Application-level
+  // rate limiting here would require a durable counter store that survives
+  // across cold starts and concurrent invocations — structurally equivalent
+  // to adding a new table just for this endpoint, which is disproportionate.
+  // The existing guards (AbortController timeout W2, client-side
+  // isSubmitting disable, auth JWT requirement) cover the realistic
+  // double-submit scenario. Infrastructure-level rate limiting is tracked in
+  // deferred-work.md (confirmed as infra scope, not app scope).
+
   const userId = user.id;
 
   const adminClient = createClient(supabaseUrl, serviceRoleKey, {
@@ -229,6 +240,34 @@ Deno.serve(async (req: Request) => {
       }
     } else {
       // ── SOLO PATH ────────────────────────────────────────────────────────────
+
+      // W4 (Phase 2 gap analysis, 7-12): transaction_splits.transaction_id has
+      // no ON DELETE CASCADE — deleting a transaction that still has a split
+      // row would raise a foreign-key violation. A truly solo user (no
+      // family_members row) should never have a split row in practice (splits
+      // only get created on Shared transactions, which require family
+      // membership), but delete defensively rather than relying on that
+      // invariant always holding (e.g. a stale row left by an edge case the
+      // app doesn't currently prevent).
+      const { error: s0 } = await adminClient
+        .from("transaction_splits")
+        .delete()
+        .eq("payer_id", userId);
+      if (s0) throw s0;
+
+      // Also delete splits on transactions owned by this user (payer_id may differ)
+      const { data: txIds } = await adminClient
+        .from("transactions")
+        .select("id")
+        .eq("user_id", userId);
+      if (txIds && txIds.length > 0) {
+        const { error: s0b } = await adminClient
+          .from("transaction_splits")
+          .delete()
+          .in("transaction_id", txIds.map((t: { id: string }) => t.id));
+        if (s0b) console.error("erase-account: solo transaction_splits (owner) delete error", s0b);
+      }
+
       const { error: s1 } = await adminClient
         .from("transactions")
         .delete()

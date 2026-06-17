@@ -26,6 +26,7 @@ const mockItems: TransactionListItem[] = [
     created_at: "2026-06-01T10:00:00Z",
     account_name: "Wallet",
     category_name: "Food",
+    subcategory_name: null,
   },
   {
     id: "aaaaaaaa-0004-4000-8000-000000000004",
@@ -39,6 +40,7 @@ const mockItems: TransactionListItem[] = [
     created_at: "2026-06-02T09:00:00Z",
     account_name: "Wallet",
     category_name: "Salary",
+    subcategory_name: null,
   },
 ];
 
@@ -54,6 +56,7 @@ const sharedItem: TransactionListItem = {
   created_at: "2026-06-03T10:00:00Z",
   account_name: "Wallet",
   category_name: "Groceries",
+  subcategory_name: null,
 };
 
 describe("TransactionTable", () => {

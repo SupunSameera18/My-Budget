@@ -9,6 +9,10 @@ export function LogSuccessToast() {
   const [show, setShow] = useState(params.get("saved") === "1");
 
   useEffect(() => {
+    if (params.get("saved") === "1") setShow(true);
+  }, [params]);
+
+  useEffect(() => {
     if (show) {
       router.replace("/dashboard", { scroll: false });
       const t = setTimeout(() => setShow(false), 3000);

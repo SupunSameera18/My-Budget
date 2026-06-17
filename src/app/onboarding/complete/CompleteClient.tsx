@@ -1,18 +1,23 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { posthog } from "@/lib/analytics/posthog";
 
 export function CompleteClient({ userId }: { userId: string }) {
   const router = useRouter();
+  const firedRef = useRef(false);
 
   useEffect(() => {
-    posthog.capture("onboarding_completed", {
-      user_id: userId,
-      surface: "onboarding",
-    });
-    // 150ms gives PostHog time to queue the event before navigation
+    // Guard against double-fire from React StrictMode (effects run twice in dev)
+    if (firedRef.current) return;
+    firedRef.current = true;
+
+    posthog.capture(
+      "onboarding_completed",
+      { user_id: userId, surface: "onboarding" },
+      { send_instantly: true },
+    );
     const t = setTimeout(() => router.replace("/dashboard"), 150);
     return () => clearTimeout(t);
   }, [router, userId]);

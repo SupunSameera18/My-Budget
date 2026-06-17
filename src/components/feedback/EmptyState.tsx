@@ -7,6 +7,7 @@ interface EmptyStateProps {
   body: string;
   actionLabel?: string;
   actionHref?: string;
+  headingLevel?: 2 | 3 | 4;
 }
 
 export function EmptyState({
@@ -14,6 +15,7 @@ export function EmptyState({
   body,
   actionLabel,
   actionHref,
+  headingLevel = 2,
 }: EmptyStateProps) {
   const uid = useId();
   const slug =
@@ -23,17 +25,19 @@ export function EmptyState({
       .replace(/^-+|-+$/g, "") || "empty";
   const headingId = `empty-state-${slug}-${uid.replace(/[^a-z0-9]/g, "")}`;
 
+  const HeadingTag = `h${headingLevel}` as "h2" | "h3" | "h4";
+
   return (
     <section
       aria-labelledby={headingId}
       className="flex flex-col items-center justify-center px-4 py-16 text-center"
     >
-      <h2
+      <HeadingTag
         id={headingId}
         className="mb-2 text-lg font-semibold text-ink-primary"
       >
         {heading}
-      </h2>
+      </HeadingTag>
       {body && (
         <p
           className={`max-w-xs text-sm text-ink-secondary ${actionLabel && actionHref ? "mb-8" : ""}`}

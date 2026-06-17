@@ -204,7 +204,7 @@ describe("TransactionEditSheet — activity trail", () => {
       screen.getByRole("heading", { name: /history/i }),
     ).toBeInTheDocument();
     expect(screen.getByText(/edited/i)).toBeInTheDocument();
-    expect(screen.getByText(/amount_minor/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Amount/)[0]).toBeInTheDocument();
   });
 
   it("does not show History section when activityTrail is empty", () => {
@@ -223,6 +223,14 @@ describe("TransactionEditSheet — offline state", () => {
       screen.getByRole("button", { name: /save changes/i }),
     ).toBeDisabled();
     expect(screen.getByText(/you're offline/i)).toBeInTheDocument();
+  });
+
+  it("disables Delete transaction button when offline (Save parity)", () => {
+    (useOnlineStatus as Mock).mockReturnValue(false);
+    render(<TransactionEditSheet {...baseProps} />);
+    expect(
+      screen.getByRole("button", { name: /delete transaction/i }),
+    ).toBeDisabled();
   });
 });
 

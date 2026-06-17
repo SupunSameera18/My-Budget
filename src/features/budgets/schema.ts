@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { parseAmountMinor } from "@/lib/money/parse-minor";
+import { moneyDisplaySchema } from "@/lib/money/amount-schema";
 
 export const BUDGET_PERIOD_TYPES = [
   "weekly",
@@ -15,27 +17,18 @@ export const createBudgetSchema = z
       .trim()
       .min(1, "Name is required")
       .max(100, "Name must be 100 characters or fewer"),
-    limit_amount_display: z
-      .string()
-      .trim()
-      .regex(/^\d+(\.\d{0,2})?$/, "Enter a valid amount (e.g. 50.00)")
-      .refine((v) => Math.round(parseFloat(v) * 100) >= 1, {
-        message: "Amount must be greater than zero",
-      }),
+    limit_amount_display: moneyDisplaySchema.refine(
+      (v) => parseAmountMinor(v) >= 1,
+      { message: "Amount must be greater than zero" },
+    ),
     period_type: z.enum(BUDGET_PERIOD_TYPES, {
       message: "Select a period type",
     }),
     category_ids: z
       .array(z.string().uuid())
       .min(1, "Select at least one category"),
-    period_start: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/)
-      .optional(),
-    period_end: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/)
-      .optional(),
+    period_start: z.string().date().optional(),
+    period_end: z.string().date().optional(),
   })
   .refine(
     (d) => d.period_type !== "custom" || (!!d.period_start && !!d.period_end),

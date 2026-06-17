@@ -13,7 +13,7 @@
 
 BEGIN;
 
-SELECT plan(12);
+SELECT plan(13);
 
 -- ── Setup ──────────────────────────────────────────────────────────────────────
 
@@ -204,6 +204,35 @@ SELECT ok(
   (SELECT archived_at IS NOT NULL FROM public.transactions
    WHERE id = 'aaaaaaaa-aaaa-4aaa-8aaa-000000000006'),
   'Anti-vacuous regression: non-macro tx (test 9) still has archived_at IS NOT NULL'
+);
+
+-- ── Test 13: Archived category — applying a macro whose category is archived
+-- raises an error. The function's guard checks the category with archived_at IS NULL,
+-- so an archived category causes the "not found, not owned, or archived" exception.
+-- This documents the deliberate design: archived categories block macro application.
+-- [Task 9 — archived-category delete path, story 5-2a]
+-- ──────────────────────────────────────────────────────────────────────────────
+
+-- First unarchive the macro so it's valid again, then archive only its category
+SET LOCAL role TO postgres;
+UPDATE public.macros SET archived_at = NULL WHERE id = 'aaaaaaaa-aaaa-4aaa-8aaa-000000000003';
+
+-- Archive the category directly as postgres (bypass RLS)
+UPDATE public.categories
+  SET archived_at = NOW()
+  WHERE id = 'aaaaaaaa-aaaa-4aaa-8aaa-000000000005';
+
+-- Reset account balance so the macro application is predictable
+UPDATE public.accounts SET actual_balance_minor = 100000 WHERE id = 'aaaaaaaa-aaaa-4aaa-8aaa-000000000004';
+
+SET LOCAL role TO authenticated;
+SET LOCAL "request.jwt.claims" TO '{"sub": "aaaaaaaa-aaaa-4aaa-8aaa-000000000001"}';
+
+SELECT throws_ok(
+  $$ SELECT public.rpc_apply_macro('aaaaaaaa-aaaa-4aaa-8aaa-000000000003'::UUID) $$,
+  'P0001',
+  'Macro category not found, not owned, or archived',
+  'Test 13: rpc_apply_macro raises error when macro''s category is archived'
 );
 
 SELECT * FROM finish();

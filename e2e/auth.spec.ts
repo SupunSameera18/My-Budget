@@ -24,19 +24,77 @@ test.describe("Auth flows", () => {
     await expect(page).toHaveURL("/");
   });
 
-  test("sign out redirects to /auth/login", async ({ page }) => {
-    // Sign in first
+  test("wrong password shows an error message", async ({ page }) => {
+    // [1-4b] wrong-password error message
+    await page.goto("/auth/login");
+    await page.fill('input[type="email"]', TEST_EMAIL);
+    await page.fill('input[type="password"]', "wrong-password-that-will-fail");
+    await page.click('button[type="submit"]');
+    // Stay on login page with an error
+    await expect(page).toHaveURL(/\/auth\/login/);
+    await expect(
+      page.getByRole("alert").or(page.locator("[role='status']")),
+    ).toContainText(/invalid|incorrect|wrong|credentials/i);
+  });
+
+  test("duplicate email sign-up shows an error message", async ({ page }) => {
+    // [1-4b] dup-email error — try to register with an already-registered email
+    await page.goto("/auth/sign-up");
+    await page.fill('input[type="email"]', TEST_EMAIL);
+    await page.fill('input[type="password"]', "SomeNewPassword123!");
+    await page.click('button[type="submit"]');
+    // Stay on sign-up page or login page with an error message
+    await expect(
+      page
+        .getByText(/already registered|already exists|email.*taken/i)
+        .or(page.getByRole("alert")),
+    ).toBeVisible({ timeout: 5000 });
+  });
+
+  test("real sign-out button redirects to /auth/login", async ({ page }) => {
+    // [1-4b] test the actual sign-out button (not cookie clearing)
     await page.goto("/auth/login");
     await page.fill('input[type="email"]', TEST_EMAIL);
     await page.fill('input[type="password"]', TEST_PASSWORD);
     await page.click('button[type="submit"]');
     await expect(page).toHaveURL("/");
 
-    // Clear cookies to simulate sign-out, then verify redirect
-    // (Full sign-out button wired in Story 1.9+; middleware auth check covers the AC)
-    await page.context().clearCookies();
-    await page.goto("/");
-    await expect(page).toHaveURL(/\/auth\/login/);
+    // Click the real Logout button (exists in sidebar / more menu)
+    // The LogoutButton renders as <button>Logout</button>
+    const logoutBtn = page
+      .getByRole("button", { name: /logout/i })
+      .or(page.getByRole("link", { name: /sign out|log out/i }))
+      .first();
+    await logoutBtn.click();
+
+    await expect(page).toHaveURL(/\/auth\/login/, { timeout: 5000 });
+  });
+
+  test("password reset page is accessible from login", async ({ page }) => {
+    // [1-4b] password reset flow — verify the reset form renders
+    await page.goto("/auth/login");
+    // Find forgot-password link
+    const forgotLink = page.getByRole("link", { name: /forgot|reset/i });
+    if (await forgotLink.isVisible()) {
+      await forgotLink.click();
+    } else {
+      await page.goto("/auth/forgot-password");
+    }
+    await expect(page).toHaveURL(/\/auth\/forgot-password|\/auth\/reset/);
+    await expect(page.getByRole("textbox", { name: /email/i })).toBeVisible();
+  });
+
+  test("password reset with valid email shows confirmation message", async ({
+    page,
+  }) => {
+    // [1-4b] password reset — submitting a valid email shows a confirmation
+    await page.goto("/auth/forgot-password");
+    await page.fill('input[type="email"]', TEST_EMAIL);
+    await page.click('button[type="submit"]');
+    // Expect a success/confirmation message (OTP/code sent)
+    await expect(
+      page.getByText(/check your email|code sent|sent a/i),
+    ).toBeVisible({ timeout: 5000 });
   });
 });
 
@@ -88,5 +146,25 @@ test.describe("OAuth flows", () => {
       .toContain("/auth/v1/authorize");
 
     expect(capturedOAuthUrl).toContain("provider=google");
+  });
+
+  test("OAuth callback error query param shows an error message", async ({
+    page,
+  }) => {
+    // [1-5] OAuth callback with error param — verify the UI shows an error
+    await page.goto(
+      "/auth/callback?error=access_denied&error_description=User+cancelled",
+    );
+    // Should redirect to login or show an error on the current page.
+    // Filter the alert role to exclude the always-present Next.js route announcer.
+    await expect(
+      page
+        .getByText(/access denied|error|failed|cancelled/i)
+        .or(
+          page
+            .getByRole("alert")
+            .filter({ hasText: /access denied|error|failed|cancelled/i }),
+        ),
+    ).toBeVisible({ timeout: 5000 });
   });
 });

@@ -2,6 +2,9 @@
 -- UUID block: 11111111-9002-*
 --   alice: 11111111-9002-4000-8000-000000000001
 --   bob:   11111111-9002-4000-8000-000000000002
+--
+-- T5/T6/T7 use a fixed reference timestamp (p_now = '2025-01-15 14:30:00+00')
+-- so the tests are immune to minute-boundary clock flakiness (9-2 D2).
 
 BEGIN;
 
@@ -37,6 +40,10 @@ VALUES (
 
 -- alice's default categories (needed for T6 transaction seed)
 SELECT seed_default_categories('11111111-9002-4000-8000-000000000001');
+
+-- Fixed reference timestamp used in T5/T6/T7 to eliminate minute-boundary flakiness.
+-- '14:30' UTC on 2025-01-15 — reminder_time must equal '14:30', timezone = 'UTC'.
+-- This reference is deterministic regardless of when the test suite runs.
 
 -- ──────────────────────────────────────────────────────────────────────────────
 -- T1: reminder_enabled defaults to false
@@ -78,24 +85,27 @@ SELECT is(
 
 -- ──────────────────────────────────────────────────────────────────────────────
 -- T5: idempotency — already notified today → no new notification inserted
+-- Uses fixed reference time '2025-01-15 14:30:00+00' to avoid minute-boundary flakiness.
 -- ──────────────────────────────────────────────────────────────────────────────
 UPDATE public.profiles
   SET reminder_enabled = true,
-      reminder_time = TO_CHAR(CURRENT_TIMESTAMP AT TIME ZONE 'UTC', 'HH24:MI'),
+      reminder_time = '14:30',
       reminder_timezone = 'UTC'
   WHERE user_id = '11111111-9002-4000-8000-000000000001';
 
--- Insert a prior logging_reminder for today to trigger idempotency guard
-INSERT INTO public.notifications (user_id, type, title, body, link)
+-- Insert a prior logging_reminder for the reference day (2025-01-15) at 13:00 UTC
+-- so the idempotency guard fires (same date in UTC).
+INSERT INTO public.notifications (user_id, type, title, body, link, created_at)
 VALUES (
   '11111111-9002-4000-8000-000000000001',
   'logging_reminder',
   'Daily log reminder',
   'Don''t forget to log today''s expenses.',
-  '/transactions/new'
+  '/transactions/new',
+  '2025-01-15 13:00:00+00'
 );
 
-SELECT public.rpc_send_logging_reminders();
+SELECT public.rpc_send_logging_reminders('2025-01-15 14:30:00+00'::TIMESTAMPTZ);
 
 SELECT is(
   (SELECT count(*)::bigint FROM public.notifications
@@ -110,8 +120,9 @@ DELETE FROM public.notifications WHERE user_id = '11111111-9002-4000-8000-000000
 
 -- ──────────────────────────────────────────────────────────────────────────────
 -- T6: already logged a transaction today → skip (no notification inserted)
+-- Uses fixed reference date 2025-01-15 UTC.
 -- ──────────────────────────────────────────────────────────────────────────────
--- alice still has reminder enabled with matching time from T5 setup
+-- alice still has reminder enabled with '14:30' UTC from T5 setup
 INSERT INTO public.transactions (id, user_id, account_id, category_id, amount_minor, date, type, is_shared)
 VALUES (
   '11111111-9002-4000-8000-000000000020',
@@ -120,12 +131,12 @@ VALUES (
   (SELECT id FROM public.categories
    WHERE user_id = '11111111-9002-4000-8000-000000000001' AND type = 'expense' LIMIT 1),
   1000,
-  (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')::date,
+  '2025-01-15',
   'expense',
   false
 );
 
-SELECT public.rpc_send_logging_reminders();
+SELECT public.rpc_send_logging_reminders('2025-01-15 14:30:00+00'::TIMESTAMPTZ);
 
 SELECT is(
   (SELECT count(*)::bigint FROM public.notifications
@@ -140,9 +151,9 @@ DELETE FROM public.transactions WHERE id = '11111111-9002-4000-8000-000000000020
 
 -- ──────────────────────────────────────────────────────────────────────────────
 -- T7: fires when all conditions met (enabled, time matches, no prior notif, no txn today)
+-- Uses fixed reference time '2025-01-15 14:30:00+00' — guaranteed to match '14:30' UTC.
 -- ──────────────────────────────────────────────────────────────────────────────
--- alice: reminder enabled, time matches current UTC minute, no notification, no txn today
-SELECT public.rpc_send_logging_reminders();
+SELECT public.rpc_send_logging_reminders('2025-01-15 14:30:00+00'::TIMESTAMPTZ);
 
 SELECT is(
   (SELECT count(*)::bigint FROM public.notifications
@@ -163,7 +174,7 @@ DELETE FROM public.notifications WHERE user_id = '11111111-9002-4000-8000-000000
 UPDATE public.profiles SET reminder_enabled = false
   WHERE user_id = '11111111-9002-4000-8000-000000000001';
 
-SELECT public.rpc_send_logging_reminders();
+SELECT public.rpc_send_logging_reminders('2025-01-15 14:30:00+00'::TIMESTAMPTZ);
 
 SELECT is(
   (SELECT count(*)::bigint FROM public.notifications
@@ -178,8 +189,8 @@ SELECT is(
 -- default PUBLIC grant on newly created functions silently re-opening this
 -- (E9 retro finding D0; migration 0048).
 SELECT ok(
-  NOT has_function_privilege('authenticated', 'public.rpc_send_logging_reminders()', 'EXECUTE')
-  AND NOT has_function_privilege('anon', 'public.rpc_send_logging_reminders()', 'EXECUTE'),
+  NOT has_function_privilege('authenticated', 'public.rpc_send_logging_reminders(timestamptz)', 'EXECUTE')
+  AND NOT has_function_privilege('anon', 'public.rpc_send_logging_reminders(timestamptz)', 'EXECUTE'),
   'T9: neither authenticated nor anon has EXECUTE on rpc_send_logging_reminders'
 );
 

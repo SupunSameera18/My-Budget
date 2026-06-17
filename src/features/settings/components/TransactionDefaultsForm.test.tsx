@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi, describe, it, expect, beforeEach, type Mock } from "vitest";
 
@@ -133,5 +133,55 @@ describe("TransactionDefaultsForm", () => {
       expect(screen.getByRole("status")).toHaveTextContent("Saved"),
     );
     expect(saveTransactionDefaults).toHaveBeenCalledTimes(2);
+  });
+
+  it("checked radio has tabIndex=0; unchecked radios have tabIndex=-1 (roving tabindex)", () => {
+    render(
+      <TransactionDefaultsForm initialDefaults={null} isFamilyMode={true} />,
+    );
+    const personalBtn = screen.getByRole("radio", { name: /^personal$/i });
+    const sharedBtn = screen.getByRole("radio", { name: /^shared$/i });
+    // Personal is default-selected
+    expect(personalBtn).toHaveAttribute("tabIndex", "0");
+    expect(sharedBtn).toHaveAttribute("tabIndex", "-1");
+  });
+
+  it("ArrowRight on Default type radiogroup selects next option and moves focus", async () => {
+    render(
+      <TransactionDefaultsForm initialDefaults={null} isFamilyMode={true} />,
+    );
+    const personalBtn = screen.getByRole("radio", { name: /^personal$/i });
+    const sharedBtn = screen.getByRole("radio", { name: /^shared$/i });
+    personalBtn.focus();
+    fireEvent.keyDown(personalBtn.parentElement!, { key: "ArrowRight" });
+    await waitFor(() =>
+      expect(sharedBtn).toHaveAttribute("aria-checked", "true"),
+    );
+    expect(personalBtn).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("ArrowLeft on Default type radiogroup wraps around to last option", async () => {
+    render(
+      <TransactionDefaultsForm initialDefaults={null} isFamilyMode={true} />,
+    );
+    const personalBtn = screen.getByRole("radio", { name: /^personal$/i });
+    const sharedBtn = screen.getByRole("radio", { name: /^shared$/i });
+    personalBtn.focus();
+    fireEvent.keyDown(personalBtn.parentElement!, { key: "ArrowLeft" });
+    await waitFor(() =>
+      expect(sharedBtn).toHaveAttribute("aria-checked", "true"),
+    );
+    expect(personalBtn).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("ArrowRight on Default split method radiogroup cycles through options", async () => {
+    render(
+      <TransactionDefaultsForm initialDefaults={null} isFamilyMode={true} />,
+    );
+    const equalBtn = screen.getByRole("radio", { name: /^equal$/i });
+    const pctBtn = screen.getByRole("radio", { name: /^percentage$/i });
+    equalBtn.focus();
+    fireEvent.keyDown(equalBtn.parentElement!, { key: "ArrowRight" });
+    await waitFor(() => expect(pctBtn).toHaveAttribute("aria-checked", "true"));
   });
 });

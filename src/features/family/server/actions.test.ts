@@ -492,18 +492,18 @@ describe("closeMonth", () => {
   });
 
   it("skips zero-delta adjustments before calling RPC", async () => {
-    const rpc = mockAuth({ data: "adj-uuid-1", error: null });
+    const rpc = mockAuth({ data: 1, error: null });
     await closeMonth(FAMILY_UNIT_ID, [
       { accountId: "acc-1", deltaMinor: 0 },
       { accountId: "acc-2", deltaMinor: -500 },
     ]);
-    // rpc should be called once (only non-zero delta)
+    // rpc_close_month_adjustments called once with only the non-zero adjustment
     expect(rpc).toHaveBeenCalledTimes(1);
     expect(rpc).toHaveBeenCalledWith(
-      "rpc_reconciliation_adjustment",
+      "rpc_close_month_adjustments",
       expect.objectContaining({
-        p_account_id: "acc-2",
-        p_delta_minor: -500,
+        p_family_unit_id: FAMILY_UNIT_ID,
+        p_adjustments: [{ account_id: "acc-2", delta_minor: -500, note: null }],
       }),
     );
   });
@@ -518,14 +518,11 @@ describe("closeMonth", () => {
     if (result.ok) expect(result.data.adjustmentCount).toBe(2);
   });
 
-  it("returns ReconciliationFailed on RPC error and stops", async () => {
-    const rpc = vi
-      .fn()
-      .mockResolvedValueOnce({ data: "id-1", error: null })
-      .mockResolvedValueOnce({
-        data: null,
-        error: { code: "42501", message: "not a member" },
-      });
+  it("returns ReconciliationFailed on RPC error", async () => {
+    const rpc = vi.fn().mockResolvedValueOnce({
+      data: null,
+      error: { code: "42501", message: "not a member" },
+    });
     vi.mocked(requireUser).mockResolvedValue({
       supabase: { rpc } as never,
       user: { id: USER_ID } as never,
@@ -538,8 +535,7 @@ describe("closeMonth", () => {
     expect(result.ok).toBe(false);
     if (!result.ok)
       expect(result.error.code).toBe(ErrorCode.ReconciliationFailed);
-    // Third call should not have been made (stopped on error)
-    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(rpc).toHaveBeenCalledTimes(1);
   });
 
   it("fires PostHog reconciliation_completed on success (non-fatal)", async () => {

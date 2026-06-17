@@ -1,11 +1,15 @@
+import type { Metadata } from "next";
 import { getNotifications } from "@/features/notifications/server/actions";
+
+export const metadata: Metadata = { title: "Notifications" };
 import { NotificationList } from "@/features/notifications/components/NotificationList";
 import { PushSubscriptionToggle } from "@/features/notifications/components/PushSubscriptionToggle";
 import { IosInstallNudge } from "@/features/notifications/components/IosInstallNudge";
 
 export default async function NotificationsPage() {
   const result = await getNotifications();
-  const notifications = result.ok ? result.data : [];
+  const notifications = result.ok ? result.data.notifications : [];
+  const hasMore = result.ok ? result.data.hasMore : false;
   const unreadCount = notifications.filter((n) => !n.read_at).length;
 
   return (
@@ -15,6 +19,11 @@ export default async function NotificationsPage() {
       </h1>
       <PushSubscriptionToggle />
       <NotificationList notifications={notifications} />
+      {hasMore && (
+        <p className="mt-4 text-center text-sm text-ink-secondary">
+          Showing the {notifications.length} most recent notifications.
+        </p>
+      )}
       <IosInstallNudge />
     </div>
   );

@@ -10,6 +10,7 @@ import type {
   ContributionEntry,
   ContributionAnalysisData,
 } from "@/features/family/schema";
+import { getServerPostHogKey } from "@/lib/analytics/server-posthog";
 
 // Returns the current settle-up tally (signed bigint as number) for the family unit.
 // Graceful supplementary — returns null on error so the family page still renders.
@@ -69,7 +70,7 @@ export async function generateInviteCode(): Promise<Result<{ code: string }>> {
   await fetch("https://app.posthog.com/capture/", {
     method: "POST",
     body: JSON.stringify({
-      api_key: process.env.NEXT_PUBLIC_POSTHOG_KEY,
+      api_key: getServerPostHogKey(),
       event: "invite_generated",
       distinct_id: auth.user.id,
     }),
@@ -126,11 +127,25 @@ export async function redeemInviteCode(code: string): Promise<Result<void>> {
   await fetch("https://app.posthog.com/capture/", {
     method: "POST",
     body: JSON.stringify({
-      api_key: process.env.NEXT_PUBLIC_POSTHOG_KEY,
+      api_key: getServerPostHogKey(),
       event: "invite_redemption_attempted",
       distinct_id: auth.user.id,
     }),
   }).catch(() => {});
+
+  // Record the rate-limit attempt as its OWN statement, before calling
+  // rpc_redeem_invite. PostgreSQL rolls back every effect of a function call
+  // that raises an uncaught exception — including an INSERT performed
+  // earlier in the same call — so recording can't happen inside
+  // rpc_redeem_invite itself on its failure paths (migration 0052; see
+  // dev-learnings). Best-effort: if this call fails, rate limiting is
+  // simply not incremented for this attempt — it must never block the
+  // actual redemption.
+  try {
+    await auth.supabase.rpc("rpc_record_redemption_attempt");
+  } catch {
+    // Best-effort — never let a failure here block the actual redemption.
+  }
 
   const { error } = await auth.supabase.rpc("rpc_redeem_invite", {
     p_code_hash: codeHash,
@@ -163,7 +178,7 @@ export async function redeemInviteCode(code: string): Promise<Result<void>> {
   await fetch("https://app.posthog.com/capture/", {
     method: "POST",
     body: JSON.stringify({
-      api_key: process.env.NEXT_PUBLIC_POSTHOG_KEY,
+      api_key: getServerPostHogKey(),
       event: "family_joined",
       distinct_id: auth.user.id,
     }),
@@ -189,6 +204,7 @@ export async function getFamilyStatus(): Promise<FamilyStatus> {
         partner: {
           displayName: (raw.partner_name as string) || "Your partner",
         },
+        partnerJoinDate: (raw.partner_join_date as string | null) ?? null,
       };
     }
 
@@ -239,7 +255,8 @@ export async function getUserAccountsForReconciliation(): Promise<Array<{
   }
 }
 
-// Calls rpc_reconciliation_adjustment for each account with a non-zero delta.
+// Atomically applies all reconciliation adjustments via rpc_close_month_adjustments.
+// The single RPC call wraps all INSERTs in one transaction (all-or-nothing).
 // Fires PostHog `reconciliation_completed` event on success.
 export async function closeMonth(
   familyUnitId: string,
@@ -254,23 +271,24 @@ export async function closeMonth(
 
   const nonZero = adjustments.filter((a) => a.deltaMinor !== 0);
 
-  for (const adj of nonZero) {
-    const { error } = await auth.supabase.rpc("rpc_reconciliation_adjustment", {
-      p_family_unit_id: familyUnitId,
-      p_account_id: adj.accountId,
-      p_delta_minor: adj.deltaMinor,
-      p_note: adj.note ?? null,
-      p_transaction_id: null,
-    });
-    if (error) return err(ErrorCode.ReconciliationFailed, error.message);
-  }
+  if (nonZero.length === 0) return ok({ adjustmentCount: 0 });
+
+  const { error } = await auth.supabase.rpc("rpc_close_month_adjustments", {
+    p_family_unit_id: familyUnitId,
+    p_adjustments: nonZero.map((a) => ({
+      account_id: a.accountId,
+      delta_minor: a.deltaMinor,
+      note: a.note ?? null,
+    })),
+  });
+  if (error) return err(ErrorCode.ReconciliationFailed, error.message);
 
   // PostHog: reconciliation_completed (non-fatal, feeds SM-5)
   fetch("https://app.posthog.com/capture/", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      api_key: process.env.NEXT_PUBLIC_POSTHOG_KEY,
+      api_key: getServerPostHogKey(),
       event: "reconciliation_completed",
       distinct_id: auth.user.id,
       properties: {

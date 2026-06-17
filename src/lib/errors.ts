@@ -97,6 +97,10 @@ export enum ErrorCode {
   // ↓ Added by Story 9.6
   PushSubscribeFailed = "push_subscribe_failed",
   PushUnsubscribeFailed = "push_unsubscribe_failed",
+  // ↓ Added by Phase 2 Task 10
+  GoalContributionDeleteFailed = "goal_contribution_delete_failed",
+  GoalContributionsFetchFailed = "goal_contributions_fetch_failed",
+  ReclassifyGoalFailed = "reclassify_goal_failed",
 }
 
 export type AppError = {

@@ -90,7 +90,12 @@ export function TransactionTable({
                       {item.date}
                     </td>
                     <td className="px-3 py-3 font-medium text-ink-primary">
-                      {item.category_name}
+                      <span>{item.category_name}</span>
+                      {item.subcategory_name && (
+                        <span className="block text-xs font-normal text-ink-secondary">
+                          {item.subcategory_name}
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 py-3 text-ink-secondary">
                       {item.account_name}
@@ -141,6 +146,11 @@ export function TransactionTable({
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium text-ink-primary">
                       {item.category_name}
+                      {item.subcategory_name && (
+                        <span className="ml-1 text-xs font-normal text-ink-secondary">
+                          · {item.subcategory_name}
+                        </span>
+                      )}
                     </p>
                     <p className="text-sm text-ink-secondary">
                       {item.date}

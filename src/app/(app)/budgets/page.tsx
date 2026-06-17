@@ -1,19 +1,15 @@
 import Link from "next/link";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { BudgetCard } from "@/features/budgets/components/BudgetCard";
-import {
-  getBudgets,
-  getBudgetFormData,
-} from "@/features/budgets/server/actions";
+import { getBudgets, getUserCurrency } from "@/features/budgets/server/actions";
 
 export default async function BudgetsPage() {
-  const [budgetsResult, formDataResult] = await Promise.all([
+  const [budgetsResult, currency] = await Promise.all([
     getBudgets(),
-    getBudgetFormData(),
+    getUserCurrency(),
   ]);
 
   const budgets = budgetsResult.ok ? budgetsResult.data : [];
-  const currency = formDataResult.ok ? formDataResult.data.currency : "USD";
 
   return (
     <div className="mx-auto max-w-2xl p-4">

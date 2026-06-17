@@ -4,7 +4,10 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/supabase/require-user";
 import { ok, err, ErrorCode } from "@/lib/errors";
 import type { Result } from "@/lib/errors";
-import type { PushSubscriptionJSON } from "@/features/notifications/schema";
+import {
+  pushSubscriptionSchema,
+  type PushSubscriptionJSON,
+} from "@/features/notifications/schema";
 
 export async function subscribePush(
   subscription: PushSubscriptionJSON,
@@ -12,12 +15,17 @@ export async function subscribePush(
   const auth = await requireUser();
   if (!auth) return redirect("/auth/login") as never;
 
+  const parsed = pushSubscriptionSchema.safeParse(subscription);
+  if (!parsed.success) {
+    return err(ErrorCode.PushSubscribeFailed, "Invalid push subscription");
+  }
+
   const { error } = await auth.supabase.from("push_subscriptions").upsert(
     {
       user_id: auth.user.id,
-      endpoint: subscription.endpoint,
-      p256dh: subscription.keys.p256dh,
-      auth: subscription.keys.auth,
+      endpoint: parsed.data.endpoint,
+      p256dh: parsed.data.keys.p256dh,
+      auth: parsed.data.keys.auth,
     },
     // ignoreDuplicates: false — browsers periodically rotate p256dh/auth for
     // the same endpoint; re-subscribing must overwrite the stale keys, not

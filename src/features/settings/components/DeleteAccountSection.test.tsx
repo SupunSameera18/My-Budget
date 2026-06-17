@@ -70,6 +70,15 @@ describe("DeleteAccountSection", () => {
     expect(btn).not.toHaveAttribute("aria-disabled");
   });
 
+  it("button becomes active when email matches with different casing (W3 — case-insensitive gate)", () => {
+    render(<DeleteAccountSection userEmail={userEmail} />);
+    fireEvent.change(screen.getByLabelText(/confirm your email address/i), {
+      target: { value: userEmail.toUpperCase() },
+    });
+    const btn = screen.getByRole("button", { name: /delete account/i });
+    expect(btn).not.toHaveAttribute("aria-disabled");
+  });
+
   it("shows alertdialog when Delete Account button is clicked with matching email", () => {
     render(<DeleteAccountSection userEmail={userEmail} />);
     fireEvent.change(screen.getByLabelText(/confirm your email address/i), {
@@ -127,10 +136,35 @@ describe("DeleteAccountSection", () => {
 
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining("/functions/v1/erase-account"),
-      expect.objectContaining({ method: "POST" }),
+      expect.objectContaining({
+        method: "POST",
+        signal: expect.any(AbortSignal),
+      }),
     );
     expect(mockSignOut).toHaveBeenCalled();
     expect(mockReplace).toHaveBeenCalledWith("/goodbye");
+  });
+
+  it("shows a timeout-specific message when the request is aborted (W2 hardening)", async () => {
+    mockFetch.mockImplementationOnce(() => {
+      const err = new DOMException("The operation was aborted", "AbortError");
+      return Promise.reject(err);
+    });
+
+    render(<DeleteAccountSection userEmail={userEmail} />);
+    fireEvent.change(screen.getByLabelText(/confirm your email address/i), {
+      target: { value: userEmail },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /delete account/i }));
+
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("button", { name: /delete my account permanently/i }),
+      );
+    });
+
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(/took too long/i);
   });
 
   it("shows error message and stays on page when Edge Function returns error", async () => {
@@ -153,5 +187,24 @@ describe("DeleteAccountSection", () => {
 
     expect(mockReplace).not.toHaveBeenCalled();
     expect(screen.getByRole("alert")).toHaveTextContent(/erasure failed/i);
+  });
+
+  it("Escape key restores focus to Delete Account trigger button", async () => {
+    render(<DeleteAccountSection userEmail={userEmail} />);
+    fireEvent.change(screen.getByLabelText(/confirm your email address/i), {
+      target: { value: userEmail },
+    });
+    const triggerBtn = screen.getByRole("button", {
+      name: /^delete account$/i,
+    });
+    triggerBtn.focus();
+    fireEvent.click(triggerBtn);
+    // Dialog is now open; close via Escape
+    await act(async () => {
+      fireEvent.keyDown(document, { key: "Escape" });
+    });
+    const dialog = screen.getByRole("alertdialog", { hidden: true });
+    expect(dialog).toHaveAttribute("hidden");
+    expect(document.activeElement).toBe(triggerBtn);
   });
 });

@@ -9,7 +9,7 @@
 
 BEGIN;
 
-SELECT plan(9);
+SELECT plan(8);
 
 -- ─── Seed ───────────────────────────────────────────────────────────────────
 
@@ -150,7 +150,8 @@ SELECT isnt(
   'S5: bob (either partner) can call rpc_mark_settled and receives a UUID'
 );
 
--- ─── S6: zero-tally settlement still creates a record ────────────────────────
+-- ─── S6: zero-tally rpc_mark_settled raises P0001 ─────────────────────────────
+-- (Phase 2 review patch D1: settling a zero-balance period is a no-op guard)
 
 -- Remove period settlement; remove splits so tally = 0
 SET LOCAL role TO postgres;
@@ -163,20 +164,10 @@ DELETE FROM public.transaction_splits WHERE transaction_id IN (
 SET LOCAL role TO authenticated;
 SET LOCAL "request.jwt.claims" TO '{"sub": "11111111-8002-4000-8000-000000000001"}';
 
-CREATE TEMP TABLE s6_result (settlement_id UUID) ON COMMIT DROP;
-GRANT INSERT ON s6_result TO authenticated;
-INSERT INTO s6_result SELECT public.rpc_mark_settled('11111111-8002-4000-8000-000000000010'::uuid);
-
-SELECT isnt(
-  (SELECT settlement_id FROM s6_result),
-  NULL::uuid,
-  'S6: zero-tally rpc_mark_settled still creates a settlement record'
-);
-
-SELECT is(
-  (SELECT amount_minor FROM public.settlements WHERE family_unit_id = '11111111-8002-4000-8000-000000000010' LIMIT 1),
-  0::bigint,
-  'S6: zero-tally settlement has amount_minor = 0'
+SELECT throws_ok(
+  $$ SELECT public.rpc_mark_settled('11111111-8002-4000-8000-000000000010'::uuid) $$,
+  'P0001', NULL::text,
+  'S6: zero-tally rpc_mark_settled raises P0001 (cannot settle a zero-balance period)'
 );
 
 SELECT * FROM finish();

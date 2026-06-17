@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export interface ReminderPreferences {
   reminder_enabled: boolean;
   reminder_time: string | null;
@@ -32,3 +34,22 @@ export interface PushSubscriptionJSON {
     auth: string;
   };
 }
+
+// Server-side validation for subscribePush (Phase 2 gap analysis, 7-2/3d) —
+// the browser-supplied subscription object reaches a server action as plain
+// JSON with no runtime guarantee of its shape; validate before it's written
+// to push_subscriptions. endpoint must be an https URL (Web Push always
+// delivers over HTTPS); the VAPID-derived keys are base64url strings.
+export const pushSubscriptionSchema = z.object({
+  endpoint: z.string().url().startsWith("https://"),
+  keys: z.object({
+    p256dh: z
+      .string()
+      .min(20)
+      .regex(/^[A-Za-z0-9_=-]+$/, "p256dh must be base64url-encoded"),
+    auth: z
+      .string()
+      .min(10)
+      .regex(/^[A-Za-z0-9_=-]+$/, "auth must be base64url-encoded"),
+  }),
+}) satisfies z.ZodType<PushSubscriptionJSON>;

@@ -13,6 +13,7 @@ import {
   getTransactionFormData,
   splitTransactionAction,
   reclassifyTransaction,
+  getTransactionList,
 } from "./actions";
 import { requireUser } from "@/lib/supabase/require-user";
 import { getAccounts } from "@/features/accounts/server/actions";
@@ -401,21 +402,6 @@ describe("reclassifyTransaction", () => {
     }
   });
 
-  it("branches P0003 → pre-join date message (§9 ERRCODE rule)", async () => {
-    mockRpcReclassify({
-      error: {
-        code: "P0003",
-        message: "pre-join transaction cannot be shared",
-      },
-    });
-    const result = await reclassifyTransaction(VALID_RECLASSIFY_TX_ID, true);
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.code).toBe(ErrorCode.ReclassifyTransactionFailed);
-      expect(result.error.message).toContain("predates your partner");
-    }
-  });
-
   it("branches 42501 → access denied message (§9 ERRCODE rule)", async () => {
     mockRpcReclassify({ error: { code: "42501", message: "access denied" } });
     const result = await reclassifyTransaction(VALID_RECLASSIFY_TX_ID, false);
@@ -430,5 +416,100 @@ describe("reclassifyTransaction", () => {
     mockRpcReclassify({});
     const result = await reclassifyTransaction(VALID_RECLASSIFY_TX_ID, true);
     expect(result.ok).toBe(true);
+  });
+});
+
+// ── getTransactionList ────────────────────────────────────────────────────────
+
+function makeListChain(resolved: { data: unknown; error?: unknown }) {
+  const chain: Record<string, unknown> = {
+    then: (resolve: unknown, reject: unknown) =>
+      Promise.resolve({
+        data: resolved.data,
+        error: resolved.error ?? null,
+      }).then(
+        resolve as (v: unknown) => unknown,
+        reject as (v: unknown) => unknown,
+      ),
+    single: vi.fn().mockResolvedValue({
+      data: resolved.data,
+      error: resolved.error ?? null,
+    }),
+  };
+  for (const m of ["select", "eq", "is", "order", "limit", "gte", "lte"]) {
+    chain[m] = vi.fn().mockReturnValue(chain);
+  }
+  return chain;
+}
+
+function mockAuthForList(opts: { txnsData: unknown[] }) {
+  const txnsChain = makeListChain({ data: opts.txnsData });
+  const accountsChain = makeListChain({ data: [] });
+  const categoriesChain = makeListChain({ data: [] });
+  const profileChain = makeListChain({ data: { currency: "USD" } });
+
+  const from = vi.fn().mockImplementation((table: string) => {
+    if (table === "transactions") return txnsChain;
+    if (table === "accounts") return accountsChain;
+    if (table === "categories") return categoriesChain;
+    return profileChain;
+  });
+
+  vi.mocked(requireUser).mockResolvedValue({
+    supabase: { from } as never,
+    user: { id: USER_ID } as never,
+  });
+
+  return { txnsChain };
+}
+
+describe("getTransactionList", () => {
+  it("requests one row beyond the page size and reports hasMore=false under the cap", async () => {
+    const rows = Array.from({ length: 3 }, (_, i) => ({
+      id: `aaaaaaaa-0000-4000-8000-00000000000${i}`,
+      account_id: "bb000000-0000-4000-8000-000000000000",
+      category_id: "cc000000-0000-4000-8000-000000000000",
+      amount_minor: 100,
+      date: "2026-06-01",
+      note: null,
+      type: "expense",
+      is_shared: false,
+      created_at: "2026-06-01T00:00:00Z",
+      accounts: { name: "Cash" },
+      categories: { name: "Groceries", type: "expense" },
+    }));
+    const { txnsChain } = mockAuthForList({ txnsData: rows });
+
+    const result = await getTransactionList({});
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.items).toHaveLength(3);
+      expect(result.data.hasMore).toBe(false);
+    }
+    expect(txnsChain.limit).toHaveBeenCalledWith(501);
+  });
+
+  it("trims to 500 and sets hasMore=true when 501 rows come back (3-4 truncation signal)", async () => {
+    const rows = Array.from({ length: 501 }, (_, i) => ({
+      id: `aaaaaaaa-0000-4000-8000-${String(i).padStart(12, "0")}`,
+      account_id: "bb000000-0000-4000-8000-000000000000",
+      category_id: "cc000000-0000-4000-8000-000000000000",
+      amount_minor: 100,
+      date: "2026-06-01",
+      note: null,
+      type: "expense",
+      is_shared: false,
+      created_at: "2026-06-01T00:00:00Z",
+      accounts: { name: "Cash" },
+      categories: { name: "Groceries", type: "expense" },
+    }));
+    mockAuthForList({ txnsData: rows });
+
+    const result = await getTransactionList({});
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.items).toHaveLength(500);
+      expect(result.data.hasMore).toBe(true);
+    }
   });
 });

@@ -8,8 +8,10 @@ import {
 } from "@/features/transactions/server/actions";
 import { applyMacro } from "@/features/macros/server/actions";
 import { getDefaultNotePrompt } from "@/lib/note-suggestions";
+import { parseAmountMinor } from "@/lib/money/parse-minor";
 import { OfflineRetryBanner } from "@/components/feedback/OfflineRetryBanner";
 import { useOnlineStatus } from "@/lib/hooks/useOnlineStatus";
+import { useTodayDate } from "@/lib/hooks/useTodayDate";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Account } from "@/features/accounts/schema";
@@ -53,15 +55,14 @@ export function LogSheet({
   const [isPending, startTransition] = useTransition();
   const [appError, setAppError] = useState<AppError | null>(null);
   const isOnline = useOnlineStatus();
+  const today = useTodayDate();
 
   const [step, setStep] = useState<1 | 2>(1);
   const [amountDisplay, setAmountDisplay] = useState("0");
   const [selectedAccountId, setSelectedAccountId] = useState(
     defaultAccountId ?? accounts[0]?.id ?? "",
   );
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toLocaleDateString("en-CA"),
-  );
+  const [selectedDate, setSelectedDate] = useState(today);
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [selectedSubcategoryId, setSelectedSubcategoryId] = useState("");
   const [note, setNote] = useState("");
@@ -74,7 +75,7 @@ export function LogSheet({
   const amountMinor =
     amountDisplay === "0" || amountDisplay === "" || amountDisplay === "0."
       ? 0
-      : Math.round(parseFloat(amountDisplay) * 100);
+      : parseAmountMinor(amountDisplay);
 
   const expenseCategories = categories.filter((c) => c.type === "expense");
   const incomeCategories = categories.filter((c) => c.type === "income");
@@ -126,7 +127,7 @@ export function LogSheet({
     fd.set("date", selectedDate);
     if (note.trim()) fd.set("note", note.trim());
     if (selectedSubcategoryId) fd.set("subcategory_id", selectedSubcategoryId);
-    fd.set("is_shared", isFamilyMode && isShared ? "true" : "false");
+    if (isFamilyMode && isShared) fd.set("is_shared", "true");
     return fd;
   }
 
@@ -192,6 +193,14 @@ export function LogSheet({
           selectedCategoryType,
         )
       : null;
+
+  if (accounts.length === 0) {
+    return (
+      <p className="text-sm text-ink-secondary">
+        Add an account before logging a transaction.
+      </p>
+    );
+  }
 
   if (step === 1) {
     return (
@@ -316,12 +325,25 @@ export function LogSheet({
         <div
           role="radiogroup"
           aria-label="Transaction type"
+          onKeyDown={(e) => {
+            if (!["ArrowLeft", "ArrowRight"].includes(e.key)) return;
+            e.preventDefault();
+            const next = e.key === "ArrowRight";
+            if (next === isShared) return;
+            setIsShared(next);
+            const radios =
+              e.currentTarget.querySelectorAll<HTMLButtonElement>(
+                '[role="radio"]',
+              );
+            radios[next ? 1 : 0]?.focus();
+          }}
           className="flex gap-1 rounded-lg border border-hairline bg-surface-base p-1"
         >
           <button
             type="button"
             role="radio"
             aria-checked={!isShared}
+            tabIndex={!isShared ? 0 : -1}
             onClick={() => setIsShared(false)}
             className={`min-h-[44px] flex-1 rounded-md text-sm font-medium transition-colors ${
               !isShared
@@ -335,6 +357,7 @@ export function LogSheet({
             type="button"
             role="radio"
             aria-checked={isShared}
+            tabIndex={isShared ? 0 : -1}
             onClick={() => setIsShared(true)}
             className={`min-h-[44px] flex-1 rounded-md text-sm font-medium transition-colors ${
               isShared

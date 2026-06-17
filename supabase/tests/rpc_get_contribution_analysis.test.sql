@@ -17,7 +17,7 @@
 --   transactions: 11111111-7009-4000-8000-0000000000xx
 
 BEGIN;
-SELECT plan(19);
+SELECT plan(20);
 
 -- ── Seed users ───────────────────────────────────────────────────────────────
 INSERT INTO auth.users (id, email) VALUES
@@ -281,6 +281,31 @@ SELECT is(
     WHERE contributor_id = '11111111-7009-4000-8000-000000000002'),
   0::bigint,
   'T6: bob goal_contribution_minor = 0 (no contributions)'
+);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- T6b (0049): a pre-join goal contribution is still included — migration 0049
+--     removed the `gc.date >= v_viewer_join_date` filter from goal_agg, which
+--     0034 had left in place (it only fixed the shared_txns CTE). Both alice
+--     and bob joined 2026-01-01, so backdate this contribution before that.
+-- ─────────────────────────────────────────────────────────────────────────────
+SET LOCAL role TO postgres;
+INSERT INTO public.goal_contributions (goal_id, user_id, amount_minor, date)
+VALUES (
+  '11111111-7009-4000-8000-000000000030',
+  '11111111-7009-4000-8000-000000000001',
+  150, '2025-06-01'
+);
+
+SET LOCAL role TO authenticated;
+SET LOCAL "request.jwt.claims" TO '{"sub": "11111111-7009-4000-8000-000000000001"}';
+
+SELECT is(
+  (SELECT goal_contribution_minor
+     FROM public.rpc_get_contribution_analysis(NULL, NULL)
+    WHERE contributor_id = '11111111-7009-4000-8000-000000000001'),
+  450::bigint,
+  'T6b: alice goal_contribution_minor = 450 (300 post-join + 150 pre-join, no join-date gate since 0049)'
 );
 
 -- ─────────────────────────────────────────────────────────────────────────────

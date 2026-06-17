@@ -5,26 +5,11 @@ import type { BudgetWithActual } from "@/features/budgets/schema";
 
 vi.mock("@/features/budgets/server/actions", () => ({
   getBudgets: vi.fn(),
-}));
-
-vi.mock("@/lib/supabase/require-user", () => ({
-  requireUser: vi.fn(),
+  getUserCurrency: vi.fn(),
 }));
 
 import { DashboardBudgetsCard } from "./DashboardBudgetsCard";
-import { getBudgets } from "@/features/budgets/server/actions";
-import { requireUser } from "@/lib/supabase/require-user";
-
-function makeSupabaseMock(currency = "USD") {
-  const single = vi.fn().mockResolvedValue({
-    data: { currency },
-    error: null,
-  });
-  const eqChain = vi.fn().mockReturnValue({ single });
-  const selectChain = vi.fn().mockReturnValue({ eq: eqChain });
-  const fromChain = vi.fn().mockReturnValue({ select: selectChain });
-  return { from: fromChain };
-}
+import { getBudgets, getUserCurrency } from "@/features/budgets/server/actions";
 
 function makeBudget(
   overrides: Partial<BudgetWithActual> & { pct_used: number },
@@ -85,18 +70,8 @@ const fourBudgets: BudgetWithActual[] = [
 describe("DashboardBudgetsCard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    const supabase = makeSupabaseMock("USD");
-    (requireUser as Mock).mockResolvedValue({
-      user: { id: "user-1" },
-      supabase,
-    });
     (getBudgets as Mock).mockResolvedValue(ok([]));
-  });
-
-  it("returns null when requireUser returns null", async () => {
-    (requireUser as Mock).mockResolvedValue(null);
-    const jsx = await DashboardBudgetsCard();
-    expect(jsx).toBeNull();
+    (getUserCurrency as Mock).mockResolvedValue("USD");
   });
 
   it("returns null when getBudgets returns an error", async () => {

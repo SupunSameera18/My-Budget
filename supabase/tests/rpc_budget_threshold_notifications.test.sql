@@ -5,7 +5,7 @@
 
 BEGIN;
 
-SELECT plan(12);
+SELECT plan(16);
 
 -- ──────────────────────────────────────────────────────────────────────────────
 -- Seed: alice user + profile (trigger auto-creates profile on auth.users INSERT)
@@ -254,6 +254,125 @@ SELECT ok(
   NOT has_function_privilege('authenticated', 'public.rpc_process_budget_threshold_notifications()', 'EXECUTE')
   AND NOT has_function_privilege('anon', 'public.rpc_process_budget_threshold_notifications()', 'EXECUTE'),
   'T12: neither authenticated nor anon has EXECUTE on rpc_process_budget_threshold_notifications'
+);
+
+-- ──────────────────────────────────────────────────────────────────────────────
+-- T13/T14: Weekly budget period branch — threshold fires for weekly budget
+-- Covers the 'weekly' CASE branch in rpc_check_budget_thresholds (9-3 deferred D2).
+-- ──────────────────────────────────────────────────────────────────────────────
+
+-- Seed a weekly budget
+INSERT INTO public.budgets (id, user_id, name, limit_minor, period_type)
+VALUES (
+  '11111111-9003-4000-8000-000000000022',
+  '11111111-9003-4000-8000-000000000001',
+  'Weekly-Groceries-9003',
+  5000,
+  'weekly'
+);
+
+-- Use a distinct expense category for the weekly budget (second expense category)
+-- so it doesn't conflict with the Food-9003 budget already linked to the first.
+INSERT INTO public.budget_categories (budget_id, category_id)
+VALUES (
+  '11111111-9003-4000-8000-000000000022',
+  (SELECT id FROM public.categories
+   WHERE user_id = '11111111-9003-4000-8000-000000000001'
+     AND type = 'expense'
+   OFFSET 1 LIMIT 1)
+);
+
+-- Seed a transaction at 90% of the weekly limit (4500 of 5000) today
+INSERT INTO public.transactions (id, user_id, account_id, category_id, amount_minor, date, type, is_shared)
+VALUES (
+  '11111111-9003-4000-8000-000000000041',
+  '11111111-9003-4000-8000-000000000001',
+  '11111111-9003-4000-8000-000000000010',
+  (SELECT id FROM public.categories
+   WHERE user_id = '11111111-9003-4000-8000-000000000001'
+     AND type = 'expense'
+   OFFSET 1 LIMIT 1),
+  4500,
+  CURRENT_DATE,
+  'expense',
+  false
+);
+
+SELECT public.rpc_check_budget_thresholds();
+
+SELECT is(
+  (SELECT count(*)::bigint FROM public.budget_threshold_events
+   WHERE budget_id = '11111111-9003-4000-8000-000000000022'),
+  1::bigint,
+  'T13: rpc_check_budget_thresholds fires threshold event for weekly budget at 90%'
+);
+
+-- T14: weekly event period_start is the ISO Monday of the current week
+SELECT is(
+  (SELECT period_start FROM public.budget_threshold_events
+   WHERE budget_id = '11111111-9003-4000-8000-000000000022'
+   LIMIT 1),
+  (CURRENT_DATE - (EXTRACT(isodow FROM CURRENT_DATE)::int - 1))::date,
+  'T14: weekly budget threshold event has period_start = ISO Monday of current week'
+);
+
+-- ──────────────────────────────────────────────────────────────────────────────
+-- T15/T16: Yearly budget period branch — threshold fires for yearly budget
+-- Covers the 'yearly' CASE branch in rpc_check_budget_thresholds (9-3 deferred D2).
+-- ──────────────────────────────────────────────────────────────────────────────
+
+-- Seed a yearly budget
+INSERT INTO public.budgets (id, user_id, name, limit_minor, period_type)
+VALUES (
+  '11111111-9003-4000-8000-000000000023',
+  '11111111-9003-4000-8000-000000000001',
+  'Yearly-Travel-9003',
+  100000,
+  'yearly'
+);
+
+-- Use the third expense category
+INSERT INTO public.budget_categories (budget_id, category_id)
+VALUES (
+  '11111111-9003-4000-8000-000000000023',
+  (SELECT id FROM public.categories
+   WHERE user_id = '11111111-9003-4000-8000-000000000001'
+     AND type = 'expense'
+   OFFSET 2 LIMIT 1)
+);
+
+-- Seed a transaction at 85% of the yearly limit (85000 of 100000) today
+INSERT INTO public.transactions (id, user_id, account_id, category_id, amount_minor, date, type, is_shared)
+VALUES (
+  '11111111-9003-4000-8000-000000000042',
+  '11111111-9003-4000-8000-000000000001',
+  '11111111-9003-4000-8000-000000000010',
+  (SELECT id FROM public.categories
+   WHERE user_id = '11111111-9003-4000-8000-000000000001'
+     AND type = 'expense'
+   OFFSET 2 LIMIT 1),
+  85000,
+  CURRENT_DATE,
+  'expense',
+  false
+);
+
+SELECT public.rpc_check_budget_thresholds();
+
+SELECT is(
+  (SELECT count(*)::bigint FROM public.budget_threshold_events
+   WHERE budget_id = '11111111-9003-4000-8000-000000000023'),
+  1::bigint,
+  'T15: rpc_check_budget_thresholds fires threshold event for yearly budget at 85%'
+);
+
+-- T16: yearly event period_start is Jan 1 of current year
+SELECT is(
+  (SELECT period_start FROM public.budget_threshold_events
+   WHERE budget_id = '11111111-9003-4000-8000-000000000023'
+   LIMIT 1),
+  date_trunc('year', CURRENT_DATE)::date,
+  'T16: yearly budget threshold event has period_start = Jan 1 of current year'
 );
 
 SELECT * FROM finish();

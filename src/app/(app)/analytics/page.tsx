@@ -2,7 +2,11 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/supabase/require-user";
 import { currentYearMonth, monthBoundaries } from "@/lib/period";
-import { CHART_TYPES, isChartEnabled } from "@/features/analytics/schema";
+import {
+  CHART_TYPES,
+  isChartEnabled,
+  VALID_SCOPES,
+} from "@/features/analytics/schema";
 import type { Scope } from "@/features/analytics/schema";
 import {
   getChartPreferences,
@@ -23,8 +27,6 @@ import { BudgetPerformanceChart } from "@/features/analytics/components/BudgetPe
 import { ThisVsLastMonthChart } from "@/features/analytics/components/ThisVsLastMonthChart";
 import { ScopeSegmentedControl } from "@/components/ui/ScopeSegmentedControl";
 import { EmptyState } from "@/components/feedback/EmptyState";
-
-const VALID_SCOPES: Scope[] = ["personal", "shared", "combined"];
 
 export default async function AnalyticsPage({
   searchParams,

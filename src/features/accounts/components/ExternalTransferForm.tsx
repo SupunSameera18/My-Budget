@@ -5,6 +5,7 @@ import { createExternalTransfer } from "@/features/accounts/server/actions";
 import { ACCOUNT_TYPE_LABELS, type Account } from "@/features/accounts/schema";
 import { OfflineRetryBanner } from "@/components/feedback/OfflineRetryBanner";
 import { useOnlineStatus } from "@/lib/hooks/useOnlineStatus";
+import { useTodayDate } from "@/lib/hooks/useTodayDate";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,12 +16,7 @@ interface ExternalTransferFormProps {
 }
 
 export function ExternalTransferForm({ accounts }: ExternalTransferFormProps) {
-  const d = new Date();
-  const today = [
-    d.getFullYear(),
-    String(d.getMonth() + 1).padStart(2, "0"),
-    String(d.getDate()).padStart(2, "0"),
-  ].join("-");
+  const today = useTodayDate();
 
   const [isPending, startTransition] = useTransition();
   const [appError, setAppError] = useState<AppError | null>(null);

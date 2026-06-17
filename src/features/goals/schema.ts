@@ -1,4 +1,12 @@
 import { z } from "zod";
+import { moneyDisplaySchema } from "@/lib/money/amount-schema";
+
+export const reclassifyGoalSchema = z.object({
+  goal_id: z.string().uuid("Invalid goal"),
+  to_shared: z
+    .enum(["true", "false"])
+    .transform((v) => v === "true"),
+});
 
 export const createGoalSchema = z.object({
   name: z
@@ -6,36 +14,34 @@ export const createGoalSchema = z.object({
     .min(1, "Name is required")
     .max(100, "Name must be 100 characters or fewer")
     .trim(),
-  target_amount_display: z
-    .string()
-    .min(1, "Target amount is required")
-    .regex(/^\d+(\.\d{1,2})?$/, "Must be a valid decimal amount (e.g. 100.00)"),
-  is_shared: z.string().optional(),
+  target_amount_display: moneyDisplaySchema,
+  is_shared: z.enum(["true"]).optional(),
 });
 
 export const contributeGoalSchema = z.object({
   goal_id: z.string().uuid("Invalid goal"),
-  amount_display: z
-    .string()
-    .min(1, "Amount is required")
-    .regex(/^\d+(\.\d{1,2})?$/, "Must be a valid decimal amount (e.g. 10.00)"),
-  date: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date")
-    .refine((v) => !isNaN(Date.parse(v)), "Invalid date"),
+  amount_display: moneyDisplaySchema,
+  date: z.string().date("Invalid date"),
 });
 
 export const editGoalTargetSchema = z.object({
   goal_id: z.string().uuid("Invalid goal"),
-  target_amount_display: z
-    .string()
-    .min(1, "Target amount is required")
-    .regex(/^\d+(\.\d{1,2})?$/, "Must be a valid decimal amount (e.g. 100.00)"),
+  target_amount_display: moneyDisplaySchema,
 });
 
 export type CreateGoalInput = z.infer<typeof createGoalSchema>;
 export type ContributeGoalInput = z.infer<typeof contributeGoalSchema>;
 export type EditGoalTargetInput = z.infer<typeof editGoalTargetSchema>;
+export type ReclassifyGoalInput = z.infer<typeof reclassifyGoalSchema>;
+
+export type GoalContributionItem = {
+  id: string;
+  user_id: string;
+  goal_id: string;
+  amount_minor: number;
+  date: string;
+  macro_application_id: string | null;
+};
 
 export type GoalWithProgress = {
   id: string;

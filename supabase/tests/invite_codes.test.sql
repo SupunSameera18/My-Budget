@@ -6,7 +6,7 @@
 
 BEGIN;
 
-SELECT plan(17);
+SELECT plan(26);
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- SEED — postgres role bypasses RLS
@@ -46,7 +46,7 @@ SET LOCAL ROLE authenticated;
 SET LOCAL "request.jwt.claims" TO '{"sub": "ffffffff-ffff-4fff-8fff-000000000001"}';
 
 -- Call generates family_unit, family_member, and invite_codes row for alice.
-SELECT public.rpc_generate_invite('hashABC', now() + INTERVAL '7 days');
+SELECT public.rpc_generate_invite('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', now() + INTERVAL '7 days');
 
 -- ── 8: invite_codes row exists ───────────────────────────────────────────────
 SET LOCAL ROLE postgres;
@@ -72,7 +72,7 @@ SELECT is(
 SET LOCAL ROLE authenticated;
 SET LOCAL "request.jwt.claims" TO '{"sub": "ffffffff-ffff-4fff-8fff-000000000002"}';
 
-SELECT public.rpc_redeem_invite('hashABC');
+SELECT public.rpc_redeem_invite('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
 
 -- ── 10: bob is now in family_members ────────────────────────────────────────
 SET LOCAL ROLE postgres;
@@ -88,7 +88,7 @@ SET LOCAL ROLE authenticated;
 SET LOCAL "request.jwt.claims" TO '{"sub": "ffffffff-ffff-4fff-8fff-000000000003"}';
 
 SELECT throws_ok(
-  $$SELECT public.rpc_redeem_invite('hashABC')$$,
+  $$SELECT public.rpc_redeem_invite('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')$$,
   'P0002',
   NULL::text,
   'Used code raises P0002'
@@ -101,14 +101,14 @@ SELECT
   (SELECT family_unit_id FROM public.family_members
     WHERE user_id = 'ffffffff-ffff-4fff-8fff-000000000001'),
   'ffffffff-ffff-4fff-8fff-000000000001',
-  'hashEXPIRED',
+  'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
   now() - INTERVAL '1 day';
 
 SET LOCAL ROLE authenticated;
 SET LOCAL "request.jwt.claims" TO '{"sub": "ffffffff-ffff-4fff-8fff-000000000003"}';
 
 SELECT throws_ok(
-  $$SELECT public.rpc_redeem_invite('hashEXPIRED')$$,
+  $$SELECT public.rpc_redeem_invite('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')$$,
   'P0002',
   NULL::text,
   'Expired code raises P0002'
@@ -121,7 +121,7 @@ SELECT
   (SELECT family_unit_id FROM public.family_members
     WHERE user_id = 'ffffffff-ffff-4fff-8fff-000000000001'),
   'ffffffff-ffff-4fff-8fff-000000000001',
-  'hashREVOKED',
+  'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
   now() + INTERVAL '7 days',
   now();
 
@@ -129,7 +129,7 @@ SET LOCAL ROLE authenticated;
 SET LOCAL "request.jwt.claims" TO '{"sub": "ffffffff-ffff-4fff-8fff-000000000003"}';
 
 SELECT throws_ok(
-  $$SELECT public.rpc_redeem_invite('hashREVOKED')$$,
+  $$SELECT public.rpc_redeem_invite('cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc')$$,
   'P0002',
   NULL::text,
   'Revoked code raises P0002'
@@ -143,7 +143,7 @@ SELECT
   (SELECT family_unit_id FROM public.family_members
     WHERE user_id = 'ffffffff-ffff-4fff-8fff-000000000001'),
   'ffffffff-ffff-4fff-8fff-000000000001',
-  'hashFULL',
+  'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
   now() + INTERVAL '7 days';
 
 -- Carol has no prior redemption_attempts (all throws_ok use savepoints → rolled back),
@@ -152,7 +152,7 @@ SET LOCAL ROLE authenticated;
 SET LOCAL "request.jwt.claims" TO '{"sub": "ffffffff-ffff-4fff-8fff-000000000003"}';
 
 SELECT throws_ok(
-  $$SELECT public.rpc_redeem_invite('hashFULL')$$,
+  $$SELECT public.rpc_redeem_invite('dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd')$$,
   '23514',
   NULL::text,
   'Third-member redemption raises 23514 (trigger blocks >2 members)'
@@ -183,6 +183,114 @@ SELECT is(
 );
 
 -- ═══════════════════════════════════════════════════════════════════════════
+-- 0052 hardening: CHECK constraints on invite_codes
+-- ═══════════════════════════════════════════════════════════════════════════
+SET LOCAL ROLE postgres;
+
+-- ── max-TTL CHECK: expires_at more than 8 days past created_at is rejected ───
+SELECT throws_ok(
+  $$INSERT INTO public.invite_codes (family_unit_id, creator_id, code_hash, expires_at)
+    SELECT
+      (SELECT family_unit_id FROM public.family_members
+        WHERE user_id = 'ffffffff-ffff-4fff-8fff-000000000001'),
+      'ffffffff-ffff-4fff-8fff-000000000001',
+      repeat('f', 64),
+      now() + INTERVAL '30 days'$$,
+  '23514',
+  NULL::text,
+  '0052: expires_at beyond max TTL (8 days) raises 23514'
+);
+
+-- ── code_hash length CHECK: anything other than 64 chars is rejected ────────
+SELECT throws_ok(
+  $$INSERT INTO public.invite_codes (family_unit_id, creator_id, code_hash, expires_at)
+    SELECT
+      (SELECT family_unit_id FROM public.family_members
+        WHERE user_id = 'ffffffff-ffff-4fff-8fff-000000000001'),
+      'ffffffff-ffff-4fff-8fff-000000000001',
+      'too-short',
+      now() + INTERVAL '7 days'$$,
+  '23514',
+  NULL::text,
+  '0052: code_hash with length != 64 raises 23514'
+);
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 0052 hardening: rpc_record_redemption_attempt() always commits, even when
+-- the subsequent rpc_redeem_invite call raises (split into two statements
+-- specifically so the recording survives — see migration 0052 header).
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- Carol (standalone so far) generates her own invite, then tries to redeem
+-- her own code → P0001. The attempt must have been recorded by the
+-- SEPARATE rpc_record_redemption_attempt() call before the failing call.
+SET LOCAL ROLE authenticated;
+SET LOCAL "request.jwt.claims" TO '{"sub": "ffffffff-ffff-4fff-8fff-000000000003"}';
+
+SELECT public.rpc_generate_invite(repeat('1', 64), now() + INTERVAL '7 days');
+
+SET LOCAL ROLE postgres;
+SELECT is(
+  (SELECT COUNT(*)::int FROM public.redemption_attempts
+   WHERE user_id = 'ffffffff-ffff-4fff-8fff-000000000003'),
+  0,
+  '0052 pre: carol has no redemption_attempts yet (non-vacuous baseline)'
+);
+
+SET LOCAL ROLE authenticated;
+SELECT lives_ok(
+  $$SELECT public.rpc_record_redemption_attempt()$$,
+  '0052: rpc_record_redemption_attempt() succeeds for an authenticated caller'
+);
+
+SET LOCAL ROLE postgres;
+SELECT is(
+  (SELECT COUNT(*)::int FROM public.redemption_attempts
+   WHERE user_id = 'ffffffff-ffff-4fff-8fff-000000000003'),
+  1,
+  '0052: rpc_record_redemption_attempt() committed a row independently'
+);
+
+SET LOCAL ROLE authenticated;
+SELECT throws_ok(
+  $$SELECT public.rpc_redeem_invite(repeat('1', 64))$$,
+  'P0001',
+  NULL::text,
+  '0052: redeeming own invite raises P0001'
+);
+
+SET LOCAL ROLE postgres;
+SELECT is(
+  (SELECT COUNT(*)::int FROM public.redemption_attempts
+   WHERE user_id = 'ffffffff-ffff-4fff-8fff-000000000003'),
+  1,
+  '0052: the P0001-raising call itself does not add a 2nd row (only the separate recorder call does)'
+);
+
+-- Bob (already in alice's family) tries to redeem carol's still-valid code
+-- → P0004 (already in a family). The recorder call must persist even
+-- though the redeem call that follows raises.
+SET LOCAL ROLE authenticated;
+SET LOCAL "request.jwt.claims" TO '{"sub": "ffffffff-ffff-4fff-8fff-000000000002"}';
+
+SELECT public.rpc_record_redemption_attempt();
+
+SELECT throws_ok(
+  $$SELECT public.rpc_redeem_invite(repeat('1', 64))$$,
+  'P0004',
+  NULL::text,
+  '0052: redeeming when already in a family raises P0004'
+);
+
+SET LOCAL ROLE postgres;
+SELECT is(
+  (SELECT COUNT(*)::int FROM public.redemption_attempts
+   WHERE user_id = 'ffffffff-ffff-4fff-8fff-000000000002'),
+  1,
+  '0052: P0004 path records a redemption_attempts row'
+);
+
+-- ═══════════════════════════════════════════════════════════════════════════
 -- Rate limit: 5 failed attempts within 15 minutes → P0003
 -- ═══════════════════════════════════════════════════════════════════════════
 
@@ -196,7 +304,7 @@ SET LOCAL ROLE authenticated;
 SET LOCAL "request.jwt.claims" TO '{"sub": "ffffffff-ffff-4fff-8fff-000000000003"}';
 
 SELECT throws_ok(
-  $$SELECT public.rpc_redeem_invite('hashANY')$$,
+  $$SELECT public.rpc_redeem_invite('eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee')$$,
   'P0003',
   NULL::text,
   'Rate limit raises P0003 after 5 failed attempts within 15 minutes'

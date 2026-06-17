@@ -7,7 +7,7 @@
 
 BEGIN;
 
-SELECT plan(27);
+SELECT plan(30);
 
 -- ── 1–4: family_units table shape ────────────────────────────────────────────
 
@@ -125,6 +125,35 @@ SELECT throws_ok(
   '23514',
   NULL::text,
   'Third member insert raises SQLSTATE 23514 (trigger blocks it)'
+);
+
+-- ── 21b (0052): join_date immutability trigger ────────────────────────────────
+SELECT throws_ok(
+  $$UPDATE public.family_members
+       SET join_date = '2099-01-01'
+     WHERE family_unit_id = 'dddddddd-dddd-4ddd-8ddd-000000000010'
+       AND user_id        = 'dddddddd-dddd-4ddd-8ddd-000000000001'$$,
+  '23514',
+  NULL::text,
+  '0052: updating join_date raises 23514 (immutability trigger)'
+);
+
+SELECT is(
+  (SELECT join_date FROM public.family_members
+   WHERE family_unit_id = 'dddddddd-dddd-4ddd-8ddd-000000000010'
+     AND user_id        = 'dddddddd-dddd-4ddd-8ddd-000000000001'),
+  '2026-01-01'::date,
+  '0052: join_date unchanged after blocked update'
+);
+
+-- A no-op UPDATE (same value, or a different column) must still succeed —
+-- the trigger only blocks an actual join_date change.
+SELECT lives_ok(
+  $$UPDATE public.family_members
+       SET join_date = '2026-01-01'
+     WHERE family_unit_id = 'dddddddd-dddd-4ddd-8ddd-000000000010'
+       AND user_id        = 'dddddddd-dddd-4ddd-8ddd-000000000001'$$,
+  '0052: UPDATE with an unchanged join_date value does not raise'
 );
 
 -- ── 22: UNIQUE constraint blocks duplicate (family_unit_id, user_id) ─────────

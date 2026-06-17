@@ -14,13 +14,16 @@ import {
   type TransactionListFilters,
   type TransactionListData,
   type TransactionListItem,
+  transactionDefaultsSchema,
 } from "@/features/transactions/schema";
 import { z } from "zod";
+import { parseAmountMinor } from "@/lib/money/parse-minor";
 import { getAccounts } from "@/features/accounts/server/actions";
 import { currentMonthBoundaries } from "@/lib/period";
 import { dedupeRecentNotes } from "@/lib/note-suggestions";
 import type { MacroWithTarget } from "@/features/macros/schema";
 import { splitTransaction as computeSplit } from "@/lib/money/split";
+import { getServerPostHogKey } from "@/lib/analytics/server-posthog";
 
 export async function getTransactionFormData(): Promise<
   Result<TransactionFormData>
@@ -181,7 +184,7 @@ export async function logTransaction(
     );
   }
 
-  const amountMinor = Math.round(parseFloat(parsed.data.amount_display) * 100);
+  const amountMinor = parseAmountMinor(parsed.data.amount_display);
 
   const subcategoryId =
     parsed.data.subcategory_id && parsed.data.subcategory_id !== ""
@@ -259,7 +262,7 @@ export async function logTransaction(
         );
     }
 
-    const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+    const posthogKey = getServerPostHogKey();
     if (posthogKey) {
       const posthogHost =
         process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com";
@@ -427,35 +430,23 @@ export async function getTransaction(
       subcategories = subcatsData ?? [];
     }
 
-    // Non-fatally fetch family status: partner name + partner join_date for reclassify UI
+    // Non-fatally fetch family status in one RPC call.
+    // rpc_get_family_status (migration 0057) now returns partner_join_date directly,
+    // eliminating the previous 3-round-trip N+1 (7-8 D1 deferral).
     let partnerName: string | undefined;
     let isFamilyMode = false;
     let partnerJoinDate: string | null = null;
     try {
-      const [{ data: familyStatus }, { data: partnerRow }] = await Promise.all([
-        supabase.rpc("rpc_get_family_status"),
-        supabase
-          .from("family_members")
-          .select("family_unit_id")
-          .eq("user_id", user.id)
-          .maybeSingle(),
-      ]);
+      const { data: familyStatus } = await supabase.rpc(
+        "rpc_get_family_status",
+      );
       const raw = familyStatus as Record<string, unknown>;
       if (raw?.status === "in_family") {
         isFamilyMode = true;
         if (typeof raw?.partner_name === "string") {
           partnerName = raw.partner_name;
         }
-        // Fetch partner join_date (needed for pre-join block UI)
-        if (partnerRow?.family_unit_id) {
-          const { data: partnerMember } = await supabase
-            .from("family_members")
-            .select("join_date")
-            .eq("family_unit_id", partnerRow.family_unit_id)
-            .neq("user_id", user.id)
-            .maybeSingle();
-          partnerJoinDate = partnerMember?.join_date ?? null;
-        }
+        partnerJoinDate = (raw?.partner_join_date as string | null) ?? null;
       }
     } catch {
       // Non-fatal — reclassify controls will be hidden in solo mode
@@ -517,9 +508,7 @@ export async function editTransaction(
       );
     }
 
-    const amountMinor = Math.round(
-      parseFloat(parsed.data.amount_display) * 100,
-    );
+    const amountMinor = parseAmountMinor(parsed.data.amount_display);
     const subcategoryId =
       parsed.data.subcategory_id && parsed.data.subcategory_id !== ""
         ? parsed.data.subcategory_id
@@ -619,15 +608,19 @@ export async function getTransactionList(
     // Build transaction query
     // In family mode: omit user_id filter so RLS predicate (7.1b) handles cross-user visibility.
     // In single-user mode: keep user_id filter for performance (narrower index scan).
+    // Fetch one extra row beyond the page size to detect truncation without a
+    // separate COUNT query — a flat 500-row cap with no signal silently hid
+    // older transactions for active users (Phase 2 gap analysis, 3-4).
+    const TRANSACTION_LIST_PAGE_SIZE = 500;
     let txnQuery = supabase
       .from("transactions")
       .select(
-        "id, account_id, category_id, amount_minor, date, note, type, is_shared, created_at, accounts ( name ), categories ( name, type )",
+        "id, account_id, category_id, subcategory_id, amount_minor, date, note, type, is_shared, created_at, accounts ( name ), categories ( name, type ), subcategories ( name )",
       )
       .is("archived_at", null) // active only
       .order("date", { ascending: false })
       .order("created_at", { ascending: false })
-      .limit(500);
+      .limit(TRANSACTION_LIST_PAGE_SIZE + 1);
 
     if (!filters.isFamilyMode) {
       txnQuery = txnQuery.eq("user_id", user.id);
@@ -655,7 +648,12 @@ export async function getTransactionList(
       );
     }
 
-    const items: TransactionListItem[] = (txnData ?? []).map((row) => ({
+    const hasMore = (txnData ?? []).length > TRANSACTION_LIST_PAGE_SIZE;
+    const pagedTxnData = hasMore
+      ? (txnData ?? []).slice(0, TRANSACTION_LIST_PAGE_SIZE)
+      : (txnData ?? []);
+
+    const items: TransactionListItem[] = pagedTxnData.map((row) => ({
       id: row.id,
       account_id: row.account_id,
       category_id: row.category_id,
@@ -666,10 +664,13 @@ export async function getTransactionList(
       is_shared: row.is_shared ?? false,
       created_at: row.created_at,
       account_name:
-        (row.accounts as unknown as { name: string } | null)?.name ?? "Unknown",
+        (row.accounts as unknown as { name: string } | null)?.name ??
+        "[deleted]",
       category_name:
         (row.categories as unknown as { name: string; type: string } | null)
-          ?.name ?? "Unknown",
+          ?.name ?? "[deleted]",
+      subcategory_name:
+        (row.subcategories as unknown as { name: string } | null)?.name ?? null,
     }));
 
     // Accounts for filter dropdown
@@ -718,6 +719,7 @@ export async function getTransactionList(
       categories: (catsData ?? []) as TransactionListData["categories"],
       currency: profile?.currency ?? "USD",
       familyUnitId: filters.familyUnitId,
+      hasMore,
     });
   } catch {
     return err(
@@ -736,9 +738,17 @@ export async function saveTransactionDefaults(
       return err(ErrorCode.TransactionDefaultsSaveFailed, "Not authenticated");
     const { supabase, user } = auth;
 
+    const parsed = transactionDefaultsSchema.safeParse(defaults);
+    if (!parsed.success) {
+      return err(
+        ErrorCode.TransactionDefaultsSaveFailed,
+        "Invalid transaction defaults",
+      );
+    }
+
     const { error } = await supabase
       .from("profiles")
-      .update({ transaction_defaults: defaults })
+      .update({ transaction_defaults: parsed.data })
       .eq("user_id", user.id); // explicit user_id filter (§9 defense-in-depth)
 
     if (error)
@@ -857,12 +867,6 @@ export async function reclassifyTransaction(
         return err(
           ErrorCode.ReclassifyTransactionFailed,
           "Transaction not found.",
-        );
-      }
-      if (code === "P0003") {
-        return err(
-          ErrorCode.ReclassifyTransactionFailed,
-          "This transaction predates your partner's join date and cannot be shared.",
         );
       }
       if (code === "P0004") {

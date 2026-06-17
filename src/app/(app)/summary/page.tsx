@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
+
+export const metadata: Metadata = { title: "Monthly Summary" };
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { getMonthlySummaryData } from "@/features/analytics/server/actions";
 import { MonthSelector } from "@/features/analytics/components/MonthSelector";
@@ -9,8 +12,7 @@ import { ScopeSegmentedControl } from "@/components/ui/ScopeSegmentedControl";
 import { monthBoundaries, currentMonthBoundaries } from "@/lib/period";
 import { getFamilyStatus } from "@/features/family/server/actions";
 import type { Scope } from "@/features/analytics/schema";
-
-const VALID_SCOPES: Scope[] = ["personal", "shared", "combined"];
+import { VALID_SCOPES } from "@/features/analytics/schema";
 
 interface PageProps {
   searchParams: Promise<{ month?: string; scope?: string }>;

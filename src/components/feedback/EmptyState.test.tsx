@@ -65,4 +65,26 @@ describe("EmptyState", () => {
     const id2 = sections[1].getAttribute("aria-labelledby");
     expect(id1).not.toBe(id2);
   });
+
+  it("renders heading as h3 when headingLevel=3", () => {
+    render(
+      <EmptyState heading="No items" body="Nothing here." headingLevel={3} />,
+    );
+    const heading = screen.getByRole("heading", { level: 3 });
+    expect(heading.textContent).toBe("No items");
+    expect(screen.queryByRole("heading", { level: 2 })).toBeNull();
+  });
+
+  it("renders heading as h4 when headingLevel=4", () => {
+    render(
+      <EmptyState heading="No items" body="Nothing here." headingLevel={4} />,
+    );
+    const heading = screen.getByRole("heading", { level: 4 });
+    expect(heading.textContent).toBe("No items");
+  });
+
+  it("defaults to h2 when headingLevel is omitted", () => {
+    render(<EmptyState heading="No items" body="Nothing here." />);
+    expect(screen.getByRole("heading", { level: 2 })).toBeInTheDocument();
+  });
 });

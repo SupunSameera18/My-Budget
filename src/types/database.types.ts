@@ -70,6 +70,8 @@ export type Database = {
           reminder_enabled: boolean;
           reminder_time: string | null;
           reminder_timezone: string | null;
+          // ↓ Added by Phase 2 Task 8 (0059)
+          timezone: string;
         };
         Insert: {
           created_at?: string;
@@ -92,6 +94,8 @@ export type Database = {
           reminder_enabled?: boolean;
           reminder_time?: string | null;
           reminder_timezone?: string | null;
+          // ↓ Added by Phase 2 Task 8 (0059)
+          timezone?: string;
         };
         Update: {
           created_at?: string;
@@ -114,6 +118,8 @@ export type Database = {
           reminder_enabled?: boolean;
           reminder_time?: string | null;
           reminder_timezone?: string | null;
+          // ↓ Added by Phase 2 Task 8 (0059)
+          timezone?: string;
         };
         Relationships: [];
       };
@@ -695,6 +701,15 @@ export type Database = {
       // ↓ Added by Story 9.5
       rpc_notify_partner_shared_transaction: {
         Args: { p_transaction_id: string };
+        Returns: void;
+      };
+      // ↓ Added by Phase 2 Task 10
+      rpc_delete_goal_contribution_set: {
+        Args: { p_application_id: string };
+        Returns: void;
+      };
+      rpc_reclassify_goal: {
+        Args: { p_goal_id: string; p_to_shared: boolean };
         Returns: void;
       };
     };

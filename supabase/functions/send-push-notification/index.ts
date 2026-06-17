@@ -52,23 +52,44 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    // Batch subscription lookup: one query for all unique user_ids instead of
+    // one query per notification (eliminates the N+1 from the original loop).
+    const uniqueUserIds = [
+      ...new Set(pendingNotifications.map((n) => n.user_id)),
+    ];
+    const { data: allSubscriptions, error: subsError } = await adminClient
+      .from("push_subscriptions")
+      .select("user_id, endpoint, p256dh, auth")
+      .in("user_id", uniqueUserIds);
+
+    if (subsError) {
+      console.error("send-push-notification: failed to fetch subscriptions", subsError);
+      // Fall through with no subscriptions — notifications will be marked without push delivery
+    }
+
+    // Group subscriptions by user_id for O(1) lookup per notification.
+    const subscriptionsByUser = new Map<
+      string,
+      { endpoint: string; p256dh: string; auth: string }[]
+    >();
+    if (allSubscriptions) {
+      for (const sub of allSubscriptions) {
+        const existing = subscriptionsByUser.get(sub.user_id) ?? [];
+        existing.push({
+          endpoint: sub.endpoint,
+          p256dh: sub.p256dh,
+          auth: sub.auth,
+        });
+        subscriptionsByUser.set(sub.user_id, existing);
+      }
+    }
+
     let delivered = 0;
 
     for (const notification of pendingNotifications) {
-      // Get all push subscriptions for this user.
-      const { data: subscriptions, error: subsError } = await adminClient
-        .from("push_subscriptions")
-        .select("endpoint, p256dh, auth")
-        .eq("user_id", notification.user_id);
+      const subscriptions = subscriptionsByUser.get(notification.user_id) ?? [];
 
-      if (subsError) {
-        // Transient query failure — do NOT mark as notified; leave
-        // push_notified_at null so this notification is retried next run.
-        console.error("push_subscriptions lookup failed:", subsError);
-        continue;
-      }
-
-      if (!subscriptions || subscriptions.length === 0) {
+      if (subscriptions.length === 0) {
         // No push subscription — mark as notified (won't get push, has inbox).
         const { error: markError } = await adminClient
           .from("notifications")

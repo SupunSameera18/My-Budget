@@ -24,4 +24,5 @@ export type FamilyStatus =
       status: "in_family";
       familyUnitId: string;
       partner: { displayName: string };
+      partnerJoinDate?: string | null;
     };

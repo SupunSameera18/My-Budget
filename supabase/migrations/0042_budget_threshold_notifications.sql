@@ -147,3 +147,10 @@ SELECT cron.schedule(
   '1 * * * *',
   $$SELECT public.rpc_process_budget_threshold_notifications()$$
 );
+
+-- Down-migration convention (AR-7 / Task 8): to remove these jobs, run
+--   SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = 'check-budget-thresholds';
+--   SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = 'process-budget-threshold-notifications';
+-- To remove the functions:
+--   DROP FUNCTION IF EXISTS public.rpc_process_budget_threshold_notifications();
+--   DROP FUNCTION IF EXISTS public.rpc_check_budget_thresholds();

@@ -12,6 +12,7 @@ export function SubcategoryToggle({ enabled }: SubcategoryToggleProps) {
   const [error, setError] = useState<string | null>(null);
 
   function handleToggle() {
+    if (isPending) return;
     setError(null);
     startTransition(async () => {
       const result = await toggleSubcategories(!enabled);

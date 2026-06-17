@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
+
+export const metadata: Metadata = { title: "Transactions" };
 import { z } from "zod";
 import { TransactionFilters } from "@/features/transactions/components/TransactionFilters";
 import { TransactionTable } from "@/features/transactions/components/TransactionTable";
@@ -6,8 +9,7 @@ import { getTransactionList } from "@/features/transactions/server/actions";
 import { getFamilyStatus } from "@/features/family/server/actions";
 import type { TransactionListFilters } from "@/features/transactions/schema";
 import type { Scope } from "@/features/analytics/schema";
-
-const VALID_SCOPES: Scope[] = ["personal", "shared", "combined"];
+import { VALID_SCOPES } from "@/features/analytics/schema";
 
 export default async function TransactionsPage({
   searchParams,
@@ -56,7 +58,13 @@ export default async function TransactionsPage({
   const result = await getTransactionList(filters);
   const listData = result.ok
     ? result.data
-    : { items: [], accounts: [], categories: [], currency: "USD" };
+    : {
+        items: [],
+        accounts: [],
+        categories: [],
+        currency: "USD",
+        hasMore: false,
+      };
 
   return (
     <div className="mx-auto max-w-5xl p-4">
@@ -77,6 +85,12 @@ export default async function TransactionsPage({
         isFamilyMode={isFamilyMode}
         familyUnitId={familyUnitId ?? null}
       />
+      {listData.hasMore && (
+        <p className="mt-4 text-center text-sm text-ink-secondary">
+          Showing the {listData.items.length} most recent matching transactions.
+          Narrow your filters to see more specific results.
+        </p>
+      )}
     </div>
   );
 }

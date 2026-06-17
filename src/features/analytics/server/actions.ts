@@ -16,6 +16,7 @@ import {
   type ThisVsLastMonthItem,
   type ExportRow,
   type Scope,
+  chartPreferencesSchema,
 } from "@/features/analytics/schema";
 import type { HealthScoreResult } from "@/lib/money/health-score";
 import { getGoals } from "@/features/goals/server/actions";
@@ -56,10 +57,15 @@ export async function saveChartPreferences(
 
   const { supabase, user } = session;
   try {
+    const parsed = chartPreferencesSchema.safeParse(prefs);
+    if (!parsed.success) {
+      return err(ErrorCode.ProfileUpdateFailed, "Invalid chart preferences");
+    }
+
     const { error } = await supabase
       .from("profiles")
       .update({
-        chart_preferences: prefs,
+        chart_preferences: parsed.data,
         updated_at: new Date().toISOString(),
       })
       .eq("user_id", user.id);
@@ -431,7 +437,10 @@ export async function getExportData(
       .lte("date", period.end)
       .is("archived_at", null)
       .order("date", { ascending: true });
-    if (error) return null;
+    if (error) {
+      console.error("[getExportData] transactions query error:", error.message);
+      return null;
+    }
     return (data ?? []).map((row) => ({
       date: row.date as string,
       amount: ((row.amount_minor as number) / 100).toFixed(2),
@@ -443,7 +452,8 @@ export async function getExportData(
         (row.accounts as unknown as { name: string } | null)?.name ?? "Unknown",
       note: (row.note as string | null) ?? "",
     }));
-  } catch {
+  } catch (e) {
+    console.error("[getExportData] unexpected error:", e);
     return null;
   }
 }

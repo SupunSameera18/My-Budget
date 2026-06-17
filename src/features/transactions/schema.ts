@@ -1,21 +1,19 @@
 import { z } from "zod";
 import type { Account } from "@/features/accounts/schema";
 import type { Subcategory } from "@/features/categories/schema";
+import { moneyDisplaySchema } from "@/lib/money/amount-schema";
+import { parseAmountMinor } from "@/lib/money/parse-minor";
 
 export const logTransactionSchema = z.object({
   account_id: z.string().uuid("Select an account"),
   category_id: z.string().uuid("Select a category"),
   // Display amount as a decimal string; converted to minor units server-side.
   // type="text" inputMode="decimal" to avoid locale-specific decimal issues.
-  amount_display: z
-    .string()
-    .trim()
-    .regex(/^\d+(\.\d{0,2})?$/, "Enter a valid amount (e.g. 4.50)")
-    .refine((v) => parseFloat(v) > 0, {
-      message: "Amount must be greater than zero",
-    }),
-  // ISO date (YYYY-MM-DD)
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a valid date"),
+  amount_display: moneyDisplaySchema.refine((v) => parseAmountMinor(v) > 0, {
+    message: "Amount must be greater than zero",
+  }),
+  // ISO date (YYYY-MM-DD) — z.string().date() validates format AND calendar validity
+  date: z.string().date("Enter a valid date"),
   note: z
     .string()
     .trim()
@@ -23,8 +21,8 @@ export const logTransactionSchema = z.object({
     .optional(),
   // Optional subcategory — select emits "" when placeholder chosen; treat as absent
   subcategory_id: z.union([z.string().uuid(), z.literal("")]).optional(),
-  // is_shared: "true" | "false" from FormData string; defaults to "false"
-  is_shared: z.enum(["true", "false"]).optional(),
+  // is_shared: "true" from FormData when checkbox checked; absent = personal
+  is_shared: z.enum(["true"]).optional(),
 });
 
 export type LogTransactionInput = z.infer<typeof logTransactionSchema>;
@@ -57,6 +55,17 @@ export type TransactionDefaults = {
   defaultSplitMethod?: "equal" | "percentage" | "fixed" | "none";
 };
 
+// Server-side validation for saveTransactionDefaults (Phase 2 gap analysis,
+// 7-5) — the TS type alone gives no runtime guarantee for a server action
+// argument; an untrusted/malformed value must be rejected before it reaches
+// the DB write, not merely have the right TypeScript shape at compile time.
+export const transactionDefaultsSchema = z.object({
+  defaultType: z.enum(["personal", "shared"]).optional(),
+  defaultSplitMethod: z
+    .enum(["equal", "percentage", "fixed", "none"])
+    .optional(),
+}) satisfies z.ZodType<TransactionDefaults>;
+
 export type TransactionFormData = {
   accounts: Account[];
   categories: TransactionCategory[];
@@ -76,14 +85,10 @@ export type { Subcategory };
 export const editTransactionSchema = z.object({
   account_id: z.string().uuid("Select an account"),
   category_id: z.string().uuid("Select a category"),
-  amount_display: z
-    .string()
-    .trim()
-    .regex(/^\d+(\.\d{0,2})?$/, "Enter a valid amount (e.g. 4.50)")
-    .refine((v) => parseFloat(v) > 0, {
-      message: "Amount must be greater than zero",
-    }),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a valid date"),
+  amount_display: moneyDisplaySchema.refine((v) => parseAmountMinor(v) > 0, {
+    message: "Amount must be greater than zero",
+  }),
+  date: z.string().date("Enter a valid date"),
   note: z
     .string()
     .trim()
@@ -102,7 +107,8 @@ export type ActivityTrailEntry = {
     | "edit"
     | "delete"
     | "reclassified_to_shared"
-    | "reclassified_to_personal";
+    | "reclassified_to_personal"
+    | "macro_apply";
   changed_fields:
     | Record<string, { old: unknown; new: unknown }>
     | Record<string, never>;
@@ -150,6 +156,7 @@ export type TransactionListItem = {
   created_at: string;
   account_name: string;
   category_name: string;
+  subcategory_name: string | null;
 };
 
 export type TransactionListFilters = {
@@ -182,4 +189,6 @@ export type TransactionListData = {
   categories: TransactionListFilterCategory[];
   currency: string;
   familyUnitId?: string;
+  /** True when more matching transactions exist beyond the 500-row page. */
+  hasMore: boolean;
 };

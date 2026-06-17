@@ -15,7 +15,8 @@
 -- Scenarios:
 --   T1: happy path — notification created for partner
 --   T2: idempotency — second call does not duplicate
---   T3: join-date invariant — transaction before partner's join date → no notification
+--   T3 (0049): pre-join-date transaction STILL notifies the partner — migration 0049
+--       removed the join-date invariant; Shared notifies regardless of date (AR-15)
 --   T4: personal transaction → no notification
 --   T5: notification link is correct
 --   T6: metadata transaction_id is correct
@@ -148,7 +149,8 @@ SELECT is(
 );
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- T3: join-date invariant — transaction before bob's join date → no notification
+-- T3 (0049): pre-join-date transaction STILL notifies bob — the join-date
+--     invariant was removed; Shared notifies regardless of date (AR-15)
 -- ═══════════════════════════════════════════════════════════════════════════
 SET LOCAL ROLE authenticated;
 SET LOCAL "request.jwt.claims" TO '{"sub":"11111111-9005-4000-8000-000000000001"}';
@@ -161,8 +163,8 @@ SELECT is(
   (SELECT COUNT(*)::int FROM public.notifications
    WHERE user_id = '11111111-9005-4000-8000-000000000002'
      AND (metadata->>'transaction_id') = '11111111-9005-4000-8000-000000000021'),
-  0,
-  'T3: pre-join-date transaction does not notify bob'
+  1,
+  'T3: pre-join-date transaction still notifies bob (join-date invariant removed, AR-15)'
 );
 
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -269,7 +271,8 @@ SET LOCAL ROLE postgres;
 SELECT is(
   (SELECT COUNT(*)::int FROM public.notifications
    WHERE user_id = '11111111-9005-4000-8000-000000000002'
-     AND type = 'partner_shared_transaction'),
+     AND type = 'partner_shared_transaction'
+     AND (metadata->>'transaction_id') = '11111111-9005-4000-8000-000000000020'),
   1,
   'T11: non-owner (dave) calling with alice''s transaction_id is blocked by the auth guard — no duplicate notification'
 );

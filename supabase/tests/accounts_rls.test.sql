@@ -1,6 +1,6 @@
 -- pgTAP test: accounts table structure and RLS enforcement (SELECT + INSERT + UPDATE)
 begin;
-select plan(10);
+select plan(12);
 
 -- ── 1. Table exists ──────────────────────────────────────────────────────────
 select has_table('public', 'accounts', 'accounts table exists in public schema');
@@ -119,6 +119,28 @@ with upd as (
 )
 select ok(count(*) = 0, 'user1 cannot update user2 accounts (UPDATE RLS enforced)')
 from upd;
+
+-- ── 11. Pre-condition: user1 has accounts (anti-vacuous guard for DELETE test) ─
+-- Switch to postgres so the privilege-revoked authenticated role does not block the count.
+set local role postgres;
+select ok(
+  (select count(*) > 0 from public.accounts
+   where user_id = 'cccccccc-cccc-cccc-cccc-cccccccccccc'),
+  'user1 has accounts (pre-condition for DELETE privilege test)'
+);
+set local role authenticated;
+
+-- ── 12. DELETE is forbidden — privilege revoked from authenticated role ──────
+-- Migration 0008 revoked DELETE from anon/authenticated at the table-privilege level.
+-- Accounts are soft-deleted via archived_at; hard-delete requires a security definer RPC.
+-- [Task 9 — DELETE-blocked test, story 1-7]
+select throws_ok(
+  $$ delete from public.accounts
+     where user_id = 'cccccccc-cccc-cccc-cccc-cccccccccccc' $$,
+  '42501',
+  NULL::text,
+  'authenticated role cannot delete accounts (DELETE privilege revoked)'
+);
 
 select * from finish();
 rollback;

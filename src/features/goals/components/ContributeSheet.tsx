@@ -25,6 +25,17 @@ export function ContributeSheet({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const amountRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const savedFocusRef = useRef<HTMLElement | null>(null);
+
+  // Save/restore focus when sheet opens/closes
+  useEffect(() => {
+    if (open) {
+      savedFocusRef.current = document.activeElement as HTMLElement;
+    } else {
+      savedFocusRef.current?.focus();
+      savedFocusRef.current = null;
+    }
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -36,7 +47,7 @@ export function ContributeSheet({
       }
       if (e.key === "Tab" && dialogRef.current) {
         const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), [aria-disabled="true"]:not([disabled])',
         );
         const first = focusable[0];
         const last = focusable[focusable.length - 1];

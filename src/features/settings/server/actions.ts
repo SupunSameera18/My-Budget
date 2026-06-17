@@ -32,17 +32,23 @@ export async function getAllUserData(): Promise<Result<UserDataExport>> {
     supabase.from("transfers").select("*"),
   ]);
 
-  if (
-    accountsResult.error ||
-    categoriesResult.error ||
-    transactionsResult.error ||
-    budgetsResult.error ||
-    budgetCategoriesResult.error ||
-    goalsResult.error ||
-    goalContributionsResult.error ||
-    macrosResult.error ||
-    transfersResult.error
-  ) {
+  const tableErrors: string[] = [
+    accountsResult.error && `accounts: ${accountsResult.error.message}`,
+    categoriesResult.error && `categories: ${categoriesResult.error.message}`,
+    transactionsResult.error &&
+      `transactions: ${transactionsResult.error.message}`,
+    budgetsResult.error && `budgets: ${budgetsResult.error.message}`,
+    budgetCategoriesResult.error &&
+      `budget_categories: ${budgetCategoriesResult.error.message}`,
+    goalsResult.error && `goals: ${goalsResult.error.message}`,
+    goalContributionsResult.error &&
+      `goal_contributions: ${goalContributionsResult.error.message}`,
+    macrosResult.error && `macros: ${macrosResult.error.message}`,
+    transfersResult.error && `transfers: ${transfersResult.error.message}`,
+  ].filter(Boolean) as string[];
+
+  if (tableErrors.length > 0) {
+    console.error("[getAllUserData] fetch failures:", tableErrors.join("; "));
     return err(ErrorCode.DataExportFailed, "Failed to export data");
   }
 
