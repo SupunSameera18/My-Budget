@@ -70,6 +70,8 @@ export type Database = {
           reminder_enabled: boolean;
           reminder_time: string | null;
           reminder_timezone: string | null;
+          // ↓ Added by Phase 2 Task 8 (0059)
+          timezone: string;
         };
         Insert: {
           created_at?: string;
@@ -92,6 +94,8 @@ export type Database = {
           reminder_enabled?: boolean;
           reminder_time?: string | null;
           reminder_timezone?: string | null;
+          // ↓ Added by Phase 2 Task 8 (0059)
+          timezone?: string;
         };
         Update: {
           created_at?: string;
@@ -114,6 +118,8 @@ export type Database = {
           reminder_enabled?: boolean;
           reminder_time?: string | null;
           reminder_timezone?: string | null;
+          // ↓ Added by Phase 2 Task 8 (0059)
+          timezone?: string;
         };
         Relationships: [];
       };

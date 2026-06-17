@@ -87,3 +87,8 @@ SELECT cron.schedule(
   '* * * * *',
   $$SELECT public.rpc_send_logging_reminders()$$
 );
+
+-- Down-migration convention (AR-7 / Task 8): to remove this job, run
+--   SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = 'send-logging-reminders';
+-- To remove the function:
+--   DROP FUNCTION IF EXISTS public.rpc_send_logging_reminders();

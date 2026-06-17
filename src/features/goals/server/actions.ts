@@ -292,7 +292,8 @@ export async function getGoals(): Promise<
     });
 
     return ok({ goals, currency, isFamilyMode });
-  } catch {
+  } catch (e) {
+    console.error("[getGoals] unexpected error:", e);
     return err(ErrorCode.GoalFetchFailed, "Failed to load goals.");
   }
 }

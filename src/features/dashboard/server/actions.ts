@@ -159,7 +159,8 @@ export async function getBreathingRoomData(): Promise<
       currency,
       hasActivity,
     });
-  } catch {
+  } catch (e) {
+    console.error("[getBreathingRoomData] unexpected error:", e);
     return err(
       ErrorCode.BreathingRoomFetchFailed,
       "Failed to load breathing room.",

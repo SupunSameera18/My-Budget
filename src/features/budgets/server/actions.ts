@@ -192,7 +192,8 @@ export async function getBudgets(): Promise<Result<BudgetWithActual[]>> {
     );
 
     return ok(result);
-  } catch {
+  } catch (e) {
+    console.error("[getBudgets] unexpected error:", e);
     return err(ErrorCode.BudgetFetchFailed, "Failed to load budgets.");
   }
 }

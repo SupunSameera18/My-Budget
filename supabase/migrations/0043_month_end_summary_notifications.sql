@@ -86,3 +86,8 @@ SELECT cron.schedule(
   '5 0 1 * *',
   $$SELECT public.rpc_send_month_end_summary_notifications()$$
 );
+
+-- Down-migration convention (AR-7 / Task 8): to remove this job, run
+--   SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = 'month-end-summary-notifications';
+-- To remove the function:
+--   DROP FUNCTION IF EXISTS public.rpc_send_month_end_summary_notifications();
