@@ -145,6 +145,7 @@ DECLARE
   v_partner_id      UUID;
   v_family_unit_id  UUID;
   v_settled_cutoff  DATE;
+  v_owner_tz        TEXT := 'UTC';
   -- split audit variables
   v_split_payer     BIGINT;
   v_split_partner   BIGINT;
@@ -184,7 +185,16 @@ BEGIN
    LIMIT 1;
 
   IF v_family_unit_id IS NOT NULL THEN
-    SELECT (MAX(s.settled_at) AT TIME ZONE 'UTC')::date INTO v_settled_cutoff
+    SELECT COALESCE(p.timezone, 'UTC') INTO v_owner_tz
+      FROM public.profiles p
+      JOIN public.family_members fm ON p.id = fm.user_id
+     WHERE fm.family_unit_id = v_family_unit_id
+     ORDER BY fm.join_date ASC
+     LIMIT 1;
+    -- SELECT INTO sets the var to NULL when no rows are returned; preserve 'UTC' default.
+    v_owner_tz := COALESCE(v_owner_tz, 'UTC');
+
+    SELECT (MAX(s.settled_at) AT TIME ZONE v_owner_tz)::date INTO v_settled_cutoff
       FROM public.settlements s
      WHERE s.family_unit_id = v_family_unit_id;
 
@@ -319,7 +329,7 @@ BEGIN
   END IF;
 
   -- FOR UPDATE: serialize concurrent splits on the same transaction
-  SELECT * INTO v_tx FROM public.transactions WHERE id = p_transaction_id FOR UPDATE;
+  SELECT * INTO v_tx FROM public.transactions WHERE id = p_transaction_id AND archived_at IS NULL FOR UPDATE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'transaction not found' USING ERRCODE = 'P0002';
   END IF;
@@ -328,8 +338,8 @@ BEGIN
     RAISE EXCEPTION 'cannot split a personal transaction' USING ERRCODE = 'P0001';
   END IF;
 
-  IF NOT public.auth_can_view_transaction(v_tx.user_id, v_tx.is_shared, v_tx.date) THEN
-    RAISE EXCEPTION 'access denied' USING ERRCODE = '42501';
+  IF v_tx.user_id <> v_caller THEN
+    RAISE EXCEPTION 'access denied — caller must own the transaction' USING ERRCODE = 'P0002';
   END IF;
 
   IF p_payer_share_minor < 0 OR p_partner_share_minor < 0 THEN
@@ -391,6 +401,9 @@ DECLARE
   v_reverse_delta      bigint;
   v_new_delta          bigint;
   v_changed_fields     jsonb;
+  v_family_unit_id     uuid;
+  v_settled_cutoff     DATE;
+  v_owner_tz           TEXT := 'UTC';
 BEGIN
   v_user_id := auth.uid();
   IF v_user_id IS NULL THEN
@@ -411,6 +424,31 @@ BEGIN
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Transaction not found, not owned, or already deleted';
+  END IF;
+
+  -- Settled-period guard (FR-15a / FR-49): consistent with rpc_reclassify_transaction
+  SELECT fm.family_unit_id INTO v_family_unit_id
+    FROM public.family_members fm
+   WHERE fm.user_id = v_user_id
+   LIMIT 1;
+
+  IF v_family_unit_id IS NOT NULL THEN
+    SELECT COALESCE(p.timezone, 'UTC') INTO v_owner_tz
+      FROM public.profiles p
+      JOIN public.family_members fm ON p.id = fm.user_id
+     WHERE fm.family_unit_id = v_family_unit_id
+     ORDER BY fm.join_date ASC
+     LIMIT 1;
+    -- SELECT INTO sets the var to NULL when no rows are returned; preserve 'UTC' default.
+    v_owner_tz := COALESCE(v_owner_tz, 'UTC');
+
+    SELECT (MAX(s.settled_at) AT TIME ZONE v_owner_tz)::date INTO v_settled_cutoff
+      FROM public.settlements s
+     WHERE s.family_unit_id = v_family_unit_id;
+
+    IF v_settled_cutoff IS NOT NULL AND v_old_date <= v_settled_cutoff THEN
+      RAISE EXCEPTION 'Cannot edit a transaction in a settled period' USING ERRCODE = 'P0004';
+    END IF;
   END IF;
 
   SELECT type INTO v_old_cat_type
@@ -607,6 +645,10 @@ BEGIN
 
   v_tally := public.rpc_settle_up(p_family_unit_id);
 
+  IF v_tally = 0 THEN
+    RAISE EXCEPTION 'Cannot mark a zero-balance period as settled' USING ERRCODE = 'P0001';
+  END IF;
+
   IF v_tally > 0 THEN
     v_direction := 'b_to_a';
   ELSE
@@ -674,6 +716,10 @@ BEGIN
     WHERE family_unit_id = p_family_unit_id AND user_id = v_caller
   ) THEN
     RAISE EXCEPTION 'not a family member' USING ERRCODE = '42501';
+  END IF;
+
+  IF p_adjustments IS NULL OR jsonb_array_length(p_adjustments) = 0 THEN
+    RETURN 0;
   END IF;
 
   FOR v_adj IN SELECT * FROM jsonb_array_elements(p_adjustments)

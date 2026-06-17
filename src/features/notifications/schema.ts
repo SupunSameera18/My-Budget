@@ -45,11 +45,11 @@ export const pushSubscriptionSchema = z.object({
   keys: z.object({
     p256dh: z
       .string()
-      .min(1)
-      .regex(/^[A-Za-z0-9_-]+$/, "p256dh must be base64url-encoded"),
+      .min(20)
+      .regex(/^[A-Za-z0-9_=-]+$/, "p256dh must be base64url-encoded"),
     auth: z
       .string()
-      .min(1)
-      .regex(/^[A-Za-z0-9_-]+$/, "auth must be base64url-encoded"),
+      .min(10)
+      .regex(/^[A-Za-z0-9_=-]+$/, "auth must be base64url-encoded"),
   }),
 }) satisfies z.ZodType<PushSubscriptionJSON>;

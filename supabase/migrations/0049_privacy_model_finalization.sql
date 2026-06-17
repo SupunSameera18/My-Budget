@@ -123,7 +123,8 @@ BEGIN
   SELECT * INTO v_goal
   FROM public.goals
   WHERE id = p_goal_id
-    AND archived_at IS NULL;
+    AND archived_at IS NULL
+  FOR SHARE;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Goal not found' USING ERRCODE = 'P0002';
@@ -394,7 +395,13 @@ BEGIN
       'currency',       COALESCE(v_account.currency, 'USD'),
       'category_name',  COALESCE(v_tx.category_name, '')
     )
-  );
+  )
+  ON CONFLICT (user_id, (metadata->>'transaction_id'))
+    WHERE type = 'partner_shared_transaction'
+  -- A dismissed notification exists (the idempotency check above already
+  -- filtered it out as non-blocking).  Re-share should produce a fresh
+  -- visible notification, so reset the dismissed/read state in-place.
+  DO UPDATE SET dismissed_at = NULL, read_at = NULL;
 END;
 $$;
 

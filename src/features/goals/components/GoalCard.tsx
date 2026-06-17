@@ -212,12 +212,12 @@ export function GoalCard({
         <div
           role="alertdialog"
           aria-modal="true"
-          aria-labelledby="reclassify-goal-title"
+          aria-labelledby={`reclassify-goal-title-${goal.id}`}
           hidden={!reclassifyConfirmOpen || undefined}
           className="mt-3 rounded-lg border border-hairline bg-surface-base p-4"
         >
           <p
-            id="reclassify-goal-title"
+            id={`reclassify-goal-title-${goal.id}`}
             className="mb-3 text-sm font-medium text-ink-primary"
           >
             {reclassifyTarget

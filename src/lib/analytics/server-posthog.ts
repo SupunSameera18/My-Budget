@@ -11,5 +11,5 @@
  * deployments that haven't set the new var yet keep working unchanged.
  */
 export function getServerPostHogKey(): string | undefined {
-  return process.env.POSTHOG_KEY ?? process.env.NEXT_PUBLIC_POSTHOG_KEY;
+  return process.env.POSTHOG_KEY || process.env.NEXT_PUBLIC_POSTHOG_KEY;
 }

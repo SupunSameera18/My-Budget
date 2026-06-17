@@ -20,7 +20,7 @@
 -- SQL, future RPCs) still conforms to 'HH:MM' 24-hour format or is NULL.
 ALTER TABLE public.profiles
   ADD CONSTRAINT profiles_reminder_time_format
-  CHECK (reminder_time IS NULL OR reminder_time ~ '^\d{2}:\d{2}$');
+  CHECK (reminder_time IS NULL OR reminder_time ~ '^([01]\d|2[0-3]):[0-5]\d$');
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 2. accounts.name length CHECK

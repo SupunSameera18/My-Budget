@@ -597,7 +597,7 @@ describe("LogSheet — Personal/Shared toggle (Story 7.5)", () => {
     });
   });
 
-  it("passes is_shared=false in FormData when Personal is selected", async () => {
+  it("omits is_shared from FormData when Personal is selected", async () => {
     (logTransaction as Mock).mockResolvedValue({ ok: true, data: undefined });
     render(
       <LogSheet
@@ -614,7 +614,7 @@ describe("LogSheet — Personal/Shared toggle (Story 7.5)", () => {
 
     await waitFor(() => {
       const fd = (logTransaction as Mock).mock.calls[0][0] as FormData;
-      expect(fd.get("is_shared")).toBe("false");
+      expect(fd.get("is_shared")).toBeNull();
     });
   });
 

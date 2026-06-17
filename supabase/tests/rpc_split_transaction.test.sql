@@ -15,12 +15,12 @@
 --   S1: alice (owner) calls valid equal split → split row stored; payer+partner=1000
 --   S2: split amounts not summing to amount_minor → raises 23514
 --   S3: personal transaction split attempt → raises P0001
---   S4: carol (stranger, not family member) attempts split → raises 42501
---   S5: upsert — second split call updates existing split record
+--   S4: carol (stranger, not family member) attempts split → raises P0002 (owner-only guard, Phase 2 review patch P1)
+--   S5: non-owner (bob/partner) cannot split → raises P0002 (owner-only guard, Phase 2 review patch P1)
 
 BEGIN;
 
-SELECT plan(10);
+SELECT plan(9);
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- SEED (as postgres — bypasses RLS)
@@ -163,7 +163,8 @@ SELECT throws_ok(
 );
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- S4: carol (stranger, not in family) attempts to split → raises 42501
+-- S4: carol (stranger, not in family) attempts to split → raises P0002
+--     (Phase 2 review patch P1: owner-only guard replaced view-based check)
 -- ═══════════════════════════════════════════════════════════════════════════
 SET LOCAL "request.jwt.claims" TO '{"sub":"11111111-7006-4000-8000-000000000003"}';
 
@@ -175,39 +176,28 @@ SELECT throws_ok(
        500::bigint,
        500::bigint
      ) $$,
-  '42501', NULL::text,
-  'S4: stranger (carol, not family member) cannot split → 42501'
+  'P0002', NULL::text,
+  'S4: stranger (carol, not family member) cannot split → P0002'
 );
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- S5: Upsert — bob (partner) re-splits as payer; row updated
---     P2 rule: payer_id must equal authenticated caller, so bob sets himself as payer
+-- S5: Owner-only guard — bob (partner, non-owner) cannot split → P0002
+--     Phase 2 review patch P1 replaced the view-based check with an
+--     owner-only guard: only alice (the tx owner) may set split percentages.
 -- ═══════════════════════════════════════════════════════════════════════════
 SET LOCAL ROLE authenticated;
 SET LOCAL "request.jwt.claims" TO '{"sub":"11111111-7006-4000-8000-000000000002"}';
 
-SELECT public.rpc_split_transaction(
-  '11111111-7006-4000-8000-000000000021'::uuid,
-  'percentage',
-  '11111111-7006-4000-8000-000000000002'::uuid,
-  700::bigint,
-  300::bigint
-);
-
-SET LOCAL ROLE postgres;
-
-SELECT is(
-  (SELECT payer_share_minor::int FROM public.transaction_splits
-   WHERE transaction_id = '11111111-7006-4000-8000-000000000021'),
-  700,
-  'S5: upsert updated payer_share_minor to 700'
-);
-
-SELECT is(
-  (SELECT partner_share_minor::int FROM public.transaction_splits
-   WHERE transaction_id = '11111111-7006-4000-8000-000000000021'),
-  300,
-  'S5: upsert updated partner_share_minor to 300'
+SELECT throws_ok(
+  $$ SELECT public.rpc_split_transaction(
+       '11111111-7006-4000-8000-000000000021'::uuid,
+       'percentage',
+       '11111111-7006-4000-8000-000000000002'::uuid,
+       700::bigint,
+       300::bigint
+     ) $$,
+  'P0002', NULL::text,
+  'S5: non-owner (bob/partner) cannot split → P0002 (owner-only guard)'
 );
 
 SELECT * FROM finish();

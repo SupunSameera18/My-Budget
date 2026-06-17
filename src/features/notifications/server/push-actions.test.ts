@@ -45,7 +45,8 @@ beforeEach(() => {
 
 const SUBSCRIPTION: PushSubscriptionJSON = {
   endpoint: "https://fcm.example.com/abc123",
-  keys: { p256dh: "p256dh-key", auth: "auth-secret" },
+  // p256dh min=20 (schema); auth min=10 — use values that satisfy both constraints
+  keys: { p256dh: "p256dhp256dhp256dhXXX", auth: "auth-secret" },
 };
 
 // ── subscribePush ──────────────────────────────────────────────────────────

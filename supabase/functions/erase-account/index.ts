@@ -255,6 +255,19 @@ Deno.serve(async (req: Request) => {
         .eq("payer_id", userId);
       if (s0) throw s0;
 
+      // Also delete splits on transactions owned by this user (payer_id may differ)
+      const { data: txIds } = await adminClient
+        .from("transactions")
+        .select("id")
+        .eq("user_id", userId);
+      if (txIds && txIds.length > 0) {
+        const { error: s0b } = await adminClient
+          .from("transaction_splits")
+          .delete()
+          .in("transaction_id", txIds.map((t: { id: string }) => t.id));
+        if (s0b) console.error("erase-account: solo transaction_splits (owner) delete error", s0b);
+      }
+
       const { error: s1 } = await adminClient
         .from("transactions")
         .delete()

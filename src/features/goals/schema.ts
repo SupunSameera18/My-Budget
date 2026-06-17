@@ -3,7 +3,9 @@ import { moneyDisplaySchema } from "@/lib/money/amount-schema";
 
 export const reclassifyGoalSchema = z.object({
   goal_id: z.string().uuid("Invalid goal"),
-  to_shared: z.enum(["true", "false"]),
+  to_shared: z
+    .enum(["true", "false"])
+    .transform((v) => v === "true"),
 });
 
 export const createGoalSchema = z.object({

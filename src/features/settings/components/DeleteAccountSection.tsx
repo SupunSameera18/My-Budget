@@ -95,7 +95,7 @@ export function DeleteAccountSection({ userEmail }: DeleteAccountSectionProps) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 25_000);
 
-        let res: Response;
+        let res!: Response;
         try {
           res = await fetch(
             `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/erase-account`,

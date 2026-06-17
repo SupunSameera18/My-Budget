@@ -508,9 +508,7 @@ export async function editTransaction(
       );
     }
 
-    const amountMinor = Math.round(
-      parseFloat(parsed.data.amount_display) * 100,
-    );
+    const amountMinor = parseAmountMinor(parsed.data.amount_display);
     const subcategoryId =
       parsed.data.subcategory_id && parsed.data.subcategory_id !== ""
         ? parsed.data.subcategory_id

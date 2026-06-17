@@ -297,7 +297,10 @@ BEGIN
           'period_start', v_prev_month_start,
           'period_end',   v_prev_month_end
         )
-      );
+      )
+      ON CONFLICT (user_id, (metadata->>'month_label'))
+        WHERE type = 'month_end_summary'
+      DO NOTHING;
     EXCEPTION WHEN OTHERS THEN
       RAISE LOG 'rpc_send_month_end_summary_notifications: error for user %, SQLSTATE %, detail: %',
         v_user.user_id, SQLSTATE, SQLERRM;

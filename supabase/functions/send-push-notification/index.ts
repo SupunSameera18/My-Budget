@@ -63,14 +63,8 @@ Deno.serve(async (req: Request) => {
       .in("user_id", uniqueUserIds);
 
     if (subsError) {
-      console.error("push_subscriptions batch lookup failed:", subsError);
-      // Transient failure — leave push_notified_at null so all are retried next run.
-      return new Response(
-        JSON.stringify({ delivered: 0, error: "subscriptions lookup failed" }),
-        {
-          headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-        },
-      );
+      console.error("send-push-notification: failed to fetch subscriptions", subsError);
+      // Fall through with no subscriptions — notifications will be marked without push delivery
     }
 
     // Group subscriptions by user_id for O(1) lookup per notification.
@@ -78,14 +72,16 @@ Deno.serve(async (req: Request) => {
       string,
       { endpoint: string; p256dh: string; auth: string }[]
     >();
-    for (const sub of allSubscriptions ?? []) {
-      const existing = subscriptionsByUser.get(sub.user_id) ?? [];
-      existing.push({
-        endpoint: sub.endpoint,
-        p256dh: sub.p256dh,
-        auth: sub.auth,
-      });
-      subscriptionsByUser.set(sub.user_id, existing);
+    if (allSubscriptions) {
+      for (const sub of allSubscriptions) {
+        const existing = subscriptionsByUser.get(sub.user_id) ?? [];
+        existing.push({
+          endpoint: sub.endpoint,
+          p256dh: sub.p256dh,
+          auth: sub.auth,
+        });
+        subscriptionsByUser.set(sub.user_id, existing);
+      }
     }
 
     let delivered = 0;

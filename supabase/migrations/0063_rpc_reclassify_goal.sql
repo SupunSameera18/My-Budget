@@ -61,7 +61,8 @@ BEGIN
   END IF;
 
   UPDATE public.goals
-  SET is_shared = p_to_shared
+  SET updated_at = now(),
+      is_shared  = p_to_shared
   WHERE id      = p_goal_id
     AND user_id = v_user_id;
 END;

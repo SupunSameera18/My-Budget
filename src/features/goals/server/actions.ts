@@ -401,11 +401,9 @@ export async function reclassifyGoal(formData: FormData): Promise<Result> {
       );
     }
 
-    const toShared = parsed.data.to_shared === "true";
-
     const { error } = await supabase.rpc("rpc_reclassify_goal", {
       p_goal_id: parsed.data.goal_id,
-      p_to_shared: toShared,
+      p_to_shared: parsed.data.to_shared,
     });
 
     if (error) {

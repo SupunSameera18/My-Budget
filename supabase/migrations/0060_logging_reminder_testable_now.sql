@@ -75,7 +75,7 @@ BEGIN
         '/transactions/new'
       );
     EXCEPTION WHEN OTHERS THEN
-      RAISE WARNING 'rpc_send_logging_reminders: skipping user % due to error: %',
+      RAISE LOG 'rpc_send_logging_reminders: skipping user % due to error: %',
         v_user.user_id, SQLERRM;
     END;
   END LOOP;

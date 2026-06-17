@@ -85,6 +85,18 @@ BEGIN
       (v_user_id, v_account_id, v_category_id, v_amount_minor, p_date, v_cat_type, v_application_id)
     RETURNING id INTO v_tx_id;
 
+    -- FOR UPDATE: serialize concurrent macro applications to the same account
+    PERFORM 1
+    FROM public.accounts
+    WHERE id          = v_account_id
+      AND user_id     = v_user_id
+      AND archived_at IS NULL
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'Account not found or not owned by this user';
+    END IF;
+
     UPDATE public.accounts
     SET actual_balance_minor = actual_balance_minor + v_delta
     WHERE id          = v_account_id

@@ -165,7 +165,10 @@ BEGIN
           'period_start', v_prev_month_start,
           'period_end',   v_prev_month_end
         )
-      );
+      )
+      ON CONFLICT (user_id, (metadata->>'month_label'))
+        WHERE type = 'month_end_summary'
+      DO NOTHING;
     EXCEPTION WHEN OTHERS THEN
       RAISE WARNING 'rpc_send_month_end_summary_notifications: skipping user % due to error: %',
         v_user.user_id, SQLERRM;

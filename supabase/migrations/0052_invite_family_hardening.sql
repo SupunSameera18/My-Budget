@@ -159,6 +159,10 @@ BEGIN
     RAISE EXCEPTION 'not authenticated' USING ERRCODE = '42501';
   END IF;
 
+  IF p_expires_at <= now() THEN
+    RAISE EXCEPTION 'expires_at must be in the future' USING ERRCODE = 'P0001';
+  END IF;
+
   -- Serialize concurrent calls from the SAME caller for the rest of this
   -- transaction (released automatically at COMMIT/ROLLBACK). hashtext()
   -- collapses the UUID to a single bigint lock key — a same-key collision
@@ -235,3 +239,4 @@ CREATE TRIGGER enforce_join_date_immutable
 -- ── Explicit anon revokes (defense-in-depth documentation — dev-learnings §12:
 --    grants/revokes should always be explicit, never implied) ────────────────
 REVOKE ALL ON public.family_units, public.family_members FROM anon;
+REVOKE ALL ON public.invite_codes FROM anon;
