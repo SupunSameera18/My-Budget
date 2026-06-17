@@ -1,6 +1,10 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { vi, describe, it, expect, beforeEach } from "vitest";
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+}));
+
 vi.mock("./ContributeSheet", () => ({
   ContributeSheet: () => null,
 }));
@@ -8,6 +12,14 @@ vi.mock("./ContributeSheet", () => ({
 vi.mock("./EditGoalTargetSheet", () => ({
   EditGoalTargetSheet: ({ open }: { open: boolean }) =>
     open ? <div data-testid="edit-target-sheet-open" /> : null,
+}));
+
+vi.mock("./GoalHistorySheet", () => ({
+  GoalHistorySheet: () => null,
+}));
+
+vi.mock("@/features/goals/server/actions", () => ({
+  reclassifyGoal: vi.fn(),
 }));
 
 vi.mock("@/features/family/components/SharedBadge", () => ({

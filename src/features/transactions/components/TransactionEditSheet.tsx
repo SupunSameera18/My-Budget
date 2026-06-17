@@ -36,6 +36,21 @@ interface TransactionEditSheetProps {
   partnerJoinDate?: string | null;
 }
 
+const ACTIVITY_FIELD_LABELS: Record<string, string> = {
+  amount_minor: "Amount",
+  category_id: "Category",
+  account_id: "Account",
+  subcategory_id: "Subcategory",
+  note: "Note",
+  date: "Date",
+  type: "Type",
+  is_shared: "Visibility",
+};
+
+function friendlyFieldName(field: string): string {
+  return ACTIVITY_FIELD_LABELS[field] ?? field;
+}
+
 export function TransactionEditSheet({
   transaction,
   accounts,
@@ -557,7 +572,9 @@ export function TransactionEditSheet({
                           : entry.change_type === "reclassified_to_shared" ||
                               entry.change_type === "reclassified_to_personal"
                             ? "bg-amber-100 text-amber-800"
-                            : "bg-brand-accent-strong/10 text-brand-accent-strong"
+                            : entry.change_type === "macro_apply"
+                              ? "bg-purple-100 text-purple-800"
+                              : "bg-brand-accent-strong/10 text-brand-accent-strong"
                       }`}
                     >
                       {entry.change_type === "delete"
@@ -566,7 +583,9 @@ export function TransactionEditSheet({
                           ? "Made shared"
                           : entry.change_type === "reclassified_to_personal"
                             ? "Made personal"
-                            : "Edited"}
+                            : entry.change_type === "macro_apply"
+                              ? "Macro applied"
+                              : "Edited"}
                     </span>
                   </div>
                   {entry.change_type === "delete" ? (
@@ -581,11 +600,17 @@ export function TransactionEditSheet({
                     <span className="text-ink-secondary">
                       Reclassified to Personal
                     </span>
+                  ) : entry.change_type === "macro_apply" ? (
+                    <span className="text-ink-secondary">
+                      Created by macro
+                    </span>
                   ) : (
                     <span className="text-ink-secondary">
                       {Object.keys(entry.changed_fields).length > 0
                         ? "Changed: " +
-                          Object.keys(entry.changed_fields).join(", ")
+                          Object.keys(entry.changed_fields)
+                            .map(friendlyFieldName)
+                            .join(", ")
                         : "No fields changed"}
                     </span>
                   )}

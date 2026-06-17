@@ -617,7 +617,7 @@ export async function getTransactionList(
     let txnQuery = supabase
       .from("transactions")
       .select(
-        "id, account_id, category_id, amount_minor, date, note, type, is_shared, created_at, accounts ( name ), categories ( name, type )",
+        "id, account_id, category_id, subcategory_id, amount_minor, date, note, type, is_shared, created_at, accounts ( name ), categories ( name, type ), subcategories ( name )",
       )
       .is("archived_at", null) // active only
       .order("date", { ascending: false })
@@ -671,6 +671,9 @@ export async function getTransactionList(
       category_name:
         (row.categories as unknown as { name: string; type: string } | null)
           ?.name ?? "[deleted]",
+      subcategory_name:
+        (row.subcategories as unknown as { name: string } | null)?.name ??
+        null,
     }));
 
     // Accounts for filter dropdown

@@ -7,7 +7,9 @@ import {
   createGoalSchema,
   contributeGoalSchema,
   editGoalTargetSchema,
+  reclassifyGoalSchema,
   type GoalWithProgress,
+  type GoalContributionItem,
 } from "@/features/goals/schema";
 
 export async function createGoal(
@@ -295,5 +297,138 @@ export async function getGoals(): Promise<
   } catch (e) {
     console.error("[getGoals] unexpected error:", e);
     return err(ErrorCode.GoalFetchFailed, "Failed to load goals.");
+  }
+}
+
+export async function getGoalContributions(
+  goalId: string,
+): Promise<Result<GoalContributionItem[]>> {
+  noStore();
+  try {
+    const auth = await requireUser();
+    if (!auth)
+      return err(ErrorCode.GoalContributionsFetchFailed, "Not authenticated");
+    const { supabase } = auth;
+
+    const { data, error } = await supabase
+      .from("goal_contributions")
+      .select("id, user_id, goal_id, amount_minor, date, macro_application_id")
+      .eq("goal_id", goalId)
+      .order("date", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("[getGoalContributions] fetch failed:", error.message);
+      return err(
+        ErrorCode.GoalContributionsFetchFailed,
+        "Failed to load contribution history.",
+      );
+    }
+
+    return ok(
+      (data ?? []).map((row) => ({
+        id: row.id,
+        user_id: row.user_id,
+        goal_id: row.goal_id,
+        amount_minor: row.amount_minor,
+        date: row.date,
+        macro_application_id: row.macro_application_id ?? null,
+      })),
+    );
+  } catch (e) {
+    console.error("[getGoalContributions] unexpected error:", e);
+    return err(
+      ErrorCode.GoalContributionsFetchFailed,
+      "Failed to load contribution history.",
+    );
+  }
+}
+
+export async function deleteGoalContributionSet(
+  applicationId: string,
+): Promise<Result> {
+  try {
+    const auth = await requireUser();
+    if (!auth)
+      return err(ErrorCode.GoalContributionDeleteFailed, "Not authenticated");
+    const { supabase } = auth;
+
+    const { error } = await supabase.rpc("rpc_delete_goal_contribution_set", {
+      p_application_id: applicationId,
+    });
+
+    if (error) {
+      if (error.code === "P0002") {
+        return err(
+          ErrorCode.GoalContributionDeleteFailed,
+          "Contribution set not found or not owned by you.",
+        );
+      }
+      return err(
+        ErrorCode.GoalContributionDeleteFailed,
+        "Failed to delete contribution.",
+      );
+    }
+
+    revalidatePath("/goals");
+    return ok();
+  } catch (e) {
+    console.error("[deleteGoalContributionSet] unexpected error:", e);
+    return err(
+      ErrorCode.GoalContributionDeleteFailed,
+      "Failed to delete contribution.",
+    );
+  }
+}
+
+export async function reclassifyGoal(formData: FormData): Promise<Result> {
+  try {
+    const auth = await requireUser();
+    if (!auth)
+      return err(ErrorCode.ReclassifyGoalFailed, "Not authenticated");
+    const { supabase } = auth;
+
+    const raw = {
+      goal_id: formData.get("goal_id") as string,
+      to_shared: formData.get("to_shared") as string,
+    };
+
+    const parsed = reclassifyGoalSchema.safeParse(raw);
+    if (!parsed.success) {
+      const first = parsed.error.issues[0];
+      return err(
+        ErrorCode.ReclassifyGoalFailed,
+        first?.message ?? "Invalid data",
+      );
+    }
+
+    const toShared = parsed.data.to_shared === "true";
+
+    const { error } = await supabase.rpc("rpc_reclassify_goal", {
+      p_goal_id: parsed.data.goal_id,
+      p_to_shared: toShared,
+    });
+
+    if (error) {
+      if (error.code === "P0002") {
+        return err(
+          ErrorCode.ReclassifyGoalFailed,
+          "Goal not found or not owned by you.",
+        );
+      }
+      if (error.code === "P0003") {
+        return err(
+          ErrorCode.ReclassifyGoalFailed,
+          "You must be in a family to share a goal.",
+        );
+      }
+      return err(ErrorCode.ReclassifyGoalFailed, "Failed to reclassify goal.");
+    }
+
+    revalidatePath("/goals");
+    return ok();
+  } catch (e) {
+    console.error("[reclassifyGoal] unexpected error:", e);
+    return err(ErrorCode.ReclassifyGoalFailed, "Failed to reclassify goal.");
   }
 }

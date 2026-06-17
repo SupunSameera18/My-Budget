@@ -107,7 +107,8 @@ export type ActivityTrailEntry = {
     | "edit"
     | "delete"
     | "reclassified_to_shared"
-    | "reclassified_to_personal";
+    | "reclassified_to_personal"
+    | "macro_apply";
   changed_fields:
     | Record<string, { old: unknown; new: unknown }>
     | Record<string, never>;
@@ -155,6 +156,7 @@ export type TransactionListItem = {
   created_at: string;
   account_name: string;
   category_name: string;
+  subcategory_name: string | null;
 };
 
 export type TransactionListFilters = {

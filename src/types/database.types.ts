@@ -703,6 +703,15 @@ export type Database = {
         Args: { p_transaction_id: string };
         Returns: void;
       };
+      // ↓ Added by Phase 2 Task 10
+      rpc_delete_goal_contribution_set: {
+        Args: { p_application_id: string };
+        Returns: void;
+      };
+      rpc_reclassify_goal: {
+        Args: { p_goal_id: string; p_to_shared: boolean };
+        Returns: void;
+      };
     };
     Enums: {
       [_ in never]: never;

@@ -204,7 +204,7 @@ describe("TransactionEditSheet — activity trail", () => {
       screen.getByRole("heading", { name: /history/i }),
     ).toBeInTheDocument();
     expect(screen.getByText(/edited/i)).toBeInTheDocument();
-    expect(screen.getByText(/amount_minor/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Amount/)[0]).toBeInTheDocument();
   });
 
   it("does not show History section when activityTrail is empty", () => {

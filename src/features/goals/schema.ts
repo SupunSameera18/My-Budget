@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { moneyDisplaySchema } from "@/lib/money/amount-schema";
 
+export const reclassifyGoalSchema = z.object({
+  goal_id: z.string().uuid("Invalid goal"),
+  to_shared: z.enum(["true", "false"]),
+});
+
 export const createGoalSchema = z.object({
   name: z
     .string()
@@ -25,6 +30,16 @@ export const editGoalTargetSchema = z.object({
 export type CreateGoalInput = z.infer<typeof createGoalSchema>;
 export type ContributeGoalInput = z.infer<typeof contributeGoalSchema>;
 export type EditGoalTargetInput = z.infer<typeof editGoalTargetSchema>;
+export type ReclassifyGoalInput = z.infer<typeof reclassifyGoalSchema>;
+
+export type GoalContributionItem = {
+  id: string;
+  user_id: string;
+  goal_id: string;
+  amount_minor: number;
+  date: string;
+  macro_application_id: string | null;
+};
 
 export type GoalWithProgress = {
   id: string;
