@@ -497,7 +497,7 @@ export function TransactionEditSheet({
           variant="ghost"
           onClick={() => setShowDeleteConfirm(true)}
           className="min-h-[44px] w-full text-destructive hover:text-destructive"
-          disabled={isPending}
+          disabled={isPending || !isOnline}
         >
           Delete transaction
         </Button>

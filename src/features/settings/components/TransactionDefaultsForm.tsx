@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import type { TransactionDefaults } from "@/features/transactions/schema";
 import { saveTransactionDefaults } from "@/features/transactions/server/actions";
 
@@ -24,6 +24,24 @@ const SPLIT_OPTIONS: { value: DefaultSplitMethod; label: string }[] = [
   { value: "none", label: "None" },
 ];
 
+function handleRadioKeyDown<T extends string>(
+  e: React.KeyboardEvent<HTMLDivElement>,
+  options: { value: T }[],
+  currentValue: T,
+  onChange: (v: T) => void,
+) {
+  if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key))
+    return;
+  e.preventDefault();
+  const idx = options.findIndex((o) => o.value === currentValue);
+  const delta = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : -1;
+  const nextIdx = (idx + delta + options.length) % options.length;
+  onChange(options[nextIdx].value);
+  const radios =
+    e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]');
+  radios[nextIdx]?.focus();
+}
+
 export function TransactionDefaultsForm({
   initialDefaults,
   isFamilyMode,
@@ -33,10 +51,20 @@ export function TransactionDefaultsForm({
   );
   const [isPending, startTransition] = useTransition();
   const [statusMsg, setStatusMsg] = useState("");
+  const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currentType: DefaultType = defaults.defaultType ?? "personal";
   const currentSplit: DefaultSplitMethod =
     defaults.defaultSplitMethod ?? "equal";
+
+  // Auto-clear status message after 2 s to prevent stale SR re-announce
+  useEffect(() => {
+    if (!statusMsg) return;
+    clearTimerRef.current = setTimeout(() => setStatusMsg(""), 2000);
+    return () => {
+      if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
+    };
+  }, [statusMsg]);
 
   function handleTypeChange(value: DefaultType) {
     if (isPending) return;
@@ -95,6 +123,9 @@ export function TransactionDefaultsForm({
           <div
             role="radiogroup"
             aria-label="Default transaction type"
+            onKeyDown={(e) =>
+              handleRadioKeyDown(e, TYPE_OPTIONS, currentType, handleTypeChange)
+            }
             className="flex gap-1 rounded-lg border border-hairline bg-surface-base p-1"
           >
             {TYPE_OPTIONS.map((opt) => (
@@ -103,6 +134,7 @@ export function TransactionDefaultsForm({
                 type="button"
                 role="radio"
                 aria-checked={currentType === opt.value}
+                tabIndex={currentType === opt.value ? 0 : -1}
                 aria-disabled={isPending ? "true" : undefined}
                 disabled={isPending}
                 onClick={() => handleTypeChange(opt.value)}
@@ -126,6 +158,14 @@ export function TransactionDefaultsForm({
           <div
             role="radiogroup"
             aria-label="Default split method"
+            onKeyDown={(e) =>
+              handleRadioKeyDown(
+                e,
+                SPLIT_OPTIONS,
+                currentSplit,
+                handleSplitChange,
+              )
+            }
             className="flex gap-1 rounded-lg border border-hairline bg-surface-base p-1"
           >
             {SPLIT_OPTIONS.map((opt) => (
@@ -134,6 +174,7 @@ export function TransactionDefaultsForm({
                 type="button"
                 role="radio"
                 aria-checked={currentSplit === opt.value}
+                tabIndex={currentSplit === opt.value ? 0 : -1}
                 aria-disabled={isPending ? "true" : undefined}
                 disabled={isPending}
                 onClick={() => handleSplitChange(opt.value)}

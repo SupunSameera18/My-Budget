@@ -188,4 +188,23 @@ describe("DeleteAccountSection", () => {
     expect(mockReplace).not.toHaveBeenCalled();
     expect(screen.getByRole("alert")).toHaveTextContent(/erasure failed/i);
   });
+
+  it("Escape key restores focus to Delete Account trigger button", async () => {
+    render(<DeleteAccountSection userEmail={userEmail} />);
+    fireEvent.change(screen.getByLabelText(/confirm your email address/i), {
+      target: { value: userEmail },
+    });
+    const triggerBtn = screen.getByRole("button", {
+      name: /^delete account$/i,
+    });
+    triggerBtn.focus();
+    fireEvent.click(triggerBtn);
+    // Dialog is now open; close via Escape
+    await act(async () => {
+      fireEvent.keyDown(document, { key: "Escape" });
+    });
+    const dialog = screen.getByRole("alertdialog", { hidden: true });
+    expect(dialog).toHaveAttribute("hidden");
+    expect(document.activeElement).toBe(triggerBtn);
+  });
 });

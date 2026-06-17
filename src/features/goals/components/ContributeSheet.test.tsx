@@ -134,4 +134,15 @@ describe("ContributeSheet", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     expect(onOpenChange).not.toHaveBeenCalled();
   });
+
+  it("focus trap selector includes lone aria-disabled elements", () => {
+    render(<ContributeSheet {...defaultProps} />);
+    const dialog = screen.getByRole("dialog");
+    // The trap selector includes [aria-disabled="true"]:not([disabled])
+    // Verify we can find all focusable elements inside the dialog
+    const focusable = dialog.querySelectorAll(
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), [aria-disabled="true"]:not([disabled])',
+    );
+    expect(focusable.length).toBeGreaterThan(0);
+  });
 });

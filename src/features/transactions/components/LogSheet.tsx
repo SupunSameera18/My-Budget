@@ -317,12 +317,25 @@ export function LogSheet({
         <div
           role="radiogroup"
           aria-label="Transaction type"
+          onKeyDown={(e) => {
+            if (!["ArrowLeft", "ArrowRight"].includes(e.key)) return;
+            e.preventDefault();
+            const next = e.key === "ArrowRight";
+            if (next === isShared) return;
+            setIsShared(next);
+            const radios =
+              e.currentTarget.querySelectorAll<HTMLButtonElement>(
+                '[role="radio"]',
+              );
+            radios[next ? 1 : 0]?.focus();
+          }}
           className="flex gap-1 rounded-lg border border-hairline bg-surface-base p-1"
         >
           <button
             type="button"
             role="radio"
             aria-checked={!isShared}
+            tabIndex={!isShared ? 0 : -1}
             onClick={() => setIsShared(false)}
             className={`min-h-[44px] flex-1 rounded-md text-sm font-medium transition-colors ${
               !isShared
@@ -336,6 +349,7 @@ export function LogSheet({
             type="button"
             role="radio"
             aria-checked={isShared}
+            tabIndex={isShared ? 0 : -1}
             onClick={() => setIsShared(true)}
             className={`min-h-[44px] flex-1 rounded-md text-sm font-medium transition-colors ${
               isShared

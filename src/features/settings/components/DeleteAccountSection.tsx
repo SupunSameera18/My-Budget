@@ -17,6 +17,8 @@ export function DeleteAccountSection({ userEmail }: DeleteAccountSectionProps) {
   const [isPending, startTransition] = useTransition();
   const alertDialogRef = useRef<HTMLDivElement>(null);
   const cancelBtnRef = useRef<HTMLButtonElement>(null);
+  const deleteButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogWasOpenRef = useRef(false);
 
   // P3: guard against empty userEmail (OAuth accounts with no email bypass the gate otherwise)
   // W3 (Phase 2 gap analysis, 7-12): the confirmation gate is intentionally
@@ -30,10 +32,15 @@ export function DeleteAccountSection({ userEmail }: DeleteAccountSectionProps) {
     userEmail.length > 0 &&
     emailInput.toLowerCase() === userEmail.toLowerCase();
 
-  // Focus the Cancel button when the alert dialog opens (focus-on-show)
+  // Focus the Cancel button when the alert dialog opens (focus-on-show);
+  // restore focus to the trigger button when it closes.
   useEffect(() => {
-    if (showConfirm && cancelBtnRef.current) {
-      cancelBtnRef.current.focus();
+    if (showConfirm) {
+      dialogWasOpenRef.current = true;
+      cancelBtnRef.current?.focus();
+    } else if (dialogWasOpenRef.current) {
+      dialogWasOpenRef.current = false;
+      deleteButtonRef.current?.focus();
     }
   }, [showConfirm]);
 
@@ -47,7 +54,7 @@ export function DeleteAccountSection({ userEmail }: DeleteAccountSectionProps) {
       }
       if (e.key === "Tab" && alertDialogRef.current) {
         const focusable = alertDialogRef.current.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          'button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"]), [aria-disabled="true"]:not([disabled])',
         );
         const first = focusable[0];
         const last = focusable[focusable.length - 1];
@@ -191,6 +198,7 @@ export function DeleteAccountSection({ userEmail }: DeleteAccountSectionProps) {
         )}
 
         <button
+          ref={deleteButtonRef}
           type="button"
           onClick={() => {
             if (!emailMatches) return;

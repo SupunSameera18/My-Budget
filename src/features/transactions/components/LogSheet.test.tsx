@@ -617,4 +617,43 @@ describe("LogSheet — Personal/Shared toggle (Story 7.5)", () => {
       expect(fd.get("is_shared")).toBe("false");
     });
   });
+
+  it("Personal radio has tabIndex=0; Shared radio has tabIndex=-1 when Personal is selected (roving tabindex)", async () => {
+    render(<LogSheet {...baseProps} isFamilyMode={true} />);
+    await goToStep2();
+    const personalBtn = screen.getByRole("radio", { name: /personal/i });
+    const sharedBtn = screen.getByRole("radio", { name: /shared/i });
+    expect(personalBtn).toHaveAttribute("tabIndex", "0");
+    expect(sharedBtn).toHaveAttribute("tabIndex", "-1");
+  });
+
+  it("ArrowRight on Personal/Shared radiogroup switches to Shared", async () => {
+    const { fireEvent } = await import("@testing-library/react");
+    render(<LogSheet {...baseProps} isFamilyMode={true} />);
+    await goToStep2();
+    const personalBtn = screen.getByRole("radio", { name: /personal/i });
+    const sharedBtn = screen.getByRole("radio", { name: /shared/i });
+    personalBtn.focus();
+    fireEvent.keyDown(personalBtn.parentElement!, { key: "ArrowRight" });
+    expect(sharedBtn).toHaveAttribute("aria-checked", "true");
+    expect(personalBtn).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("ArrowLeft on Personal/Shared radiogroup when Shared is active switches to Personal", async () => {
+    const { fireEvent } = await import("@testing-library/react");
+    render(
+      <LogSheet
+        {...baseProps}
+        isFamilyMode={true}
+        transactionDefaults={{ defaultType: "shared" }}
+      />,
+    );
+    await goToStep2();
+    const personalBtn = screen.getByRole("radio", { name: /personal/i });
+    const sharedBtn = screen.getByRole("radio", { name: /shared/i });
+    sharedBtn.focus();
+    fireEvent.keyDown(sharedBtn.parentElement!, { key: "ArrowLeft" });
+    expect(personalBtn).toHaveAttribute("aria-checked", "true");
+    expect(sharedBtn).toHaveAttribute("aria-checked", "false");
+  });
 });

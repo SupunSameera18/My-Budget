@@ -224,6 +224,14 @@ describe("TransactionEditSheet — offline state", () => {
     ).toBeDisabled();
     expect(screen.getByText(/you're offline/i)).toBeInTheDocument();
   });
+
+  it("disables Delete transaction button when offline (Save parity)", () => {
+    (useOnlineStatus as Mock).mockReturnValue(false);
+    render(<TransactionEditSheet {...baseProps} />);
+    expect(
+      screen.getByRole("button", { name: /delete transaction/i }),
+    ).toBeDisabled();
+  });
 });
 
 describe("TransactionEditSheet — note clearing", () => {

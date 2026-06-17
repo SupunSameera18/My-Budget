@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import {
   CHART_TYPES,
   isChartEnabled,
@@ -19,6 +19,16 @@ export function ChartPreferencesForm({
   const [prefs, setPrefs] = useState<ChartPreferences>(initialPrefs);
   const [isPending, startTransition] = useTransition();
   const [statusMsg, setStatusMsg] = useState("");
+  const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Auto-clear status message after 2 s to prevent stale SR re-announce
+  useEffect(() => {
+    if (!statusMsg) return;
+    clearTimerRef.current = setTimeout(() => setStatusMsg(""), 2000);
+    return () => {
+      if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
+    };
+  }, [statusMsg]);
 
   const handleToggle = (key: ChartTypeKey) => {
     if (isPending) return;
