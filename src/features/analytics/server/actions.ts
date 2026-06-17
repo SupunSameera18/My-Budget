@@ -16,6 +16,7 @@ import {
   type ThisVsLastMonthItem,
   type ExportRow,
   type Scope,
+  chartPreferencesSchema,
 } from "@/features/analytics/schema";
 import type { HealthScoreResult } from "@/lib/money/health-score";
 import { getGoals } from "@/features/goals/server/actions";
@@ -56,10 +57,15 @@ export async function saveChartPreferences(
 
   const { supabase, user } = session;
   try {
+    const parsed = chartPreferencesSchema.safeParse(prefs);
+    if (!parsed.success) {
+      return err(ErrorCode.ProfileUpdateFailed, "Invalid chart preferences");
+    }
+
     const { error } = await supabase
       .from("profiles")
       .update({
-        chart_preferences: prefs,
+        chart_preferences: parsed.data,
         updated_at: new Date().toISOString(),
       })
       .eq("user_id", user.id);

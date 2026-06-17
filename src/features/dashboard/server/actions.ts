@@ -11,6 +11,7 @@ import {
 } from "@/lib/period";
 import { computeBreathingRoom } from "@/lib/money/breathing-room";
 import { getBudgets } from "@/features/budgets/server/actions";
+import { getServerPostHogKey } from "@/lib/analytics/server-posthog";
 
 export type BreathingRoomData = {
   breathingRoomMinor: number;
@@ -70,7 +71,7 @@ export async function markChecklistComplete(): Promise<void> {
     if (error) return;
     if (!count || count === 0) return;
 
-    const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+    const posthogKey = getServerPostHogKey();
     if (posthogKey) {
       const posthogHost =
         process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com";

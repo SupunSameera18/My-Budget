@@ -16,9 +16,15 @@ import {
 export async function getCategories(): Promise<Result<Category[]>> {
   try {
     const supabase = await createClient();
+    const { data: authData } = await supabase.auth.getUser();
+    if (!authData.user) {
+      return err(ErrorCode.CategoryFetchFailed, "Not authenticated");
+    }
+
     const { data, error } = await supabase
       .from("categories")
       .select("*")
+      .eq("user_id", authData.user.id) // defense-in-depth — RLS already enforces this
       .order("created_at", { ascending: true });
 
     if (error) {
@@ -34,22 +40,22 @@ export async function getCategories(): Promise<Result<Category[]>> {
 export async function createCategory(
   formData: FormData,
 ): Promise<Result<Category>> {
-  const raw = Object.fromEntries(formData);
-  const parsed = createCategorySchema.safeParse(raw);
-
-  if (!parsed.success) {
-    const first = parsed.error.issues[0];
-    return err(
-      ErrorCode.CategoryCreateFailed,
-      first?.message ?? "Invalid data",
-      String(first?.path[0] ?? ""),
-    );
-  }
-
   try {
-    const auth = await requireUser();
+    const auth = await requireUser(); // requireUser FIRST (§9)
     if (!auth) return err(ErrorCode.CategoryCreateFailed, "Not authenticated");
     const { supabase, user } = auth;
+
+    const raw = Object.fromEntries(formData);
+    const parsed = createCategorySchema.safeParse(raw);
+
+    if (!parsed.success) {
+      const first = parsed.error.issues[0];
+      return err(
+        ErrorCode.CategoryCreateFailed,
+        first?.message ?? "Invalid data",
+        String(first?.path[0] ?? ""),
+      );
+    }
 
     const { data, error } = await supabase
       .from("categories")
@@ -89,27 +95,28 @@ export async function updateCategory(
   id: string,
   formData: FormData,
 ): Promise<Result<Category>> {
-  const raw = Object.fromEntries(formData);
-  const parsed = updateCategorySchema.safeParse(raw);
-
-  if (!parsed.success) {
-    const first = parsed.error.issues[0];
-    return err(
-      ErrorCode.CategoryUpdateFailed,
-      first?.message ?? "Invalid data",
-      String(first?.path[0] ?? ""),
-    );
-  }
-
   try {
-    const auth = await requireUser();
+    const auth = await requireUser(); // requireUser FIRST (§9)
     if (!auth) return err(ErrorCode.CategoryUpdateFailed, "Not authenticated");
-    const { supabase } = auth;
+    const { supabase, user } = auth;
+
+    const raw = Object.fromEntries(formData);
+    const parsed = updateCategorySchema.safeParse(raw);
+
+    if (!parsed.success) {
+      const first = parsed.error.issues[0];
+      return err(
+        ErrorCode.CategoryUpdateFailed,
+        first?.message ?? "Invalid data",
+        String(first?.path[0] ?? ""),
+      );
+    }
 
     const { data, error } = await supabase
       .from("categories")
       .update({ name: parsed.data.name })
       .eq("id", id)
+      .eq("user_id", user.id) // defense-in-depth — RLS already enforces this
       .select()
       .single();
 
@@ -138,12 +145,13 @@ export async function archiveCategory(id: string): Promise<Result<void>> {
   try {
     const auth = await requireUser();
     if (!auth) return err(ErrorCode.CategoryArchiveFailed, "Not authenticated");
-    const { supabase } = auth;
+    const { supabase, user } = auth;
 
     const { data, error } = await supabase
       .from("categories")
       .update({ archived_at: new Date().toISOString() })
       .eq("id", id)
+      .eq("user_id", user.id) // defense-in-depth — RLS already enforces this
       .select()
       .single();
 
@@ -169,12 +177,13 @@ export async function unarchiveCategory(id: string): Promise<Result<void>> {
   try {
     const auth = await requireUser();
     if (!auth) return err(ErrorCode.CategoryArchiveFailed, "Not authenticated");
-    const { supabase } = auth;
+    const { supabase, user } = auth;
 
     const { data, error } = await supabase
       .from("categories")
       .update({ archived_at: null })
       .eq("id", id)
+      .eq("user_id", user.id) // defense-in-depth — RLS already enforces this
       .select()
       .single();
 
@@ -259,31 +268,31 @@ export async function createSubcategory(
   categoryId: string,
   formData: FormData,
 ): Promise<Result<Subcategory>> {
-  if (
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      categoryId,
-    )
-  ) {
-    return err(ErrorCode.SubcategoryCreateFailed, "Invalid category.");
-  }
-
-  const raw = Object.fromEntries(formData);
-  const parsed = createSubcategorySchema.safeParse(raw);
-
-  if (!parsed.success) {
-    const first = parsed.error.issues[0];
-    return err(
-      ErrorCode.SubcategoryCreateFailed,
-      first?.message ?? "Invalid data",
-      String(first?.path[0] ?? ""),
-    );
-  }
-
   try {
-    const auth = await requireUser();
+    const auth = await requireUser(); // requireUser FIRST (§9)
     if (!auth)
       return err(ErrorCode.SubcategoryCreateFailed, "Not authenticated");
     const { supabase, user } = auth;
+
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        categoryId,
+      )
+    ) {
+      return err(ErrorCode.SubcategoryCreateFailed, "Invalid category.");
+    }
+
+    const raw = Object.fromEntries(formData);
+    const parsed = createSubcategorySchema.safeParse(raw);
+
+    if (!parsed.success) {
+      const first = parsed.error.issues[0];
+      return err(
+        ErrorCode.SubcategoryCreateFailed,
+        first?.message ?? "Invalid data",
+        String(first?.path[0] ?? ""),
+      );
+    }
 
     const { data: cat } = await supabase
       .from("categories")
@@ -334,28 +343,29 @@ export async function updateSubcategory(
   id: string,
   formData: FormData,
 ): Promise<Result<Subcategory>> {
-  const raw = Object.fromEntries(formData);
-  const parsed = updateSubcategorySchema.safeParse(raw);
-
-  if (!parsed.success) {
-    const first = parsed.error.issues[0];
-    return err(
-      ErrorCode.SubcategoryUpdateFailed,
-      first?.message ?? "Invalid data",
-      String(first?.path[0] ?? ""),
-    );
-  }
-
   try {
-    const auth = await requireUser();
+    const auth = await requireUser(); // requireUser FIRST (§9)
     if (!auth)
       return err(ErrorCode.SubcategoryUpdateFailed, "Not authenticated");
-    const { supabase } = auth;
+    const { supabase, user } = auth;
+
+    const raw = Object.fromEntries(formData);
+    const parsed = updateSubcategorySchema.safeParse(raw);
+
+    if (!parsed.success) {
+      const first = parsed.error.issues[0];
+      return err(
+        ErrorCode.SubcategoryUpdateFailed,
+        first?.message ?? "Invalid data",
+        String(first?.path[0] ?? ""),
+      );
+    }
 
     const { data, error } = await supabase
       .from("subcategories")
       .update({ name: parsed.data.name })
       .eq("id", id)
+      .eq("user_id", user.id) // defense-in-depth — RLS already enforces this
       .select()
       .single();
 
@@ -388,12 +398,13 @@ export async function archiveSubcategory(id: string): Promise<Result<void>> {
     const auth = await requireUser();
     if (!auth)
       return err(ErrorCode.SubcategoryArchiveFailed, "Not authenticated");
-    const { supabase } = auth;
+    const { supabase, user } = auth;
 
     const { data, error } = await supabase
       .from("subcategories")
       .update({ archived_at: new Date().toISOString() })
       .eq("id", id)
+      .eq("user_id", user.id) // defense-in-depth — RLS already enforces this
       .select()
       .single();
 
@@ -420,12 +431,13 @@ export async function unarchiveSubcategory(id: string): Promise<Result<void>> {
     const auth = await requireUser();
     if (!auth)
       return err(ErrorCode.SubcategoryArchiveFailed, "Not authenticated");
-    const { supabase } = auth;
+    const { supabase, user } = auth;
 
     const { data, error } = await supabase
       .from("subcategories")
       .update({ archived_at: null })
       .eq("id", id)
+      .eq("user_id", user.id) // defense-in-depth — RLS already enforces this
       .select()
       .single();
 

@@ -19,7 +19,16 @@ export function DeleteAccountSection({ userEmail }: DeleteAccountSectionProps) {
   const cancelBtnRef = useRef<HTMLButtonElement>(null);
 
   // P3: guard against empty userEmail (OAuth accounts with no email bypass the gate otherwise)
-  const emailMatches = userEmail.length > 0 && emailInput === userEmail;
+  // W3 (Phase 2 gap analysis, 7-12): the confirmation gate is intentionally
+  // case-INsensitive — email addresses are case-insensitive in practice
+  // (Supabase Auth itself normalizes the local part to lowercase on
+  // sign-up), so a user typing their own email back with different casing
+  // is a UX false-negative, not a meaningful security check either way
+  // (this gate prevents accidental clicks, not unauthorized access — auth
+  // already establishes identity).
+  const emailMatches =
+    userEmail.length > 0 &&
+    emailInput.toLowerCase() === userEmail.toLowerCase();
 
   // Focus the Cancel button when the alert dialog opens (focus-on-show)
   useEffect(() => {
@@ -70,16 +79,31 @@ export function DeleteAccountSection({ userEmail }: DeleteAccountSectionProps) {
           return;
         }
 
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/erase-account`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${jwt}`,
-              "Content-Type": "application/json",
+        // W2 (Phase 2 gap analysis, 7-12): bound the request so a hung
+        // connection (dropped wifi, stalled Edge Function) doesn't leave the
+        // user staring at a spinner indefinitely — abort and show a retry
+        // message instead. 25s budget: comfortably under typical Edge
+        // Function execution caps while leaving room for the erasure's many
+        // sequential deletes.
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 25_000);
+
+        let res: Response;
+        try {
+          res = await fetch(
+            `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/erase-account`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${jwt}`,
+                "Content-Type": "application/json",
+              },
+              signal: controller.signal,
             },
-          },
-        );
+          );
+        } finally {
+          clearTimeout(timeoutId);
+        }
 
         if (res.ok) {
           setStatusMsg("Account deleted.");
@@ -95,8 +119,12 @@ export function DeleteAccountSection({ userEmail }: DeleteAccountSectionProps) {
           );
           setShowConfirm(false);
         }
-      } catch {
-        setErrorMsg("Erasure failed. Please try again or contact support.");
+      } catch (e) {
+        setErrorMsg(
+          e instanceof DOMException && e.name === "AbortError"
+            ? "The request took too long. Please check your connection and try again."
+            : "Erasure failed. Please try again or contact support.",
+        );
         setShowConfirm(false);
       }
     });

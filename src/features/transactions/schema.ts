@@ -57,6 +57,17 @@ export type TransactionDefaults = {
   defaultSplitMethod?: "equal" | "percentage" | "fixed" | "none";
 };
 
+// Server-side validation for saveTransactionDefaults (Phase 2 gap analysis,
+// 7-5) — the TS type alone gives no runtime guarantee for a server action
+// argument; an untrusted/malformed value must be rejected before it reaches
+// the DB write, not merely have the right TypeScript shape at compile time.
+export const transactionDefaultsSchema = z.object({
+  defaultType: z.enum(["personal", "shared"]).optional(),
+  defaultSplitMethod: z
+    .enum(["equal", "percentage", "fixed", "none"])
+    .optional(),
+}) satisfies z.ZodType<TransactionDefaults>;
+
 export type TransactionFormData = {
   accounts: Account[];
   categories: TransactionCategory[];

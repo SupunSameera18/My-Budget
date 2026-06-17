@@ -98,6 +98,30 @@ describe("subscribePush", () => {
     if (!result.ok)
       expect(result.error.code).toBe(ErrorCode.PushSubscribeFailed);
   });
+
+  it("rejects a non-https endpoint without ever calling upsert (7-2 hardening)", async () => {
+    const chain = makeChain({ error: null });
+    mockAuth(chain);
+    const result = await subscribePush({
+      ...SUBSCRIPTION,
+      endpoint: "http://fcm.example.com/abc123",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok)
+      expect(result.error.code).toBe(ErrorCode.PushSubscribeFailed);
+    expect(chain.upsert).not.toHaveBeenCalled();
+  });
+
+  it("rejects a malformed (non-base64url) key without ever calling upsert", async () => {
+    const chain = makeChain({ error: null });
+    mockAuth(chain);
+    const result = await subscribePush({
+      ...SUBSCRIPTION,
+      keys: { p256dh: "not valid!", auth: SUBSCRIPTION.keys.auth },
+    });
+    expect(result.ok).toBe(false);
+    expect(chain.upsert).not.toHaveBeenCalled();
+  });
 });
 
 // ── unsubscribePush ────────────────────────────────────────────────────────

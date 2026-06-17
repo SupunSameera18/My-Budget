@@ -11,10 +11,13 @@ type SubcategoryWithCount = Subcategory & { transactions: { count: number }[] };
 
 export default async function CategoriesPage() {
   const supabase = await createClient();
+  const { data: authData } = await supabase.auth.getUser();
+  const userId = authData.user?.id ?? "";
 
   const { data: activeRaw } = await supabase
     .from("categories")
     .select("*, transactions(count)")
+    .eq("user_id", userId) // defense-in-depth — RLS already enforces this
     .is("archived_at", null)
     .order("created_at", { ascending: true });
 
@@ -31,6 +34,7 @@ export default async function CategoriesPage() {
   const { data: archivedRaw } = await supabase
     .from("categories")
     .select("*, transactions(count)")
+    .eq("user_id", userId) // defense-in-depth — RLS already enforces this
     .not("archived_at", "is", null)
     .order("archived_at", { ascending: false });
 
@@ -43,6 +47,7 @@ export default async function CategoriesPage() {
   const { data: profileData } = await supabase
     .from("profiles")
     .select("subcategories_enabled")
+    .eq("user_id", userId) // defense-in-depth — RLS already enforces this
     .limit(1)
     .single();
 
@@ -62,6 +67,7 @@ export default async function CategoriesPage() {
     const { data: activeSubcatsRaw } = await supabase
       .from("subcategories")
       .select("*, transactions(count)")
+      .eq("user_id", userId) // defense-in-depth — RLS already enforces this
       .is("archived_at", null)
       .order("created_at", { ascending: true });
 
@@ -79,6 +85,7 @@ export default async function CategoriesPage() {
     const { data: archivedSubcatsRaw } = await supabase
       .from("subcategories")
       .select("*, transactions(count)")
+      .eq("user_id", userId) // defense-in-depth — RLS already enforces this
       .not("archived_at", "is", null)
       .order("archived_at", { ascending: false });
 

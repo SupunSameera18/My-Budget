@@ -116,12 +116,13 @@ export async function updateAccount(
   try {
     const auth = await requireUser();
     if (!auth) return err(ErrorCode.AccountUpdateFailed, "Not authenticated");
-    const { supabase } = auth;
+    const { supabase, user } = auth;
 
     const { data, error } = await supabase
       .from("accounts")
       .update({ name: parsed.data.name, type: parsed.data.type })
       .eq("id", id)
+      .eq("user_id", user.id) // defense-in-depth — RLS already enforces this
       .select()
       .single();
 
@@ -143,12 +144,13 @@ export async function archiveAccount(id: string): Promise<Result<void>> {
   try {
     const auth = await requireUser();
     if (!auth) return err(ErrorCode.AccountArchiveFailed, "Not authenticated");
-    const { supabase } = auth;
+    const { supabase, user } = auth;
 
     const { error } = await supabase
       .from("accounts")
       .update({ archived_at: new Date().toISOString() })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("user_id", user.id); // defense-in-depth — RLS already enforces this
 
     if (error) {
       return err(
@@ -169,12 +171,13 @@ export async function unarchiveAccount(id: string): Promise<Result<void>> {
   try {
     const auth = await requireUser();
     if (!auth) return err(ErrorCode.AccountArchiveFailed, "Not authenticated");
-    const { supabase } = auth;
+    const { supabase, user } = auth;
 
     const { error } = await supabase
       .from("accounts")
       .update({ archived_at: null })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("user_id", user.id); // defense-in-depth — RLS already enforces this
 
     if (error) {
       return err(
@@ -269,24 +272,24 @@ export async function createInternalTransfer(
 export async function createExternalTransfer(
   formData: FormData,
 ): Promise<Result<void>> {
-  const raw = Object.fromEntries(formData);
-  const parsed = externalTransferSchema.safeParse(raw);
-
-  if (!parsed.success) {
-    const first = parsed.error.issues[0];
-    return err(
-      ErrorCode.TransferCreateFailed,
-      first?.message ?? "Invalid transfer data",
-      String(first?.path[0] ?? ""),
-    );
-  }
-
-  const amountMinor = Math.round(parseFloat(parsed.data.amount) * 100);
-
   try {
-    const auth = await requireUser();
+    const auth = await requireUser(); // requireUser FIRST (§9)
     if (!auth) return err(ErrorCode.TransferCreateFailed, "Not authenticated");
     const { supabase } = auth;
+
+    const raw = Object.fromEntries(formData);
+    const parsed = externalTransferSchema.safeParse(raw);
+
+    if (!parsed.success) {
+      const first = parsed.error.issues[0];
+      return err(
+        ErrorCode.TransferCreateFailed,
+        first?.message ?? "Invalid transfer data",
+        String(first?.path[0] ?? ""),
+      );
+    }
+
+    const amountMinor = Math.round(parseFloat(parsed.data.amount) * 100);
 
     const { error } = await supabase.rpc("rpc_external_transfer", {
       p_account_id: parsed.data.account_id,

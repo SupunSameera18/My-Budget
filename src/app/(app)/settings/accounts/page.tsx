@@ -9,10 +9,13 @@ type AccountWithCount = Account & { transactions: { count: number }[] };
 
 export default async function AccountsPage() {
   const supabase = await createClient();
+  const { data: authData } = await supabase.auth.getUser();
+  const userId = authData.user?.id ?? "";
 
   const { data: activeRaw } = await supabase
     .from("accounts")
     .select("*, transactions(count)")
+    .eq("user_id", userId) // defense-in-depth — RLS already enforces this
     .is("archived_at", null)
     .order("created_at", { ascending: true });
 
@@ -26,6 +29,7 @@ export default async function AccountsPage() {
   const { data: archivedRaw } = await supabase
     .from("accounts")
     .select("*, transactions(count)")
+    .eq("user_id", userId) // defense-in-depth — RLS already enforces this
     .not("archived_at", "is", null)
     .order("archived_at", { ascending: false });
 

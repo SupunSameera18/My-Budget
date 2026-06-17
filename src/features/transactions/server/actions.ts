@@ -14,6 +14,7 @@ import {
   type TransactionListFilters,
   type TransactionListData,
   type TransactionListItem,
+  transactionDefaultsSchema,
 } from "@/features/transactions/schema";
 import { z } from "zod";
 import { getAccounts } from "@/features/accounts/server/actions";
@@ -21,6 +22,7 @@ import { currentMonthBoundaries } from "@/lib/period";
 import { dedupeRecentNotes } from "@/lib/note-suggestions";
 import type { MacroWithTarget } from "@/features/macros/schema";
 import { splitTransaction as computeSplit } from "@/lib/money/split";
+import { getServerPostHogKey } from "@/lib/analytics/server-posthog";
 
 export async function getTransactionFormData(): Promise<
   Result<TransactionFormData>
@@ -259,7 +261,7 @@ export async function logTransaction(
         );
     }
 
-    const posthogKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+    const posthogKey = getServerPostHogKey();
     if (posthogKey) {
       const posthogHost =
         process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com";
@@ -746,9 +748,17 @@ export async function saveTransactionDefaults(
       return err(ErrorCode.TransactionDefaultsSaveFailed, "Not authenticated");
     const { supabase, user } = auth;
 
+    const parsed = transactionDefaultsSchema.safeParse(defaults);
+    if (!parsed.success) {
+      return err(
+        ErrorCode.TransactionDefaultsSaveFailed,
+        "Invalid transaction defaults",
+      );
+    }
+
     const { error } = await supabase
       .from("profiles")
-      .update({ transaction_defaults: defaults })
+      .update({ transaction_defaults: parsed.data })
       .eq("user_id", user.id); // explicit user_id filter (§9 defense-in-depth)
 
     if (error)
