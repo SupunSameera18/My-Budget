@@ -672,8 +672,7 @@ export async function getTransactionList(
         (row.categories as unknown as { name: string; type: string } | null)
           ?.name ?? "[deleted]",
       subcategory_name:
-        (row.subcategories as unknown as { name: string } | null)?.name ??
-        null,
+        (row.subcategories as unknown as { name: string } | null)?.name ?? null,
     }));
 
     // Accounts for filter dropdown

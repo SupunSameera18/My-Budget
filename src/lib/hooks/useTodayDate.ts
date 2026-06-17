@@ -10,11 +10,8 @@ export function useTodayDate(): string {
   useEffect(() => {
     const now = new Date();
     const msUntilMidnight =
-      new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate() + 1,
-      ).getTime() - now.getTime();
+      new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() -
+      now.getTime();
 
     const timer = setTimeout(() => {
       setToday(getToday());

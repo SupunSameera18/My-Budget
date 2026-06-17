@@ -88,7 +88,9 @@ describe("JoinFamilyForm — confirmation dialog", () => {
     // Wait for dialog AND for the cancel button to be enabled (transition done)
     await waitFor(() => {
       expect(screen.getByRole("dialog")).not.toHaveAttribute("hidden");
-      expect(screen.getByRole("button", { name: /cancel/i })).not.toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: /cancel/i }),
+      ).not.toBeDisabled();
     });
 
     fireEvent.click(screen.getByRole("button", { name: /cancel/i }));

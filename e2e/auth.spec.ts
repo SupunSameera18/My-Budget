@@ -155,11 +155,16 @@ test.describe("OAuth flows", () => {
     await page.goto(
       "/auth/callback?error=access_denied&error_description=User+cancelled",
     );
-    // Should redirect to login or show an error on the current page
+    // Should redirect to login or show an error on the current page.
+    // Filter the alert role to exclude the always-present Next.js route announcer.
     await expect(
       page
         .getByText(/access denied|error|failed|cancelled/i)
-        .or(page.getByRole("alert")),
+        .or(
+          page
+            .getByRole("alert")
+            .filter({ hasText: /access denied|error|failed|cancelled/i }),
+        ),
     ).toBeVisible({ timeout: 5000 });
   });
 });

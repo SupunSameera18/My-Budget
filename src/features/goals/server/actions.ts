@@ -384,8 +384,7 @@ export async function deleteGoalContributionSet(
 export async function reclassifyGoal(formData: FormData): Promise<Result> {
   try {
     const auth = await requireUser();
-    if (!auth)
-      return err(ErrorCode.ReclassifyGoalFailed, "Not authenticated");
+    if (!auth) return err(ErrorCode.ReclassifyGoalFailed, "Not authenticated");
     const { supabase } = auth;
 
     const raw = {

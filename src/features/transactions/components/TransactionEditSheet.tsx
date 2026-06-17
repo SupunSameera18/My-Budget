@@ -601,9 +601,7 @@ export function TransactionEditSheet({
                       Reclassified to Personal
                     </span>
                   ) : entry.change_type === "macro_apply" ? (
-                    <span className="text-ink-secondary">
-                      Created by macro
-                    </span>
+                    <span className="text-ink-secondary">Created by macro</span>
                   ) : (
                     <span className="text-ink-secondary">
                       {Object.keys(entry.changed_fields).length > 0
