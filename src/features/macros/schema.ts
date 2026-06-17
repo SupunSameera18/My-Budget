@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { moneyDisplaySchema } from "@/lib/money/amount-schema";
 
 export const createMacroSchema = z
   .object({
@@ -7,13 +8,7 @@ export const createMacroSchema = z
       .min(1, "Name is required")
       .max(100, "Name must be 100 characters or fewer")
       .trim(),
-    amount_display: z
-      .string()
-      .min(1, "Amount is required")
-      .regex(
-        /^\d+(\.\d{1,2})?$/,
-        "Must be a valid decimal amount (e.g. 10.00)",
-      ),
+    amount_display: moneyDisplaySchema,
     category_id: z.string().uuid("Category is required"),
     target_type: z.enum(["account", "goal"]),
     account_id: z.string().uuid().nullable().optional(),
@@ -44,13 +39,7 @@ export const updateMacroSchema = z
       .min(1, "Name is required")
       .max(100, "Name must be 100 characters or fewer")
       .trim(),
-    amount_display: z
-      .string()
-      .min(1, "Amount is required")
-      .regex(
-        /^\d+(\.\d{1,2})?$/,
-        "Must be a valid decimal amount (e.g. 10.00)",
-      ),
+    amount_display: moneyDisplaySchema,
     category_id: z.string().uuid("Category is required"),
     target_type: z.enum(["account", "goal"]),
     account_id: z.string().uuid().nullable().optional(),

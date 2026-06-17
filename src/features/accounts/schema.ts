@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { moneyDisplaySchema } from "@/lib/money/amount-schema";
 
 export const ACCOUNT_TYPES = ["cash", "bank", "savings"] as const;
 export type AccountType = (typeof ACCOUNT_TYPES)[number];
@@ -16,11 +17,7 @@ export const createAccountSchema = z.object({
     .max(50, "Name must be 50 characters or fewer")
     .trim(),
   type: z.enum(ACCOUNT_TYPES),
-  openingBalance: z
-    .string()
-    .trim()
-    .regex(/^\d+(\.\d{0,2})?$/, "Enter a valid amount (e.g. 100.00)")
-    .default("0"),
+  openingBalance: moneyDisplaySchema.default("0"),
 });
 
 export type CreateAccountInput = z.infer<typeof createAccountSchema>;
@@ -40,12 +37,11 @@ export const internalTransferSchema = z
   .object({
     from_account_id: z.string().uuid("Select a source account"),
     to_account_id: z.string().uuid("Select a destination account"),
-    amount: z
-      .string()
-      .trim()
-      .regex(/^\d+(\.\d{0,2})?$/, "Enter a valid amount (e.g. 100.00)")
-      .refine((v) => parseFloat(v) > 0, "Amount must be greater than 0"),
-    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a valid date"),
+    amount: moneyDisplaySchema.refine(
+      (v) => parseFloat(v) > 0,
+      "Amount must be greater than 0",
+    ),
+    date: z.string().date("Enter a valid date"),
     note: z
       .string()
       .max(255, "Note must be 255 characters or fewer")
@@ -64,12 +60,11 @@ export type TransferDirection = (typeof TRANSFER_DIRECTIONS)[number];
 export const externalTransferSchema = z.object({
   account_id: z.string().uuid("Select an account"),
   direction: z.enum(["in", "out"], { message: "Select a direction" }),
-  amount: z
-    .string()
-    .trim()
-    .regex(/^\d+(\.\d{0,2})?$/, "Enter a valid amount (e.g. 100.00)")
-    .refine((v) => parseFloat(v) > 0, "Amount must be greater than 0"),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter a valid date"),
+  amount: moneyDisplaySchema.refine(
+    (v) => parseFloat(v) > 0,
+    "Amount must be greater than 0",
+  ),
+  date: z.string().date("Enter a valid date"),
   note: z.string().max(255, "Note must be 255 characters or fewer").optional(),
 });
 
