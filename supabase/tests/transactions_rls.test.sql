@@ -1,6 +1,6 @@
 -- pgTAP test: transactions table structure and RLS enforcement (SELECT + INSERT + UPDATE + DELETE denied by privilege)
 begin;
-select plan(12);
+select plan(13);
 
 -- ── 1. Table exists ──────────────────────────────────────────────────────────
 select has_table('public', 'transactions', 'transactions table exists in public schema');
@@ -101,7 +101,22 @@ with ins as (
 select ok(count(*) = 1, 'owner (user1) can insert a transaction for themselves')
 from ins;
 
--- ── 7. Cross-user INSERT is blocked ──────────────────────────────────────────
+-- ── 7. Pre-condition: user2 has seeded accounts and categories ───────────────
+-- Proves the cross-user INSERT test below is non-vacuous: user2's account/category
+-- exist, so the only reason the INSERT fails is the WITH CHECK RLS violation, not
+-- a missing FK. [Task 9 — split conflated cross-user INSERT assertion, story 3-3]
+set local role postgres;
+select ok(
+  (select count(*) > 0 from public.accounts
+   where user_id = 'ffffffff-ffff-ffff-ffff-ffffffffffff')
+  AND
+  (select count(*) > 0 from public.categories
+   where user_id = 'ffffffff-ffff-ffff-ffff-ffffffffffff'),
+  'user2 has accounts and categories seeded (pre-condition for cross-user INSERT test)'
+);
+set local role authenticated;
+
+-- ── 8. Cross-user INSERT is blocked ──────────────────────────────────────────
 select throws_ok(
   $$ insert into public.transactions (user_id, account_id, category_id, amount_minor, date, type)
      values (
@@ -115,7 +130,7 @@ select throws_ok(
   'user1 cannot insert a transaction for user2 (INSERT RLS enforced)'
 );
 
--- ── 8. Owner can UPDATE their own transaction ─────────────────────────────────
+-- ── 9. Owner can UPDATE their own transaction ─────────────────────────────────
 with upd as (
   update public.transactions
   set note = 'Updated note'
@@ -126,7 +141,7 @@ with upd as (
 select ok(count(*) = 1, 'owner (user1) can update their own transaction')
 from upd;
 
--- ── 9. Pre-condition: user2 has transactions (prevents vacuous pass in cross-user UPDATE) ─
+-- ── 10. Pre-condition: user2 has transactions (prevents vacuous pass in cross-user UPDATE) ─
 set local role postgres;
 select ok(
   (select count(*) > 0 from public.transactions
@@ -136,7 +151,7 @@ select ok(
 set local role authenticated;
 
 -- Note: cross-user UPDATE test verifies that UPDATE affects 0 rows (RLS blocks).
--- Combined with test 9 (pre-condition proves rows exist), a count of 0 is not vacuous.
+-- Combined with test 10 (pre-condition proves rows exist), a count of 0 is not vacuous.
 with upd as (
   update public.transactions
   set note = 'Hacked'
@@ -146,7 +161,7 @@ with upd as (
 select ok(count(*) = 0, 'user1 cannot update user2 transactions (UPDATE RLS enforced)')
 from upd;
 
--- ── 11. Pre-condition: user1 has transactions (anti-vacuous guard for DELETE test) ─
+-- ── 12. Pre-condition: user1 has transactions (anti-vacuous guard for DELETE test) ─
 -- Switch to postgres so the privilege-revoked authenticated role does not block the count.
 set local role postgres;
 select ok(
@@ -156,7 +171,7 @@ select ok(
 );
 set local role authenticated;
 
--- ── 12. DELETE is forbidden — privilege revoked from authenticated role ─────────────
+-- ── 13. DELETE is forbidden — privilege revoked from authenticated role ─────────────
 -- Migration 0008 revoked DELETE from anon/authenticated at the table-privilege level.
 -- Unlike the old RLS-only posture (0 rows silently), the privilege denial now raises 42501.
 select throws_ok(

@@ -9,7 +9,10 @@ test.describe("PDF export", () => {
     "PLAYWRIGHT_AUTH_EMAIL / PLAYWRIGHT_AUTH_PASSWORD not set",
   );
 
-  test("PDF export downloads a non-empty file", async ({ page }) => {
+  test("PDF export downloads a file with valid PDF magic bytes", async ({
+    page,
+  }) => {
+    // [6-6b] ExportPdf success + magic bytes verification
     await page.goto("/auth/login");
     await page.getByLabel(/email/i).fill(TEST_EMAIL);
     await page.getByLabel(/password/i).fill(TEST_PASSWORD);
@@ -29,10 +32,15 @@ test.describe("PDF export", () => {
 
     // Verify non-zero-byte file
     const stream = await download.createReadStream();
-    let size = 0;
+    const chunks: Buffer[] = [];
     for await (const chunk of stream) {
-      size += (chunk as Buffer).length;
+      chunks.push(chunk as Buffer);
     }
-    expect(size).toBeGreaterThan(0);
+    const buf = Buffer.concat(chunks);
+    expect(buf.length).toBeGreaterThan(0);
+
+    // Verify PDF magic bytes: every valid PDF starts with "%PDF-"
+    // (0x25 0x50 0x44 0x46 0x2D)
+    expect(buf.slice(0, 5).toString("ascii")).toBe("%PDF-");
   });
 });

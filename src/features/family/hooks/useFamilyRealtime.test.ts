@@ -91,4 +91,52 @@ describe("useFamilyRealtime", () => {
     );
     warnSpy.mockRestore();
   });
+
+  it("non-error status (SUBSCRIBED) does not log a warning", () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    renderHook(() => useFamilyRealtime("test-family-id"));
+
+    const statusCallback = mockSubscribe.mock.calls[0][0] as (
+      status: string,
+    ) => void;
+    act(() => {
+      statusCallback("SUBSCRIBED");
+    });
+
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it("stale-data guard: changing familyUnitId tears down old channel and subscribes to new one", () => {
+    const { rerender } = renderHook(
+      ({ id }: { id: string | null }) => useFamilyRealtime(id),
+      { initialProps: { id: "family-id-1" as string | null } },
+    );
+
+    expect(mockChannelFactory).toHaveBeenCalledTimes(1);
+    expect(mockChannelFactory).toHaveBeenCalledWith("family:family-id-1");
+
+    // Rerender with a new family ID (simulates partner switching family unit)
+    rerender({ id: "family-id-2" });
+
+    // Old channel should be removed
+    expect(mockRemoveChannel).toHaveBeenCalledWith(mockChannel);
+    // New channel should be created
+    expect(mockChannelFactory).toHaveBeenCalledWith("family:family-id-2");
+    expect(mockChannelFactory).toHaveBeenCalledTimes(2);
+  });
+
+  it("no-leak: switching to null familyUnitId removes the existing channel", () => {
+    const { rerender } = renderHook(
+      ({ id }: { id: string | null }) => useFamilyRealtime(id),
+      { initialProps: { id: "family-id-1" as string | null } },
+    );
+
+    // Transition to null (family dissolved or user not in family)
+    rerender({ id: null });
+
+    expect(mockRemoveChannel).toHaveBeenCalledWith(mockChannel);
+    // No new channel created for null
+    expect(mockChannelFactory).toHaveBeenCalledTimes(1);
+  });
 });

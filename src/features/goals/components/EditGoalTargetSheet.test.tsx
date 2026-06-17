@@ -91,4 +91,78 @@ describe("EditGoalTargetSheet", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     expect(onOpenChange).not.toHaveBeenCalled();
   });
+
+  it("successful submit calls onOpenChange(false)", async () => {
+    const onOpenChange = vi.fn();
+    render(
+      <EditGoalTargetSheet {...defaultProps} onOpenChange={onOpenChange} />,
+    );
+    await act(async () => {
+      fireEvent.submit(document.querySelector("form")!);
+    });
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("failed submit shows error status message without closing", async () => {
+    const onOpenChange = vi.fn();
+    (editGoalTarget as Mock).mockResolvedValue({
+      ok: false,
+      error: { message: "Target must be greater than current balance" },
+    });
+    render(
+      <EditGoalTargetSheet {...defaultProps} onOpenChange={onOpenChange} />,
+    );
+    await act(async () => {
+      fireEvent.submit(document.querySelector("form")!);
+    });
+    // Text appears in both the SR-only ARIA live region and the visible error paragraph.
+    // Use getAllByText to handle the multiple-element case.
+    const errorEls = screen.getAllByText(
+      /target must be greater than current balance/i,
+    );
+    expect(errorEls.length).toBeGreaterThan(0);
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+  });
+
+  it("status message is cleared at the start of a new submission", async () => {
+    (editGoalTarget as Mock)
+      .mockResolvedValueOnce({
+        ok: false,
+        error: { message: "First attempt failed" },
+      })
+      .mockResolvedValueOnce({ ok: true });
+    render(<EditGoalTargetSheet {...defaultProps} />);
+    // First submission: error appears (may be in SR-only + visible p)
+    await act(async () => {
+      fireEvent.submit(document.querySelector("form")!);
+    });
+    expect(screen.getAllByText(/first attempt failed/i).length).toBeGreaterThan(
+      0,
+    );
+    // Second submission: statusMessage is reset to "" — visible p is gone, SR-only is empty
+    await act(async () => {
+      fireEvent.submit(document.querySelector("form")!);
+    });
+    expect(screen.queryAllByText(/first attempt failed/i).length).toBe(0);
+  });
+
+  it("Cancel button calls onOpenChange(false)", () => {
+    const onOpenChange = vi.fn();
+    render(
+      <EditGoalTargetSheet {...defaultProps} onOpenChange={onOpenChange} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("backdrop click calls onOpenChange(false) when not submitting", () => {
+    const onOpenChange = vi.fn();
+    render(
+      <EditGoalTargetSheet {...defaultProps} onOpenChange={onOpenChange} />,
+    );
+    // The backdrop is the aria-hidden div immediately before the dialog
+    const backdrop = document.querySelector('[aria-hidden="true"]') as Element;
+    fireEvent.click(backdrop);
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
 });

@@ -114,6 +114,7 @@ BEGIN
     JOIN public.budgets  b ON b.id = bte.budget_id
     JOIN public.profiles p ON p.user_id = bte.user_id
     WHERE bte.processed_at IS NULL
+      AND bte.budget_limit_minor > 0  -- skip stale pre-0042 rows with DEFAULT 0
     FOR UPDATE OF bte SKIP LOCKED
   LOOP
     BEGIN
