@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import { getNotifications } from "@/features/notifications/server/actions";
+
+export const metadata: Metadata = { title: "Notifications" };
 import { NotificationList } from "@/features/notifications/components/NotificationList";
 import { PushSubscriptionToggle } from "@/features/notifications/components/PushSubscriptionToggle";
 import { IosInstallNudge } from "@/features/notifications/components/IosInstallNudge";

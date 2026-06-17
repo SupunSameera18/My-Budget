@@ -1,5 +1,8 @@
 import { ProgressBar } from "@/components/ui/ProgressBar";
-import type { HealthScoreResult } from "@/lib/money/health-score";
+import {
+  MAX_CONFIDENCE_PCT,
+  type HealthScoreResult,
+} from "@/lib/money/health-score";
 
 interface HealthScoreDisplayProps {
   result: HealthScoreResult | null;
@@ -37,7 +40,7 @@ export function HealthScoreDisplay({ result }: HealthScoreDisplayProps) {
       </div>
       <div className="mt-3">
         <ProgressBar
-          pctUsed={hasEnoughData ? (confidencePercent / 74) * 100 : 0}
+          pctUsed={hasEnoughData ? (confidencePercent / MAX_CONFIDENCE_PCT) * 100 : 0}
           noAmber={true}
           ariaLabel="Score confidence"
         />

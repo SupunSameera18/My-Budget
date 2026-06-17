@@ -1,3 +1,5 @@
+export const MAX_CONFIDENCE_PCT = 74;
+
 export type HealthScoreInput = {
   budgetAdherenceRate: number | null;
   cushionRate: number | null;
@@ -59,7 +61,9 @@ export function computeHealthScore(input: HealthScoreInput): HealthScoreResult {
     score = Math.min(100, Math.max(0, Math.floor(weightedSum + 0.5)));
   }
 
-  const confidencePercent = Math.floor(Math.min(transactionCount / 30, 1) * 74);
+  const confidencePercent = Math.floor(
+    Math.min(transactionCount / 30, 1) * MAX_CONFIDENCE_PCT,
+  );
   const hasEnoughData = transactionCount >= 30;
 
   return { score, confidencePercent, hasEnoughData };

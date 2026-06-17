@@ -65,7 +65,9 @@ export function GoalCard({
     goal.is_shared &&
     isFamilyMode &&
     (goal.myContributionMinor !== undefined ||
-      goal.partnerContributionMinor !== undefined);
+      goal.partnerContributionMinor !== undefined) &&
+    ((goal.myContributionMinor ?? 0) > 0 ||
+      (goal.partnerContributionMinor ?? 0) > 0);
 
   return (
     <>
@@ -94,7 +96,7 @@ export function GoalCard({
         <div className="mt-1 min-h-[1.5rem]">
           {isMet ? (
             <div className="flex flex-wrap items-center gap-1">
-              <span className="inline-flex items-center rounded-full border-2 border-brand-accent px-3 py-1 text-xs font-semibold text-brand-accent-strong">
+              <span className="inline-flex items-center rounded-full border-2 border-brand-accent px-3 py-1 text-xs font-semibold text-brand-accent">
                 Met!
               </span>
               {hasSurplus && (

@@ -126,6 +126,11 @@ export function ContributionAnalysis({ initialData, isFamilyMode }: Props) {
           )}
         </div>
 
+        {period === "this-month" && !isEmpty && (
+          <p className="mb-2 text-xs text-ink-secondary">
+            Partial month — updates as you log.
+          </p>
+        )}
         {isEmpty ? (
           <EmptyState
             heading="No shared expenses"

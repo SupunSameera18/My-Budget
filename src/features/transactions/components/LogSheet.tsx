@@ -11,6 +11,7 @@ import { getDefaultNotePrompt } from "@/lib/note-suggestions";
 import { parseAmountMinor } from "@/lib/money/parse-minor";
 import { OfflineRetryBanner } from "@/components/feedback/OfflineRetryBanner";
 import { useOnlineStatus } from "@/lib/hooks/useOnlineStatus";
+import { useTodayDate } from "@/lib/hooks/useTodayDate";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Account } from "@/features/accounts/schema";
@@ -54,15 +55,14 @@ export function LogSheet({
   const [isPending, startTransition] = useTransition();
   const [appError, setAppError] = useState<AppError | null>(null);
   const isOnline = useOnlineStatus();
+  const today = useTodayDate();
 
   const [step, setStep] = useState<1 | 2>(1);
   const [amountDisplay, setAmountDisplay] = useState("0");
   const [selectedAccountId, setSelectedAccountId] = useState(
     defaultAccountId ?? accounts[0]?.id ?? "",
   );
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toLocaleDateString("en-CA"),
-  );
+  const [selectedDate, setSelectedDate] = useState(today);
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [selectedSubcategoryId, setSelectedSubcategoryId] = useState("");
   const [note, setNote] = useState("");
@@ -193,6 +193,14 @@ export function LogSheet({
           selectedCategoryType,
         )
       : null;
+
+  if (accounts.length === 0) {
+    return (
+      <p className="text-sm text-ink-secondary">
+        Add an account before logging a transaction.
+      </p>
+    );
+  }
 
   if (step === 1) {
     return (

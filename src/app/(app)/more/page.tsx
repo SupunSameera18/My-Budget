@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import { requireUser } from "@/lib/supabase/require-user";
+
+export const metadata: Metadata = { title: "More" };
 import { signOut } from "@/features/auth/server/actions";
 import {
   BarChart2,

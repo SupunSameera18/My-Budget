@@ -163,6 +163,7 @@ export function JoinFamilyForm() {
           </p>
           <div className="flex gap-3">
             <button
+              type="button"
               onClick={handleConfirm}
               disabled={isPending}
               aria-disabled={isPending || undefined}
@@ -171,6 +172,7 @@ export function JoinFamilyForm() {
               {isPending ? "Joining…" : "Join family"}
             </button>
             <button
+              type="button"
               onClick={() => setShowConfirmation(false)}
               disabled={isPending}
               aria-disabled={isPending || undefined}

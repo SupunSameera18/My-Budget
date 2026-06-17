@@ -2,6 +2,8 @@ import { z } from "zod";
 
 export type Scope = "personal" | "shared" | "combined";
 
+export const VALID_SCOPES: Scope[] = ["personal", "shared", "combined"];
+
 export type ExportRow = {
   date: string; // "YYYY-MM-DD"
   amount: string; // decimal string, e.g. "50.00" (always positive)

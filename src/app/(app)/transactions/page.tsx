@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
+
+export const metadata: Metadata = { title: "Transactions" };
 import { z } from "zod";
 import { TransactionFilters } from "@/features/transactions/components/TransactionFilters";
 import { TransactionTable } from "@/features/transactions/components/TransactionTable";
@@ -6,8 +9,7 @@ import { getTransactionList } from "@/features/transactions/server/actions";
 import { getFamilyStatus } from "@/features/family/server/actions";
 import type { TransactionListFilters } from "@/features/transactions/schema";
 import type { Scope } from "@/features/analytics/schema";
-
-const VALID_SCOPES: Scope[] = ["personal", "shared", "combined"];
+import { VALID_SCOPES } from "@/features/analytics/schema";
 
 export default async function TransactionsPage({
   searchParams,

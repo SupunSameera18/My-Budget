@@ -20,6 +20,12 @@ export default function manifest(): MetadataRoute.Manifest {
         purpose: "any",
       },
       {
+        src: "/icons/icon-maskable.svg",
+        sizes: "any",
+        type: "image/svg+xml",
+        purpose: "maskable",
+      },
+      {
         src: "/icons/icon-512x512.png",
         sizes: "512x512",
         type: "image/png",
