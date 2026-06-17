@@ -21,6 +21,7 @@ export function ChartPreferencesForm({
   const [statusMsg, setStatusMsg] = useState("");
 
   const handleToggle = (key: ChartTypeKey) => {
+    if (isPending) return;
     const prevPrefs = prefs;
     const newPrefs: ChartPreferences = {
       ...prefs,

@@ -8,6 +8,7 @@ import {
   updateMacroSchema,
   type MacroWithTarget,
 } from "@/features/macros/schema";
+import { parseAmountMinor } from "@/lib/money/parse-minor";
 
 export async function createMacro(
   formData: FormData,
@@ -30,7 +31,7 @@ export async function createMacro(
     return err(ErrorCode.MacroCreateFailed, parsed.error.issues[0].message);
   }
 
-  const amountMinor = Math.round(parseFloat(parsed.data.amount_display) * 100);
+  const amountMinor = parseAmountMinor(parsed.data.amount_display);
   if (amountMinor <= 0) {
     return err(ErrorCode.MacroCreateFailed, "Amount must be greater than zero");
   }
@@ -86,7 +87,7 @@ export async function updateMacro(
     return err(ErrorCode.MacroUpdateFailed, parsed.error.issues[0].message);
   }
 
-  const amountMinor = Math.round(parseFloat(parsed.data.amount_display) * 100);
+  const amountMinor = parseAmountMinor(parsed.data.amount_display);
   if (amountMinor <= 0) {
     return err(ErrorCode.MacroUpdateFailed, "Amount must be greater than zero");
   }

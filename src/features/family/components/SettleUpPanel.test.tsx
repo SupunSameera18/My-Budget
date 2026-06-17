@@ -118,10 +118,10 @@ describe("SettleUpPanel", () => {
     expect(live).toHaveAttribute("aria-live", "polite");
   });
 
-  it("button has aria-disabled='false' when tally is non-zero and not pending", () => {
+  it("button has no aria-disabled when tally is non-zero and not pending", () => {
     renderPanel({ tally: 5000 });
     const btn = screen.getByRole("button", { name: /mark as settled/i });
-    expect(btn).toHaveAttribute("aria-disabled", "false");
+    expect(btn).not.toHaveAttribute("aria-disabled");
   });
 
   it("button has aria-disabled='true' and is html-disabled when isPending", () => {

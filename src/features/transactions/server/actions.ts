@@ -17,6 +17,7 @@ import {
   transactionDefaultsSchema,
 } from "@/features/transactions/schema";
 import { z } from "zod";
+import { parseAmountMinor } from "@/lib/money/parse-minor";
 import { getAccounts } from "@/features/accounts/server/actions";
 import { currentMonthBoundaries } from "@/lib/period";
 import { dedupeRecentNotes } from "@/lib/note-suggestions";
@@ -183,7 +184,7 @@ export async function logTransaction(
     );
   }
 
-  const amountMinor = Math.round(parseFloat(parsed.data.amount_display) * 100);
+  const amountMinor = parseAmountMinor(parsed.data.amount_display);
 
   const subcategoryId =
     parsed.data.subcategory_id && parsed.data.subcategory_id !== ""
@@ -677,10 +678,11 @@ export async function getTransactionList(
       is_shared: row.is_shared ?? false,
       created_at: row.created_at,
       account_name:
-        (row.accounts as unknown as { name: string } | null)?.name ?? "Unknown",
+        (row.accounts as unknown as { name: string } | null)?.name ??
+        "[deleted]",
       category_name:
         (row.categories as unknown as { name: string; type: string } | null)
-          ?.name ?? "Unknown",
+          ?.name ?? "[deleted]",
     }));
 
     // Accounts for filter dropdown

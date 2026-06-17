@@ -254,7 +254,8 @@ export async function getUserAccountsForReconciliation(): Promise<Array<{
   }
 }
 
-// Calls rpc_reconciliation_adjustment for each account with a non-zero delta.
+// Atomically applies all reconciliation adjustments via rpc_close_month_adjustments.
+// The single RPC call wraps all INSERTs in one transaction (all-or-nothing).
 // Fires PostHog `reconciliation_completed` event on success.
 export async function closeMonth(
   familyUnitId: string,
@@ -269,16 +270,17 @@ export async function closeMonth(
 
   const nonZero = adjustments.filter((a) => a.deltaMinor !== 0);
 
-  for (const adj of nonZero) {
-    const { error } = await auth.supabase.rpc("rpc_reconciliation_adjustment", {
-      p_family_unit_id: familyUnitId,
-      p_account_id: adj.accountId,
-      p_delta_minor: adj.deltaMinor,
-      p_note: adj.note ?? null,
-      p_transaction_id: null,
-    });
-    if (error) return err(ErrorCode.ReconciliationFailed, error.message);
-  }
+  if (nonZero.length === 0) return ok({ adjustmentCount: 0 });
+
+  const { error } = await auth.supabase.rpc("rpc_close_month_adjustments", {
+    p_family_unit_id: familyUnitId,
+    p_adjustments: nonZero.map((a) => ({
+      account_id: a.accountId,
+      delta_minor: a.deltaMinor,
+      note: a.note ?? null,
+    })),
+  });
+  if (error) return err(ErrorCode.ReconciliationFailed, error.message);
 
   // PostHog: reconciliation_completed (non-fatal, feeds SM-5)
   fetch("https://app.posthog.com/capture/", {

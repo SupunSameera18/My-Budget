@@ -8,6 +8,7 @@ import {
 } from "@/features/transactions/server/actions";
 import { applyMacro } from "@/features/macros/server/actions";
 import { getDefaultNotePrompt } from "@/lib/note-suggestions";
+import { parseAmountMinor } from "@/lib/money/parse-minor";
 import { OfflineRetryBanner } from "@/components/feedback/OfflineRetryBanner";
 import { useOnlineStatus } from "@/lib/hooks/useOnlineStatus";
 import { Button } from "@/components/ui/button";
@@ -74,7 +75,7 @@ export function LogSheet({
   const amountMinor =
     amountDisplay === "0" || amountDisplay === "" || amountDisplay === "0."
       ? 0
-      : Math.round(parseFloat(amountDisplay) * 100);
+      : parseAmountMinor(amountDisplay);
 
   const expenseCategories = categories.filter((c) => c.type === "expense");
   const incomeCategories = categories.filter((c) => c.type === "income");

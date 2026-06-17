@@ -11,6 +11,7 @@ import {
   externalTransferSchema,
   type Account,
 } from "@/features/accounts/schema";
+import { parseAmountMinor } from "@/lib/money/parse-minor";
 
 export async function createAccount(
   formData: FormData,
@@ -234,7 +235,7 @@ export async function createInternalTransfer(
     );
   }
 
-  const amountMinor = Math.round(parseFloat(parsed.data.amount) * 100);
+  const amountMinor = parseAmountMinor(parsed.data.amount);
 
   try {
     const auth = await requireUser();
@@ -289,7 +290,7 @@ export async function createExternalTransfer(
       );
     }
 
-    const amountMinor = Math.round(parseFloat(parsed.data.amount) * 100);
+    const amountMinor = parseAmountMinor(parsed.data.amount);
 
     const { error } = await supabase.rpc("rpc_external_transfer", {
       p_account_id: parsed.data.account_id,

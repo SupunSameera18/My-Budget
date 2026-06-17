@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseAmountMinor } from "@/lib/money/parse-minor";
 
 export const BUDGET_PERIOD_TYPES = [
   "weekly",
@@ -19,7 +20,7 @@ export const createBudgetSchema = z
       .string()
       .trim()
       .regex(/^\d+(\.\d{0,2})?$/, "Enter a valid amount (e.g. 50.00)")
-      .refine((v) => Math.round(parseFloat(v) * 100) >= 1, {
+      .refine((v) => parseAmountMinor(v) >= 1, {
         message: "Amount must be greater than zero",
       }),
     period_type: z.enum(BUDGET_PERIOD_TYPES, {

@@ -39,6 +39,7 @@ export function TransactionDefaultsForm({
     defaults.defaultSplitMethod ?? "equal";
 
   function handleTypeChange(value: DefaultType) {
+    if (isPending) return;
     const prev = defaults;
     const next: TransactionDefaults = { ...defaults, defaultType: value };
     setDefaults(next);
@@ -55,6 +56,7 @@ export function TransactionDefaultsForm({
   }
 
   function handleSplitChange(value: DefaultSplitMethod) {
+    if (isPending) return;
     const prev = defaults;
     const next: TransactionDefaults = {
       ...defaults,
@@ -101,7 +103,7 @@ export function TransactionDefaultsForm({
                 type="button"
                 role="radio"
                 aria-checked={currentType === opt.value}
-                aria-disabled={isPending}
+                aria-disabled={isPending ? "true" : undefined}
                 disabled={isPending}
                 onClick={() => handleTypeChange(opt.value)}
                 className={`min-h-[44px] flex-1 rounded-md text-sm font-medium transition-colors ${
@@ -132,7 +134,7 @@ export function TransactionDefaultsForm({
                 type="button"
                 role="radio"
                 aria-checked={currentSplit === opt.value}
-                aria-disabled={isPending}
+                aria-disabled={isPending ? "true" : undefined}
                 disabled={isPending}
                 onClick={() => handleSplitChange(opt.value)}
                 className={`min-h-[44px] flex-1 rounded-md text-sm font-medium transition-colors ${
