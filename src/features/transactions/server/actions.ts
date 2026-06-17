@@ -430,35 +430,23 @@ export async function getTransaction(
       subcategories = subcatsData ?? [];
     }
 
-    // Non-fatally fetch family status: partner name + partner join_date for reclassify UI
+    // Non-fatally fetch family status in one RPC call.
+    // rpc_get_family_status (migration 0057) now returns partner_join_date directly,
+    // eliminating the previous 3-round-trip N+1 (7-8 D1 deferral).
     let partnerName: string | undefined;
     let isFamilyMode = false;
     let partnerJoinDate: string | null = null;
     try {
-      const [{ data: familyStatus }, { data: partnerRow }] = await Promise.all([
-        supabase.rpc("rpc_get_family_status"),
-        supabase
-          .from("family_members")
-          .select("family_unit_id")
-          .eq("user_id", user.id)
-          .maybeSingle(),
-      ]);
+      const { data: familyStatus } = await supabase.rpc(
+        "rpc_get_family_status",
+      );
       const raw = familyStatus as Record<string, unknown>;
       if (raw?.status === "in_family") {
         isFamilyMode = true;
         if (typeof raw?.partner_name === "string") {
           partnerName = raw.partner_name;
         }
-        // Fetch partner join_date (needed for pre-join block UI)
-        if (partnerRow?.family_unit_id) {
-          const { data: partnerMember } = await supabase
-            .from("family_members")
-            .select("join_date")
-            .eq("family_unit_id", partnerRow.family_unit_id)
-            .neq("user_id", user.id)
-            .maybeSingle();
-          partnerJoinDate = partnerMember?.join_date ?? null;
-        }
+        partnerJoinDate = (raw?.partner_join_date as string | null) ?? null;
       }
     } catch {
       // Non-fatal — reclassify controls will be hidden in solo mode

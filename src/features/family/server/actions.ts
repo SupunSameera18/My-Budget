@@ -204,6 +204,7 @@ export async function getFamilyStatus(): Promise<FamilyStatus> {
         partner: {
           displayName: (raw.partner_name as string) || "Your partner",
         },
+        partnerJoinDate: (raw.partner_join_date as string | null) ?? null,
       };
     }
 

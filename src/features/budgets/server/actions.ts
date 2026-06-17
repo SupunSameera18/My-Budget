@@ -65,6 +65,24 @@ export async function getBudgetFormData(): Promise<Result<BudgetFormData>> {
   }
 }
 
+// Lightweight currency fetch — avoids pulling the full categories list
+// that getBudgetFormData() fetches just for the currency field (4-1 deferral).
+export async function getUserCurrency(): Promise<string> {
+  try {
+    const auth = await requireUser();
+    if (!auth) return "USD";
+    const { supabase, user } = auth;
+    const { data } = await supabase
+      .from("profiles")
+      .select("currency")
+      .eq("user_id", user.id)
+      .single();
+    return data?.currency ?? "USD";
+  } catch {
+    return "USD";
+  }
+}
+
 export async function getBudgets(): Promise<Result<BudgetWithActual[]>> {
   try {
     const auth = await requireUser();

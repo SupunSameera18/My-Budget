@@ -1,8 +1,22 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BottomNav } from "@/components/nav/BottomNav";
 import { Sidebar } from "@/components/nav/Sidebar";
 import { getUnreadNotificationCount } from "@/features/notifications/server/actions";
+
+// Memoizes the profile fetch within a single render pass so that any other
+// server component in this layout tree that independently calls getUser() +
+// profiles does not duplicate this query (1-8 performance deferral).
+const getLayoutProfile = cache(async (userId: string) => {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("profiles")
+    .select("onboarding_completed_at")
+    .eq("user_id", userId)
+    .single();
+  return data;
+});
 
 export default async function AppLayout({
   children,
@@ -16,11 +30,7 @@ export default async function AppLayout({
     redirect("/auth/login");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("onboarding_completed_at")
-    .eq("user_id", data.user.id)
-    .single();
+  const profile = await getLayoutProfile(data.user.id);
 
   if (!profile?.onboarding_completed_at) {
     redirect("/onboarding");
