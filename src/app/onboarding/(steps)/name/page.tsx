@@ -25,7 +25,7 @@ export default function NamePage() {
             id="display_name"
             name="display_name"
             type="text"
-            placeholder="e.g. Supun"
+            placeholder="e.g. John"
             maxLength={50}
             required
             autoFocus

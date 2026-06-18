@@ -1,15 +1,16 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { posthog } from "@/lib/analytics/posthog";
 
 export function CompleteClient({ userId }: { userId: string }) {
-  const router = useRouter();
   const firedRef = useRef(false);
 
   useEffect(() => {
-    // Guard against double-fire from React StrictMode (effects run twice in dev)
+    // Guard against double-fire from React StrictMode (effects run twice in dev).
+    // window.location.replace is used instead of router.replace + setTimeout
+    // because React StrictMode cancels the cleanup-cancellable timeout before it
+    // fires, leaving the user stuck on this screen.
     if (firedRef.current) return;
     firedRef.current = true;
 
@@ -18,9 +19,8 @@ export function CompleteClient({ userId }: { userId: string }) {
       { user_id: userId, surface: "onboarding" },
       { send_instantly: true },
     );
-    const t = setTimeout(() => router.replace("/dashboard"), 150);
-    return () => clearTimeout(t);
-  }, [router, userId]);
+    window.location.replace("/dashboard");
+  }, [userId]);
 
   return (
     <div className="flex min-h-dvh items-center justify-center p-8">

@@ -69,6 +69,7 @@ export default async function DashboardPage() {
       <p className="text-xl font-bold text-ink-primary">
         Hi {displayName ?? "there"}!
       </p>
+      {showChecklist && <ChecklistCard />}
       <Suspense fallback={<BreathingRoomSkeleton />}>
         <BreathingRoomCard />
       </Suspense>
@@ -84,7 +85,6 @@ export default async function DashboardPage() {
       <Suspense fallback={<DashboardGoalsSkeleton />}>
         <DashboardGoalsCard />
       </Suspense>
-      {showChecklist && <ChecklistCard />}
     </div>
   );
 }

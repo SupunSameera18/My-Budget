@@ -97,8 +97,6 @@ export function CreateAccountForm() {
           type="text"
           inputMode="decimal"
           placeholder="0.00"
-          pattern="^\d+(\.\d{0,2})?$"
-          defaultValue="0"
           disabled={isPending}
         />
         {appError?.field === "openingBalance" && (
