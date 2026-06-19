@@ -154,47 +154,6 @@ describe("ruleSpendingSpike", () => {
 });
 
 // ---------------------------------------------------------------------------
-// ruleStrongSavings
-// ---------------------------------------------------------------------------
-describe("ruleStrongSavings", () => {
-  it("fires when savings rate is 20% (>= 15% threshold)", () => {
-    const result = computeInsights({
-      ...baseInput,
-      monthlyTotals: [
-        { month: "Jun", Income: 500000, Savings: 100000, Expenses: 400000 },
-      ],
-    });
-    const card = result.find((r) => r.id === "strong-savings");
-    expect(card).toBeDefined();
-    expect(card!.sentiment).toBe("positive");
-    expect(card!.detail).toContain("20%");
-  });
-
-  it("returns null when savings rate is 14% (below 15% threshold)", () => {
-    const result = computeInsights({
-      ...baseInput,
-      monthlyTotals: [
-        { month: "Jun", Income: 500000, Savings: 70000, Expenses: 430000 },
-      ],
-    });
-    expect(result.find((r) => r.id === "strong-savings")).toBeUndefined();
-  });
-
-  it("returns null when Income is 0 (avoid division by zero)", () => {
-    const result = computeInsights({
-      ...baseInput,
-      monthlyTotals: [{ month: "Jun", Income: 0, Savings: 0, Expenses: 0 }],
-    });
-    expect(result.find((r) => r.id === "strong-savings")).toBeUndefined();
-  });
-
-  it("returns null when monthlyTotals is null", () => {
-    const result = computeInsights({ ...baseInput, monthlyTotals: null });
-    expect(result.find((r) => r.id === "strong-savings")).toBeUndefined();
-  });
-});
-
-// ---------------------------------------------------------------------------
 // ruleIncomeUp
 // ---------------------------------------------------------------------------
 describe("ruleIncomeUp", () => {
@@ -290,7 +249,7 @@ describe("computeInsights", () => {
     expect(result).toEqual([]);
   });
 
-  it("returns cards for rules 1, 4, 5 when seed data triggers all three", () => {
+  it("returns cards for all-budgets-on-track and income-up when seed data triggers both", () => {
     const input: InsightRuleInput = {
       currency: "USD",
       budgetPerformance: [
@@ -301,18 +260,12 @@ describe("computeInsights", () => {
         { category: "Groceries", "This Month": 45000, "Last Month": 44000 }, // 2% up — no spike
       ],
       monthlyTotals: [
-        { month: "Jan", Income: 500000, Savings: 50000, Expenses: 450000 },
-        { month: "Feb", Income: 500000, Savings: 50000, Expenses: 450000 },
-        { month: "Mar", Income: 500000, Savings: 50000, Expenses: 450000 },
-        { month: "Apr", Income: 500000, Savings: 50000, Expenses: 450000 },
         { month: "May", Income: 500000, Savings: 50000, Expenses: 450000 },
-        { month: "Jun", Income: 600000, Savings: 150000, Expenses: 450000 }, // 25% savings; 20% income up
+        { month: "Jun", Income: 600000, Savings: 150000, Expenses: 450000 }, // 20% income up
       ],
     };
     const result = computeInsights(input);
     const ids = result.map((r) => r.id).sort();
-    expect(ids).toEqual(
-      ["all-budgets-on-track", "income-up", "strong-savings"].sort(),
-    );
+    expect(ids).toEqual(["all-budgets-on-track", "income-up"].sort());
   });
 });

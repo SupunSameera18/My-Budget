@@ -1,0 +1,1 @@
+SELECT * FROM public.budget_threshold_events ORDER BY fired_at DESC

@@ -17,7 +17,7 @@
 --   transactions: 11111111-7009-4000-8000-0000000000xx
 
 BEGIN;
-SELECT plan(20);
+SELECT plan(21);
 
 -- ── Seed users ───────────────────────────────────────────────────────────────
 INSERT INTO auth.users (id, email) VALUES
@@ -176,12 +176,21 @@ SELECT is(
   'T2: bob total_paid = 1200 (400 partner_share + 800 no-split owner)'
 );
 
+-- transaction_count is per-owner (migration 0072): shared txns each member logged.
 SELECT is(
   (SELECT transaction_count
      FROM public.rpc_get_contribution_analysis(NULL, NULL)
     WHERE contributor_id = '11111111-7009-4000-8000-000000000001'),
-  4::bigint,
-  'T2: transaction_count = 4 shared txns (tx#1, tx#2, tx#22, tx#24 all shared)'
+  3::bigint,
+  'T2: alice transaction_count = 3 (tx#1, tx#22, tx#24 — owned by alice)'
+);
+
+SELECT is(
+  (SELECT transaction_count
+     FROM public.rpc_get_contribution_analysis(NULL, NULL)
+    WHERE contributor_id = '11111111-7009-4000-8000-000000000002'),
+  1::bigint,
+  'T2: bob transaction_count = 1 (tx#2 — owned by bob)'
 );
 
 -- ─────────────────────────────────────────────────────────────────────────────

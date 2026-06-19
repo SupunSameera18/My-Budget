@@ -57,6 +57,7 @@ export default async function FamilyPage() {
           <ContributionAnalysis
             initialData={contributionData}
             isFamilyMode={isFamilyMode}
+            partnerName={familyStatus.partner.displayName}
           />
 
           <SettleUpPanel

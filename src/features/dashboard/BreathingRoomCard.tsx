@@ -8,12 +8,10 @@ export async function BreathingRoomCard() {
   const { breathingRoomMinor, currency, hasActivity } = result.data;
   const isLow = breathingRoomMinor < 0;
 
-  // bg-breathing-low/10 opacity modifier doesn't work — CSS var is hex, not channels.
-  // Use inline style fallback for amber tint.
   const sectionStyle = isLow
     ? {
-        backgroundColor: "rgba(201, 162, 75, 0.1)",
-        borderColor: "rgba(201, 162, 75, 0.3)",
+        backgroundColor: "var(--budget-breathing-low-bg)",
+        borderColor: "var(--budget-breathing-low-border)",
       }
     : undefined;
   const sectionClass =

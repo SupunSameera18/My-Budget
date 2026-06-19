@@ -102,18 +102,6 @@ describe("TransactionDefaultsForm", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Failed to save");
   });
 
-  it("auto-saves on split method change", async () => {
-    render(
-      <TransactionDefaultsForm initialDefaults={null} isFamilyMode={true} />,
-    );
-    await userEvent.click(screen.getByRole("radio", { name: /^percentage$/i }));
-    await waitFor(() => {
-      expect(saveTransactionDefaults).toHaveBeenCalledWith(
-        expect.objectContaining({ defaultSplitMethod: "percentage" }),
-      );
-    });
-  });
-
   it("status region resets to empty before each save (consecutive saves re-announce)", async () => {
     render(
       <TransactionDefaultsForm
@@ -174,14 +162,4 @@ describe("TransactionDefaultsForm", () => {
     expect(personalBtn).toHaveAttribute("aria-checked", "false");
   });
 
-  it("ArrowRight on Default split method radiogroup cycles through options", async () => {
-    render(
-      <TransactionDefaultsForm initialDefaults={null} isFamilyMode={true} />,
-    );
-    const equalBtn = screen.getByRole("radio", { name: /^equal$/i });
-    const pctBtn = screen.getByRole("radio", { name: /^percentage$/i });
-    equalBtn.focus();
-    fireEvent.keyDown(equalBtn.parentElement!, { key: "ArrowRight" });
-    await waitFor(() => expect(pctBtn).toHaveAttribute("aria-checked", "true"));
-  });
 });

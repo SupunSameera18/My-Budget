@@ -116,6 +116,29 @@ describe("MonthlySummaryContent", () => {
     expect(screen.getByText("Vacation")).toBeTruthy();
   });
 
+  it("renders 'Met!' badge when goal pctUsed >= 100", () => {
+    const metGoal: GoalWithProgress = {
+      id: "g2",
+      user_id: "u1",
+      name: "Emergency Fund",
+      target_minor: 50000,
+      currentMinor: 50000,
+      remaining_minor: 0,
+      pctUsed: 100,
+      created_at: "2026-01-01",
+      is_shared: false,
+      isOwner: true,
+    };
+    render(<MonthlySummaryContent data={{ ...BASE_DATA, goals: [metGoal] }} />);
+    expect(screen.getByText("Met!")).toBeTruthy();
+  });
+
+  it("renders percentage instead of Met badge when goal pctUsed < 100", () => {
+    render(<MonthlySummaryContent data={BASE_DATA} />);
+    expect(screen.getByText("30%")).toBeTruthy();
+    expect(screen.queryByText("Met!")).toBeNull();
+  });
+
   it("net result section has ARIA live region", () => {
     render(<MonthlySummaryContent data={BASE_DATA} />);
     // Multiple role="status" present; verify at least one has aria-live="polite"

@@ -57,10 +57,10 @@ export function MonthSelector({ selectedMonth }: MonthSelectorProps) {
         disabled={isFirstMonth}
         aria-label="Previous month"
         aria-disabled={isFirstMonth}
-        className={`flex min-h-[44px] min-w-[44px] items-center justify-center ${
+        className={`flex min-h-[44px] min-w-[44px] items-center justify-center text-ink-secondary ${
           isFirstMonth
-            ? "text-ink-secondary/40 cursor-not-allowed"
-            : "text-ink-secondary hover:text-ink-primary"
+            ? "cursor-not-allowed opacity-40"
+            : "hover:text-ink-primary"
         }`}
       >
         ←
@@ -72,10 +72,10 @@ export function MonthSelector({ selectedMonth }: MonthSelectorProps) {
         disabled={isCurrentMonth}
         aria-label="Next month"
         aria-disabled={isCurrentMonth}
-        className={`flex min-h-[44px] min-w-[44px] items-center justify-center ${
+        className={`flex min-h-[44px] min-w-[44px] items-center justify-center text-ink-secondary ${
           isCurrentMonth
-            ? "text-ink-secondary/40 cursor-not-allowed"
-            : "text-ink-secondary hover:text-ink-primary"
+            ? "cursor-not-allowed opacity-40"
+            : "hover:text-ink-primary"
         }`}
       >
         →

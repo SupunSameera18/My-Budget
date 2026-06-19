@@ -92,19 +92,23 @@ export default async function AccountsPage() {
         >
           Add account
         </h2>
-        <CreateAccountForm />
+        <CreateAccountForm currency={currency} />
       </section>
 
-      {/* Record a transfer */}
+      <hr className="mb-8 border-border" />
+
+      {/* Internal transfer */}
       <section aria-labelledby="transfer-heading" className="mb-8">
         <h2
           id="transfer-heading"
           className="mb-4 text-base font-semibold text-ink-primary"
         >
-          Record a transfer
+          Internal Transfer
         </h2>
         <InternalTransferForm accounts={activeAccounts} currency={currency} />
       </section>
+
+      <hr className="mb-8 border-border" />
 
       {/* External transfer */}
       <section aria-labelledby="external-transfer-heading">
@@ -112,9 +116,9 @@ export default async function AccountsPage() {
           id="external-transfer-heading"
           className="mb-4 text-base font-semibold text-ink-primary"
         >
-          External transfer
+          External Transfer
         </h2>
-        <ExternalTransferForm accounts={activeAccounts} />
+        <ExternalTransferForm accounts={activeAccounts} currency={currency} />
       </section>
     </div>
   );

@@ -25,7 +25,7 @@ describe("CreateMacroForm", () => {
     (createMacro as Mock).mockResolvedValue(ok({ id: "new-macro-id" }));
   });
 
-  it("renders name input, amount input, category select, target type radio", () => {
+  it("renders name input, amount input, target type radio, and category when account type", () => {
     render(
       <CreateMacroForm
         accounts={mockAccounts}
@@ -35,6 +35,7 @@ describe("CreateMacroForm", () => {
     );
     expect(screen.getByLabelText(/name/i)).toBeTruthy();
     expect(screen.getByLabelText(/amount/i)).toBeTruthy();
+    // Category is visible for account type (default)
     expect(screen.getByLabelText(/category/i)).toBeTruthy();
     expect(
       screen.getByLabelText(/account/i, { selector: 'input[type="radio"]' }),
@@ -72,6 +73,40 @@ describe("CreateMacroForm", () => {
     });
     fireEvent.click(goalRadio);
     expect(screen.getByLabelText(/select goal/i)).toBeTruthy();
+  });
+
+  it("hides category select when target_type is Goal", () => {
+    render(
+      <CreateMacroForm
+        accounts={mockAccounts}
+        goals={mockGoals}
+        categories={mockCategories}
+      />,
+    );
+    const goalRadio = screen.getByLabelText(/^goal$/i, {
+      selector: 'input[type="radio"]',
+    });
+    fireEvent.click(goalRadio);
+    expect(screen.queryByLabelText(/category/i)).toBeNull();
+  });
+
+  it("shows category select when switching back to Account after Goal", () => {
+    render(
+      <CreateMacroForm
+        accounts={mockAccounts}
+        goals={mockGoals}
+        categories={mockCategories}
+      />,
+    );
+    const goalRadio = screen.getByLabelText(/^goal$/i, {
+      selector: 'input[type="radio"]',
+    });
+    fireEvent.click(goalRadio);
+    const accountRadio = screen.getByLabelText(/account/i, {
+      selector: 'input[type="radio"]',
+    });
+    fireEvent.click(accountRadio);
+    expect(screen.getByLabelText(/category/i)).toBeTruthy();
   });
 
   it("calls createMacro with FormData on submit", async () => {

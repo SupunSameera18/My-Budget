@@ -9,12 +9,19 @@ export const createMacroSchema = z
       .max(100, "Name must be 100 characters or fewer")
       .trim(),
     amount_display: moneyDisplaySchema,
-    category_id: z.string().uuid("Category is required"),
+    category_id: z.string().uuid().nullable().optional(),
     target_type: z.enum(["account", "goal"]),
     account_id: z.string().uuid().nullable().optional(),
     goal_id: z.string().uuid().nullable().optional(),
   })
   .superRefine((data, ctx) => {
+    if (data.target_type === "account" && !data.category_id) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Category is required",
+        path: ["category_id"],
+      });
+    }
     if (data.target_type === "account" && !data.account_id) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -40,12 +47,19 @@ export const updateMacroSchema = z
       .max(100, "Name must be 100 characters or fewer")
       .trim(),
     amount_display: moneyDisplaySchema,
-    category_id: z.string().uuid("Category is required"),
+    category_id: z.string().uuid().nullable().optional(),
     target_type: z.enum(["account", "goal"]),
     account_id: z.string().uuid().nullable().optional(),
     goal_id: z.string().uuid().nullable().optional(),
   })
   .superRefine((data, ctx) => {
+    if (data.target_type === "account" && !data.category_id) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Category is required",
+        path: ["category_id"],
+      });
+    }
     if (data.target_type === "account" && !data.account_id) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -72,7 +86,7 @@ export type Macro = {
   amount_minor: number;
   account_id: string | null;
   goal_id: string | null;
-  category_id: string;
+  category_id: string | null;
   last_used_at: string | null;
   archived_at: string | null;
   created_at: string;
@@ -81,5 +95,5 @@ export type Macro = {
 export type MacroWithTarget = Macro & {
   account_name: string | null;
   goal_name: string | null;
-  category_name: string;
+  category_name: string | null;
 };

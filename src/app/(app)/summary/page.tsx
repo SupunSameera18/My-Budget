@@ -78,7 +78,7 @@ export default async function SummaryPage({ searchParams }: PageProps) {
         />
       </Suspense>
       <MonthlySummaryContent data={data} />
-      <div className="flex flex-wrap gap-2">
+      <div className="mt-4 flex flex-wrap gap-2">
         <ExportCsvButton
           period={period}
           currency={data.currency}

@@ -81,28 +81,6 @@ export function CreateMacroForm({
       </div>
 
       <div className="flex flex-col gap-1">
-        <label
-          htmlFor="create-macro-category"
-          className="text-xs font-medium text-ink-secondary"
-        >
-          Category
-        </label>
-        <select
-          id="create-macro-category"
-          name="category_id"
-          required
-          className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-        >
-          <option value="">Select a category</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name} ({c.type})
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="flex flex-col gap-1">
         <span className="text-xs font-medium text-ink-secondary">Target</span>
         <div className="flex gap-4">
           <label className="flex items-center gap-2 text-sm text-ink-primary">
@@ -193,6 +171,30 @@ export function CreateMacroForm({
               ))}
             </select>
           )}
+        </div>
+      )}
+
+      {targetType === "account" && (
+        <div className="flex flex-col gap-1">
+          <label
+            htmlFor="create-macro-category"
+            className="text-xs font-medium text-ink-secondary"
+          >
+            Category
+          </label>
+          <select
+            id="create-macro-category"
+            name="category_id"
+            required
+            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            <option value="">Select a category</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name} ({c.type})
+              </option>
+            ))}
+          </select>
         </div>
       )}
 

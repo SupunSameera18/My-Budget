@@ -18,6 +18,7 @@ type Period = "this-month" | "last-3-months" | "all-time";
 interface Props {
   initialData: ContributionAnalysisData | null;
   isFamilyMode: boolean;
+  partnerName?: string;
 }
 
 function getPeriodBounds(period: Period): {
@@ -45,7 +46,7 @@ const PERIOD_LABELS: Record<Period, string> = {
   "all-time": "All time",
 };
 
-export function ContributionAnalysis({ initialData, isFamilyMode }: Props) {
+export function ContributionAnalysis({ initialData, isFamilyMode, partnerName }: Props) {
   const [data, setData] = useState(initialData);
   const [period, setPeriod] = useState<Period>("this-month");
   const [errorMsg, setErrorMsg] = useState("");
@@ -153,7 +154,7 @@ export function ContributionAnalysis({ initialData, isFamilyMode }: Props) {
                   scope="col"
                   className="pb-2 text-right font-medium text-ink-secondary"
                 >
-                  {data!.contributions[1].displayName}
+                  {partnerName ?? data!.contributions[1].displayName}
                 </th>
               </tr>
             </thead>

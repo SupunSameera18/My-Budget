@@ -58,7 +58,7 @@ export async function DashboardGoalsCard() {
                   {goal.name}
                 </span>
                 {isMet ? (
-                  <span className="ml-2 inline-flex shrink-0 items-center rounded-full bg-[#4FA6A6]/20 px-2.5 py-0.5 text-xs font-semibold text-[#1F7A78] dark:bg-[#4FA6A6]/30 dark:text-[#5FBBBB]">
+                  <span className="ml-2 inline-flex shrink-0 items-center rounded-full border-2 border-brand-accent px-2 py-0.5 text-xs font-semibold text-brand-accent">
                     Met!
                   </span>
                 ) : (

@@ -149,9 +149,7 @@ export function EditGoalTargetSheet({
               </div>
 
               {statusMessage && (
-                <p className="text-xs text-breathing-low-text">
-                  {statusMessage}
-                </p>
+                <p className="text-xs text-destructive">{statusMessage}</p>
               )}
 
               <OfflineRetryBanner

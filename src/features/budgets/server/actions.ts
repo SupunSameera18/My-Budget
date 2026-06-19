@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/supabase/require-user";
 import { ErrorCode, err, ok, type Result } from "@/lib/errors";
 import {
   createBudgetSchema,
+  updateBudgetSchema,
   type Budget,
   type BudgetWithActual,
   type BudgetFormData,
@@ -256,5 +257,90 @@ export async function createBudget(
     return ok({ id: data as string });
   } catch {
     return err(ErrorCode.BudgetCreateFailed, "An unexpected error occurred.");
+  }
+}
+
+export async function updateBudget(
+  budgetId: string,
+  formData: FormData,
+): Promise<Result> {
+  try {
+    const auth = await requireUser();
+    if (!auth) return err(ErrorCode.BudgetUpdateFailed, "Not authenticated");
+    const { supabase } = auth;
+
+    const raw = {
+      name: formData.get("name") as string,
+      limit_amount_display: formData.get("limit_amount_display") as string,
+      period_type: formData.get("period_type") as string,
+      period_start: (formData.get("period_start") as string) || undefined,
+      period_end: (formData.get("period_end") as string) || undefined,
+      category_ids: formData.getAll("category_ids").map(String),
+    };
+
+    const parsed = updateBudgetSchema.safeParse(raw);
+    if (!parsed.success) {
+      const first = parsed.error.issues[0];
+      return err(
+        ErrorCode.BudgetUpdateFailed,
+        first?.message ?? "Invalid data",
+        String(first?.path[0] ?? ""),
+      );
+    }
+
+    const limit_minor = Math.round(
+      parseFloat(parsed.data.limit_amount_display) * 100,
+    );
+    const { name, period_type, period_start, period_end, category_ids } =
+      parsed.data;
+
+    const { error } = await supabase.rpc("rpc_update_budget", {
+      p_budget_id: budgetId,
+      p_name: name,
+      p_limit_minor: limit_minor,
+      p_period_type: period_type,
+      p_period_start: period_start ?? null,
+      p_period_end: period_end ?? null,
+      p_category_ids: category_ids,
+    });
+
+    if (error) {
+      if (error.code === "23505") {
+        return err(
+          ErrorCode.BudgetUpdateFailed,
+          "A budget with this name already exists.",
+          "name",
+        );
+      }
+      return err(ErrorCode.BudgetUpdateFailed, "Failed to update budget.");
+    }
+
+    revalidatePath("/budgets");
+    revalidatePath("/dashboard");
+    return ok();
+  } catch {
+    return err(ErrorCode.BudgetUpdateFailed, "An unexpected error occurred.");
+  }
+}
+
+export async function archiveBudget(budgetId: string): Promise<Result> {
+  try {
+    const auth = await requireUser();
+    if (!auth) return err(ErrorCode.BudgetArchiveFailed, "Not authenticated");
+    const { supabase } = auth;
+
+    const { error } = await supabase.rpc("rpc_archive_budget", {
+      p_budget_id: budgetId,
+    });
+
+    if (error) {
+      return err(ErrorCode.BudgetArchiveFailed, "Failed to delete budget.");
+    }
+
+    revalidatePath("/budgets");
+    revalidatePath("/dashboard");
+    return ok();
+  } catch {
+    return err(ErrorCode.BudgetArchiveFailed, "An unexpected error occurred.");
   }
 }

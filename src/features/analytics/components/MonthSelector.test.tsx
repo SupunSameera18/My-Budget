@@ -66,6 +66,20 @@ describe("MonthSelector", () => {
     expect(mockReplace).toHaveBeenCalledWith("?month=2025-12");
   });
 
+  it("next button has opacity-40 class when at current month (visually greyed out)", () => {
+    const now = new Date();
+    const currentMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+    render(<MonthSelector selectedMonth={currentMonth} />);
+    const nextBtn = screen.getByRole("button", { name: /next month/i });
+    expect(nextBtn.className).toContain("opacity-40");
+  });
+
+  it("next button does NOT have opacity-40 class when not at current month", () => {
+    render(<MonthSelector selectedMonth="2026-01" />);
+    const nextBtn = screen.getByRole("button", { name: /next month/i });
+    expect(nextBtn.className).not.toContain("opacity-40");
+  });
+
   it("buttons meet WCAG minimum hit area (min-h-[44px])", () => {
     render(<MonthSelector selectedMonth="2026-05" />);
     const prevBtn = screen.getByRole("button", { name: /previous month/i });

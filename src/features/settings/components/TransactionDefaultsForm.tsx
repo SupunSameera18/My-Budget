@@ -10,18 +10,10 @@ interface TransactionDefaultsFormProps {
 }
 
 type DefaultType = "personal" | "shared";
-type DefaultSplitMethod = "equal" | "percentage" | "fixed" | "none";
 
 const TYPE_OPTIONS: { value: DefaultType; label: string }[] = [
   { value: "personal", label: "Personal" },
   { value: "shared", label: "Shared" },
-];
-
-const SPLIT_OPTIONS: { value: DefaultSplitMethod; label: string }[] = [
-  { value: "equal", label: "Equal" },
-  { value: "percentage", label: "Percentage" },
-  { value: "fixed", label: "Fixed" },
-  { value: "none", label: "None" },
 ];
 
 function handleRadioKeyDown<T extends string>(
@@ -54,8 +46,6 @@ export function TransactionDefaultsForm({
   const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currentType: DefaultType = defaults.defaultType ?? "personal";
-  const currentSplit: DefaultSplitMethod =
-    defaults.defaultSplitMethod ?? "equal";
 
   // Auto-clear status message after 2 s to prevent stale SR re-announce
   useEffect(() => {
@@ -70,26 +60,6 @@ export function TransactionDefaultsForm({
     if (isPending) return;
     const prev = defaults;
     const next: TransactionDefaults = { ...defaults, defaultType: value };
-    setDefaults(next);
-    setStatusMsg("");
-    startTransition(async () => {
-      const result = await saveTransactionDefaults(next);
-      if (result.ok) {
-        setStatusMsg("Saved");
-      } else {
-        setDefaults(prev);
-        setStatusMsg("Failed to save");
-      }
-    });
-  }
-
-  function handleSplitChange(value: DefaultSplitMethod) {
-    if (isPending) return;
-    const prev = defaults;
-    const next: TransactionDefaults = {
-      ...defaults,
-      defaultSplitMethod: value,
-    };
     setDefaults(next);
     setStatusMsg("");
     startTransition(async () => {
@@ -140,46 +110,6 @@ export function TransactionDefaultsForm({
                 onClick={() => handleTypeChange(opt.value)}
                 className={`min-h-[44px] flex-1 rounded-md text-sm font-medium transition-colors ${
                   currentType === opt.value
-                    ? "bg-brand-accent-strong text-white"
-                    : "text-ink-secondary hover:bg-surface-inset"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Default split method */}
-        <div className="flex flex-col gap-1.5">
-          <p className="text-xs font-medium text-ink-secondary">
-            Default split method
-          </p>
-          <div
-            role="radiogroup"
-            aria-label="Default split method"
-            onKeyDown={(e) =>
-              handleRadioKeyDown(
-                e,
-                SPLIT_OPTIONS,
-                currentSplit,
-                handleSplitChange,
-              )
-            }
-            className="flex gap-1 rounded-lg border border-hairline bg-surface-base p-1"
-          >
-            {SPLIT_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                role="radio"
-                aria-checked={currentSplit === opt.value}
-                tabIndex={currentSplit === opt.value ? 0 : -1}
-                aria-disabled={isPending ? "true" : undefined}
-                disabled={isPending}
-                onClick={() => handleSplitChange(opt.value)}
-                className={`min-h-[44px] flex-1 rounded-md text-sm font-medium transition-colors ${
-                  currentSplit === opt.value
                     ? "bg-brand-accent-strong text-white"
                     : "text-ink-secondary hover:bg-surface-inset"
                 }`}

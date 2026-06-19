@@ -79,7 +79,7 @@ export function BudgetForm({ data }: BudgetFormProps) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4">
+    <form onSubmit={onSubmit} autoComplete="off" className="flex flex-col gap-4">
       {/* ARIA live region — always in DOM */}
       <p role="status" aria-live="polite" className="sr-only">
         {statusMessage}

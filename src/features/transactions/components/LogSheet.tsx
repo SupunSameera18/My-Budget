@@ -71,7 +71,6 @@ export function LogSheet({
   const [isShared, setIsShared] = useState<boolean>(
     transactionDefaults?.defaultType === "shared",
   );
-
   const amountMinor =
     amountDisplay === "0" || amountDisplay === "" || amountDisplay === "0."
       ? 0
@@ -127,7 +126,9 @@ export function LogSheet({
     fd.set("date", selectedDate);
     if (note.trim()) fd.set("note", note.trim());
     if (selectedSubcategoryId) fd.set("subcategory_id", selectedSubcategoryId);
-    if (isFamilyMode && isShared) fd.set("is_shared", "true");
+    if (isFamilyMode && isShared) {
+      fd.set("is_shared", "true");
+    }
     return fd;
   }
 
@@ -440,7 +441,7 @@ export function LogSheet({
             id="subcategory_id"
             value={selectedSubcategoryId}
             onChange={(e) => setSelectedSubcategoryId(e.target.value)}
-            className="flex h-[44px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-[44px] w-full rounded-md border border-hairline bg-surface-base px-3 py-2 text-sm text-ink-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <option value="">None</option>
             {availableSubcategories.map((s) => (

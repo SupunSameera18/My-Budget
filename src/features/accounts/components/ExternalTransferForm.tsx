@@ -9,13 +9,18 @@ import { useTodayDate } from "@/lib/hooks/useTodayDate";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CurrencyAmountInput } from "@/components/ui/currency-amount-input";
 import { ErrorCode, type AppError } from "@/lib/errors";
 
 interface ExternalTransferFormProps {
   accounts: Account[];
+  currency: string;
 }
 
-export function ExternalTransferForm({ accounts }: ExternalTransferFormProps) {
+export function ExternalTransferForm({
+  accounts,
+  currency,
+}: ExternalTransferFormProps) {
   const today = useTodayDate();
 
   const [isPending, startTransition] = useTransition();
@@ -115,12 +120,9 @@ export function ExternalTransferForm({ accounts }: ExternalTransferFormProps) {
             name="direction"
             required
             disabled={isPending}
-            defaultValue=""
+            defaultValue="in"
             className={selectClass}
           >
-            <option value="" disabled>
-              Select direction…
-            </option>
             <option value="in">Received from external party</option>
             <option value="out">Sent to external party</option>
           </select>
@@ -131,16 +133,11 @@ export function ExternalTransferForm({ accounts }: ExternalTransferFormProps) {
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="amount">Amount</Label>
-          <Input
+          <CurrencyAmountInput
             id="amount"
             name="amount"
-            type="text"
-            inputMode="decimal"
-            placeholder="0.00"
-            pattern="^\d+(\.\d{0,2})?$"
-            required
+            currency={currency}
             disabled={isPending}
-            className="min-h-[44px]"
           />
           {appError?.field === "amount" && (
             <p className="text-xs text-destructive">{appError.message}</p>

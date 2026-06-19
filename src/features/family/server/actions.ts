@@ -319,17 +319,23 @@ export async function getContributionAnalysis(
 
     if (error || !rows || rows.length !== 2) return null;
 
-    // Fetch display names by stable UUID (§9 A2: always key by ID)
+    // Fetch display names by stable UUID (§9 A2: always key by ID).
+    // Use the SECURITY DEFINER rpc_get_contributor_names — a direct profiles
+    // SELECT only returns the caller's own row (profiles RLS is own-only), so
+    // the partner's name would always fall back to "Partner" for every viewer.
     const contributorIds = rows.map(
       (r: { contributor_id: string }) => r.contributor_id,
     );
-    const { data: profiles } = await auth.supabase
-      .from("profiles")
-      .select("user_id, display_name")
-      .in("user_id", contributorIds);
+    const { data: profiles } = await auth.supabase.rpc(
+      "rpc_get_contributor_names",
+      { p_user_ids: contributorIds },
+    );
 
     const nameMap = new Map<string, string>();
-    for (const p of profiles ?? []) {
+    for (const p of (profiles ?? []) as {
+      user_id: string;
+      display_name: string | null;
+    }[]) {
       nameMap.set(p.user_id, p.display_name ?? "Partner");
     }
 

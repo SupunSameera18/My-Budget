@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SplitSheet } from "@/features/transactions/components/SplitSheet";
 import { getDisplayName } from "@/lib/display-names";
+import { formatMoney } from "@/lib/format";
 import type { Account } from "@/features/accounts/schema";
 import type {
   Transaction,
@@ -49,6 +50,31 @@ const ACTIVITY_FIELD_LABELS: Record<string, string> = {
 
 function friendlyFieldName(field: string): string {
   return ACTIVITY_FIELD_LABELS[field] ?? field;
+}
+
+function formatFieldChange(
+  field: string,
+  oldVal: unknown,
+  newVal: unknown,
+  currency: string,
+): string {
+  if (
+    field === "amount_minor" &&
+    typeof oldVal === "number" &&
+    typeof newVal === "number"
+  ) {
+    return `${formatMoney(oldVal, currency)} → ${formatMoney(newVal, currency)}`;
+  }
+  if (field === "date") {
+    return `${String(oldVal)} → ${String(newVal)}`;
+  }
+  if (field === "note") {
+    return `${oldVal ? String(oldVal) : "(none)"} → ${newVal ? String(newVal) : "(none)"}`;
+  }
+  if (field.endsWith("_id")) {
+    return "changed";
+  }
+  return `${String(oldVal)} → ${String(newVal)}`;
 }
 
 export function TransactionEditSheet({
@@ -199,6 +225,7 @@ export function TransactionEditSheet({
         amountMinor={transaction.amount_minor}
         currency={currency}
         partnerName={partnerName}
+        isOwner={isOwner}
         onSaved={() => {
           setShowSplitSheet(false);
           router.refresh();
@@ -400,7 +427,7 @@ export function TransactionEditSheet({
           disabled={isPending}
           className="min-h-[44px] w-full"
         >
-          Edit split
+          Edit who paid
         </Button>
       )}
 
@@ -509,9 +536,9 @@ export function TransactionEditSheet({
       viewerUserId !== transaction.user_id ? null : !showDeleteConfirm ? (
         <Button
           type="button"
-          variant="ghost"
+          variant="outline"
           onClick={() => setShowDeleteConfirm(true)}
-          className="min-h-[44px] w-full text-destructive hover:text-destructive"
+          className="min-h-[44px] w-full border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive"
           disabled={isPending || !isOnline}
         >
           Delete transaction
@@ -602,15 +629,26 @@ export function TransactionEditSheet({
                     </span>
                   ) : entry.change_type === "macro_apply" ? (
                     <span className="text-ink-secondary">Created by macro</span>
+                  ) : Object.keys(entry.changed_fields).length > 0 ? (
+                    <ul className="flex flex-col gap-0.5">
+                      {Object.entries(entry.changed_fields).map(
+                        ([field, change]) => (
+                          <li key={field} className="text-ink-secondary">
+                            <span className="font-medium text-ink-primary">
+                              {friendlyFieldName(field)}:
+                            </span>{" "}
+                            {formatFieldChange(
+                              field,
+                              (change as { old: unknown; new: unknown }).old,
+                              (change as { old: unknown; new: unknown }).new,
+                              currency,
+                            )}
+                          </li>
+                        ),
+                      )}
+                    </ul>
                   ) : (
-                    <span className="text-ink-secondary">
-                      {Object.keys(entry.changed_fields).length > 0
-                        ? "Changed: " +
-                          Object.keys(entry.changed_fields)
-                            .map(friendlyFieldName)
-                            .join(", ")
-                        : "No fields changed"}
-                    </span>
+                    <span className="text-ink-secondary">No fields changed</span>
                   )}
                 </li>
               );

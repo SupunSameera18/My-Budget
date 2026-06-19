@@ -290,22 +290,22 @@ function makeContributionAuth(
   rpcRows: unknown[] | null,
   rpcError?: { code: string; message: string } | null,
 ) {
-  const rpc = vi
-    .fn()
-    .mockResolvedValue({ data: rpcRows, error: rpcError ?? null });
-
-  // profiles query chain: .from("profiles").select(...).in(...) → array
-  // callerProfile query chain: .from("profiles").select("currency").eq(...).single() → single
-  const inChain = {
-    then: (r: (v: unknown) => unknown) =>
-      Promise.resolve({
+  // Two RPC calls: rpc_get_contribution_analysis (totals) and
+  // rpc_get_contributor_names (display names — SECURITY DEFINER, both members).
+  const rpc = vi.fn().mockImplementation((fnName: string) => {
+    if (fnName === "rpc_get_contributor_names") {
+      return Promise.resolve({
         data: [
           { user_id: ALICE_ID, display_name: "Alice" },
           { user_id: BOB_ID, display_name: "Bob" },
         ],
         error: null,
-      }).then(r),
-  };
+      });
+    }
+    return Promise.resolve({ data: rpcRows, error: rpcError ?? null });
+  });
+
+  // callerProfile query chain: .from("profiles").select("currency").eq(...).single() → single
   const singleChain = {
     single: vi
       .fn()
@@ -314,7 +314,6 @@ function makeContributionAuth(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const fromImpl = (_table: string) => ({
     select: vi.fn().mockReturnValue({
-      in: vi.fn().mockReturnValue(inChain),
       eq: vi.fn().mockReturnValue(singleChain),
     }),
   });

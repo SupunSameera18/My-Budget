@@ -148,27 +148,36 @@ export function MonthlySummaryContent({ data }: MonthlySummaryContentProps) {
           <EmptyState heading="No goals" body="No goals set up yet" />
         ) : (
           <ul className="space-y-4">
-            {goals.map((g) => (
-              <li key={g.id}>
-                <div className="mb-1 flex items-center justify-between">
-                  <span className="text-sm font-medium text-ink-primary">
-                    {g.name}
-                  </span>
-                  <span className="text-xs text-ink-secondary">
-                    {Math.round(g.pctUsed)}%
-                  </span>
-                </div>
-                <ProgressBar
-                  pctUsed={g.pctUsed}
-                  noAmber={true}
-                  ariaLabel={`${g.name} progress`}
-                />
-                <p className="mt-1 text-xs text-ink-secondary">
-                  {formatMoney(g.currentMinor, currency)} of{" "}
-                  {formatMoney(g.target_minor, currency)}
-                </p>
-              </li>
-            ))}
+            {goals.map((g) => {
+              const isMet = g.pctUsed >= 100;
+              return (
+                <li key={g.id}>
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="text-sm font-medium text-ink-primary">
+                      {g.name}
+                    </span>
+                    {isMet ? (
+                      <span className="ml-2 inline-flex shrink-0 items-center rounded-full border-2 border-brand-accent px-2 py-0.5 text-xs font-semibold text-brand-accent">
+                        Met!
+                      </span>
+                    ) : (
+                      <span className="text-xs text-ink-secondary">
+                        {Math.round(g.pctUsed)}%
+                      </span>
+                    )}
+                  </div>
+                  <ProgressBar
+                    pctUsed={g.pctUsed}
+                    noAmber={true}
+                    ariaLabel={`${g.name} progress`}
+                  />
+                  <p className="mt-1 text-xs text-ink-secondary">
+                    {formatMoney(g.currentMinor, currency)} of{" "}
+                    {formatMoney(g.target_minor, currency)}
+                  </p>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

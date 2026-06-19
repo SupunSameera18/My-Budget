@@ -22,10 +22,8 @@ export function ThisVsLastMonthChart({
     );
   }
 
-  const chartHeight = Math.max(280, data.length * 72);
-
   return (
-    <div style={{ height: chartHeight }}>
+    <div className="h-72">
       <BarChart
         data={data}
         index="category"
@@ -36,7 +34,6 @@ export function ThisVsLastMonthChart({
         yAxisWidth={100}
         barCategoryGap="30%"
         className="!h-full"
-        layout="vertical"
       />
     </div>
   );

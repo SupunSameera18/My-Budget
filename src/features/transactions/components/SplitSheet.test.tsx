@@ -34,10 +34,10 @@ describe("SplitSheet — method selector accessibility", () => {
     ).toBeInTheDocument();
   });
 
-  it("Equal method is aria-checked by default", () => {
+  it("Fixed method is aria-checked by default", () => {
     renderSheet();
-    const equalBtn = screen.getByRole("radio", { name: /equal/i });
-    expect(equalBtn).toHaveAttribute("aria-checked", "true");
+    const fixedBtn = screen.getByRole("radio", { name: /fixed/i });
+    expect(fixedBtn).toHaveAttribute("aria-checked", "true");
   });
 
   it("switching to Percentage marks it aria-checked", () => {
@@ -62,46 +62,42 @@ describe("SplitSheet — method selector accessibility", () => {
 });
 
 describe("SplitSheet — live preview", () => {
-  it("equal split shows 50/50 preview for 1000 minor units", () => {
+  it("default (owner paid full) shows you paid the whole amount", () => {
     renderSheet();
-    expect(screen.getByText(/You pay:/)).toHaveTextContent("$5.00");
-    expect(screen.getByText(/You pay:/)).toHaveTextContent("$5.00");
+    // isOwner defaults to true → owner paid the full 1000 minor ($10.00)
+    expect(screen.getByText(/You paid:/)).toHaveTextContent("$10.00");
+    expect(screen.getByText(/You paid:/)).toHaveTextContent("$0.00");
   });
 
   it("preview updates when switching to percentage", () => {
     renderSheet();
     fireEvent.click(screen.getByRole("radio", { name: /percentage/i }));
-    // Default 50% payer → $5.00 + $5.00 with odd remainder to payer
-    expect(screen.getByText(/You pay:/)).toBeInTheDocument();
+    expect(screen.getByText(/You paid:/)).toBeInTheDocument();
   });
 });
 
 describe("SplitSheet — percentage inputs", () => {
-  it("shows Your share % and partner share % inputs", () => {
+  it("shows you paid % and partner paid % inputs", () => {
     renderSheet();
     fireEvent.click(screen.getByRole("radio", { name: /percentage/i }));
-    expect(screen.getByLabelText(/your share \(%\)/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/partner's share \(%\)/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/you paid \(%\)/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/partner paid \(%\)/i)).toBeInTheDocument();
   });
 
   it("partner % input is read-only (auto-computed)", () => {
     renderSheet();
     fireEvent.click(screen.getByRole("radio", { name: /percentage/i }));
-    const partnerInput = screen.getByLabelText(/partner's share \(%\)/i);
+    const partnerInput = screen.getByLabelText(/partner paid \(%\)/i);
     expect(partnerInput).toHaveAttribute("readonly");
   });
 });
 
 describe("SplitSheet — fixed inputs", () => {
-  it("shows Your share and partner share fixed amount inputs", () => {
+  it("shows you paid and partner paid fixed amount inputs", () => {
     renderSheet();
     fireEvent.click(screen.getByRole("radio", { name: /fixed/i }));
-    expect(
-      screen.getAllByLabelText(/your share \(%\)/i).length,
-    ).toBeGreaterThan(0);
-    expect(
-      screen.getAllByLabelText(/partner's share \(%\)/i).length,
-    ).toBeGreaterThan(0);
+    expect(screen.getByLabelText(/^you paid$/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^partner paid$/i)).toBeInTheDocument();
   });
 });
 
@@ -111,16 +107,16 @@ describe("SplitSheet — save flow", () => {
     defaultProps.onSaved.mockClear();
   });
 
-  it("calls splitTransactionAction with equal split and invokes onSaved on success", async () => {
+  it("calls splitTransactionAction with the default (owner paid full) and invokes onSaved on success", async () => {
     renderSheet();
     fireEvent.click(screen.getByRole("button", { name: /save split/i }));
 
     await waitFor(() => {
       expect(splitTransactionAction).toHaveBeenCalledWith(
         "txn-111",
-        "equal",
-        500,
-        500,
+        "fixed",
+        1000,
+        0,
       );
     });
     await waitFor(() => {

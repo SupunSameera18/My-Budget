@@ -75,21 +75,6 @@ function ruleSpendingSpike(input: InsightRuleInput): InsightData | null {
   };
 }
 
-function ruleStrongSavings(input: InsightRuleInput): InsightData | null {
-  const totals = input.monthlyTotals;
-  if (!totals || totals.length === 0) return null;
-  const current = totals[totals.length - 1];
-  if (current.Income <= 0) return null;
-  const savingsRate = current.Savings / current.Income;
-  if (savingsRate < 0.15) return null;
-  const pct = Math.round(savingsRate * 100);
-  return {
-    id: "strong-savings",
-    headline: "Great savings this month",
-    detail: `You saved ${pct}% of income`,
-    sentiment: "positive",
-  };
-}
 
 function ruleIncomeUp(input: InsightRuleInput): InsightData | null {
   const totals = input.monthlyTotals;
@@ -115,7 +100,6 @@ export function computeInsights(input: InsightRuleInput): InsightData[] {
     ruleAllBudgetsOnTrack,
     ruleOverBudget,
     ruleSpendingSpike,
-    ruleStrongSavings,
     ruleIncomeUp,
   ];
   const results: InsightData[] = [];

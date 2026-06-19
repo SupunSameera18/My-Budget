@@ -49,6 +49,9 @@ export const createBudgetSchema = z
 
 export type CreateBudgetInput = z.infer<typeof createBudgetSchema>;
 
+export const updateBudgetSchema = createBudgetSchema;
+export type UpdateBudgetInput = z.infer<typeof updateBudgetSchema>;
+
 export type Budget = {
   id: string;
   user_id: string;

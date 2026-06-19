@@ -9,6 +9,7 @@ import { useTodayDate } from "@/lib/hooks/useTodayDate";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CurrencyAmountInput } from "@/components/ui/currency-amount-input";
 import { ErrorCode, type AppError } from "@/lib/errors";
 
 interface InternalTransferFormProps {
@@ -16,7 +17,10 @@ interface InternalTransferFormProps {
   currency: string;
 }
 
-export function InternalTransferForm({ accounts }: InternalTransferFormProps) {
+export function InternalTransferForm({
+  accounts,
+  currency,
+}: InternalTransferFormProps) {
   const today = useTodayDate();
   const [isPending, startTransition] = useTransition();
   const [appError, setAppError] = useState<AppError | null>(null);
@@ -132,16 +136,11 @@ export function InternalTransferForm({ accounts }: InternalTransferFormProps) {
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="amount">Amount</Label>
-          <Input
+          <CurrencyAmountInput
             id="amount"
             name="amount"
-            type="text"
-            inputMode="decimal"
-            placeholder="0.00"
-            pattern="^\d+(\.\d{0,2})?$"
-            required
+            currency={currency}
             disabled={isPending}
-            className="min-h-[44px]"
           />
           {appError?.field === "amount" && (
             <p className="text-xs text-destructive">{appError.message}</p>

@@ -186,9 +186,7 @@ export function GoalHistorySheet({
         )}
 
         {statusMessage && (
-          <p className="mt-2 text-xs text-breathing-low-text">
-            {statusMessage}
-          </p>
+          <p className="mt-2 text-xs text-destructive">{statusMessage}</p>
         )}
 
         <div className="mt-4">

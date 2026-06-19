@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/supabase/require-user";
-import { getMacros } from "@/features/macros/server/actions";
+import { getMacros, getArchivedMacros } from "@/features/macros/server/actions";
 import { MacroCard } from "@/features/macros/components/MacroCard";
+import { ArchivedMacroCard } from "@/features/macros/components/ArchivedMacroCard";
 import { CreateMacroForm } from "@/features/macros/components/CreateMacroForm";
 import { redirect } from "next/navigation";
 
@@ -9,33 +10,40 @@ export default async function MacrosPage() {
   if (!auth) redirect("/auth/login");
   const { supabase, user } = auth;
 
-  const [macrosResult, accountsRes, goalsRes, categoriesRes, profileRes] =
-    await Promise.all([
-      getMacros(),
-      supabase
-        .from("accounts")
-        .select("id, name")
-        .eq("user_id", user.id)
-        .is("archived_at", null)
-        .order("created_at", { ascending: true }),
-      supabase
-        .from("goals")
-        .select("id, name")
-        .eq("user_id", user.id)
-        .is("archived_at", null)
-        .order("created_at", { ascending: true }),
-      supabase
-        .from("categories")
-        .select("id, name, type")
-        .eq("user_id", user.id)
-        .is("archived_at", null)
-        .order("created_at", { ascending: true }),
-      supabase
-        .from("profiles")
-        .select("currency")
-        .eq("user_id", user.id)
-        .single(),
-    ]);
+  const [
+    macrosResult,
+    archivedResult,
+    accountsRes,
+    goalsRes,
+    categoriesRes,
+    profileRes,
+  ] = await Promise.all([
+    getMacros(),
+    getArchivedMacros(),
+    supabase
+      .from("accounts")
+      .select("id, name")
+      .eq("user_id", user.id)
+      .is("archived_at", null)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("goals")
+      .select("id, name")
+      .eq("user_id", user.id)
+      .is("archived_at", null)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("categories")
+      .select("id, name, type")
+      .eq("user_id", user.id)
+      .is("archived_at", null)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("profiles")
+      .select("currency")
+      .eq("user_id", user.id)
+      .single(),
+  ]);
 
   const accounts = (accountsRes.data ?? []) as Array<{
     id: string;
@@ -49,6 +57,8 @@ export default async function MacrosPage() {
   }>;
   const currency =
     (profileRes.data as { currency: string } | null)?.currency ?? "USD";
+
+  const archivedMacros = archivedResult.ok ? archivedResult.data : [];
 
   return (
     <div className="p-4 md:p-6">
@@ -80,7 +90,7 @@ export default async function MacrosPage() {
         </p>
       )}
 
-      <section aria-labelledby="create-macro-heading">
+      <section aria-labelledby="create-macro-heading" className="mb-8">
         <h2
           id="create-macro-heading"
           className="mb-4 text-base font-semibold text-ink-primary"
@@ -93,6 +103,24 @@ export default async function MacrosPage() {
           categories={categories}
         />
       </section>
+
+      {archivedMacros.length > 0 && (
+        <section aria-labelledby="archived-macros-heading">
+          <h2
+            id="archived-macros-heading"
+            className="mb-4 text-base font-semibold text-ink-primary"
+          >
+            Archived macros
+          </h2>
+          <ul className="flex flex-col gap-3" aria-label="Archived macros">
+            {archivedMacros.map((m) => (
+              <li key={m.id}>
+                <ArchivedMacroCard macro={m} currency={currency} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }

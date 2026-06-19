@@ -8,9 +8,10 @@ import { useOnlineStatus } from "@/lib/hooks/useOnlineStatus";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CurrencyAmountInput } from "@/components/ui/currency-amount-input";
 import { ErrorCode, type AppError } from "@/lib/errors";
 
-export function CreateAccountForm() {
+export function CreateAccountForm({ currency = "USD" }: { currency?: string }) {
   const [isPending, startTransition] = useTransition();
   const [appError, setAppError] = useState<AppError | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -91,12 +92,10 @@ export function CreateAccountForm() {
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="openingBalance">Opening balance</Label>
-        <Input
+        <CurrencyAmountInput
           id="openingBalance"
           name="openingBalance"
-          type="text"
-          inputMode="decimal"
-          placeholder="0.00"
+          currency={currency}
           disabled={isPending}
         />
         {appError?.field === "openingBalance" && (

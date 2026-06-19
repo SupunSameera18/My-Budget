@@ -225,9 +225,7 @@ export function GoalCard({
               : `Make "${goal.name}" personal (visible only to you)?`}
           </p>
           {reclassifyStatus && (
-            <p className="mb-2 text-xs text-breathing-low-text">
-              {reclassifyStatus}
-            </p>
+            <p className="mb-2 text-xs text-destructive">{reclassifyStatus}</p>
           )}
           <div className="flex gap-2">
             <button

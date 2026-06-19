@@ -1,15 +1,20 @@
 import Link from "next/link";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { BudgetCard } from "@/features/budgets/components/BudgetCard";
-import { getBudgets, getUserCurrency } from "@/features/budgets/server/actions";
+import {
+  getBudgets,
+  getBudgetFormData,
+} from "@/features/budgets/server/actions";
 
 export default async function BudgetsPage() {
-  const [budgetsResult, currency] = await Promise.all([
+  const [budgetsResult, formDataResult] = await Promise.all([
     getBudgets(),
-    getUserCurrency(),
+    getBudgetFormData(),
   ]);
 
   const budgets = budgetsResult.ok ? budgetsResult.data : [];
+  const currency = formDataResult.ok ? formDataResult.data.currency : "USD";
+  const allCategories = formDataResult.ok ? formDataResult.data.categories : [];
 
   return (
     <div className="mx-auto max-w-2xl p-4">
@@ -34,7 +39,11 @@ export default async function BudgetsPage() {
         <ul className="flex flex-col gap-4">
           {budgets.map((budget) => (
             <li key={budget.id}>
-              <BudgetCard budget={budget} currency={currency} />
+              <BudgetCard
+                budget={budget}
+                currency={currency}
+                allCategories={allCategories}
+              />
             </li>
           ))}
         </ul>

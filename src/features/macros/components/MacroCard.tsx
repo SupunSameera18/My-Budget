@@ -120,27 +120,6 @@ export function MacroCard({
           </div>
 
           <div className="flex flex-col gap-1">
-            <label
-              htmlFor={`macro-category-${macro.id}`}
-              className="text-xs font-medium text-ink-secondary"
-            >
-              Category
-            </label>
-            <select
-              id={`macro-category-${macro.id}`}
-              name="category_id"
-              defaultValue={macro.category_id}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} ({c.type})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex flex-col gap-1">
             <span className="text-xs font-medium text-ink-secondary">
               Target
             </span>
@@ -236,6 +215,31 @@ export function MacroCard({
             </div>
           )}
 
+          {targetType === "account" && (
+            <div className="flex flex-col gap-1">
+              <label
+                htmlFor={`macro-category-${macro.id}`}
+                className="text-xs font-medium text-ink-secondary"
+              >
+                Category
+              </label>
+              <select
+                id={`macro-category-${macro.id}`}
+                name="category_id"
+                defaultValue={macro.category_id ?? ""}
+                required
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <option value="">Select a category</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.type})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {error && (
             <p role="alert" className="text-sm text-destructive">
               {error}
@@ -317,7 +321,9 @@ export function MacroCard({
           {formatMoney(macro.amount_minor, currency)}
         </p>
         <p className="text-xs text-ink-secondary">{targetLabel}</p>
-        <p className="text-xs text-ink-secondary">{macro.category_name}</p>
+        {macro.account_id && macro.category_name && (
+          <p className="text-xs text-ink-secondary">{macro.category_name}</p>
+        )}
       </div>
 
       {error && (

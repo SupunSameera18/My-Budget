@@ -22,8 +22,8 @@ import { getAccounts } from "@/features/accounts/server/actions";
 import { currentMonthBoundaries } from "@/lib/period";
 import { dedupeRecentNotes } from "@/lib/note-suggestions";
 import type { MacroWithTarget } from "@/features/macros/schema";
-import { splitTransaction as computeSplit } from "@/lib/money/split";
 import { getServerPostHogKey } from "@/lib/analytics/server-posthog";
+import { getFamilyStatus } from "@/features/family/server/actions";
 
 export async function getTransactionFormData(): Promise<
   Result<TransactionFormData>
@@ -131,20 +131,16 @@ export async function getTransactionFormData(): Promise<
     }));
 
     // Fetch family status + transaction defaults in parallel (non-fatal — fallback to solo/null if error)
-    const [{ data: membership }, { data: txDefaultsProfile }] =
+    const [familyStatus, { data: txDefaultsProfile }] =
       await Promise.all([
-        supabase
-          .from("family_members")
-          .select("family_unit_id")
-          .eq("user_id", user.id)
-          .maybeSingle(),
+        getFamilyStatus(),
         supabase
           .from("profiles")
           .select("transaction_defaults")
           .eq("user_id", user.id)
           .maybeSingle(),
       ]);
-    const isFamilyMode = !!membership;
+    const isFamilyMode = familyStatus.status === "in_family";
     const transactionDefaults =
       (txDefaultsProfile?.transaction_defaults as TransactionDefaults | null) ??
       null;
@@ -226,24 +222,12 @@ export async function logTransaction(
       );
     }
 
-    // Auto-split Shared transactions with equal split (non-fatal — tx is already logged)
+    // No auto-split: under the "who paid" model a freshly logged Shared
+    // transaction defaults to the logger having paid the full amount (settle-up
+    // treats a transaction with no split row as owner-paid-in-full → partner
+    // owes their half). A split row is created only when the user records that
+    // the partner chipped in, via the edit sheet.
     if (isShared && newTxId) {
-      try {
-        const split = computeSplit({ amountMinor, method: "equal" });
-        await supabase
-          .rpc("rpc_split_transaction", {
-            p_transaction_id: newTxId,
-            p_split_method: "equal",
-            p_payer_id: user.id,
-            p_payer_share_minor: split.payerShareMinor,
-            p_partner_share_minor: split.partnerShareMinor,
-          })
-          .throwOnError();
-      } catch (splitErr) {
-        // Non-fatal: transaction already logged; user can re-split from edit sheet
-        console.error("[logTransaction] auto-split failed:", splitErr);
-      }
-
       // Non-fatal: notify partner about new shared transaction. Fire-and-forget —
       // never await or check the result, a notification failure must never
       // degrade the transaction-logging flow.
@@ -401,6 +385,15 @@ export async function getTransaction(
         .order("name", { ascending: true });
       catError = myCatError;
       categories = myCats;
+      // If the transaction's category has since been archived, clear category_id
+      // so the UI forces the user to pick an active one rather than silently
+      // submitting the stale UUID (which rpc_edit_transaction will reject).
+      if (transaction.category_id && myCats) {
+        const activeCatIds = new Set(myCats.map((c) => c.id));
+        if (!activeCatIds.has(transaction.category_id)) {
+          partnerCategoryIdOverride = "";
+        }
+      }
     }
 
     if (catError) {
@@ -653,7 +646,7 @@ export async function getTransactionList(
       ? (txnData ?? []).slice(0, TRANSACTION_LIST_PAGE_SIZE)
       : (txnData ?? []);
 
-    const items: TransactionListItem[] = pagedTxnData.map((row) => ({
+    let items: TransactionListItem[] = pagedTxnData.map((row) => ({
       id: row.id,
       account_id: row.account_id,
       category_id: row.category_id,
@@ -672,6 +665,60 @@ export async function getTransactionList(
       subcategory_name:
         (row.subcategories as unknown as { name: string } | null)?.name ?? null,
     }));
+
+    // In family mode, partner-owned shared transactions have null account/category
+    // joins (owner-only RLS blocks cross-user access). Resolve via SECURITY DEFINER
+    // RPC that bypasses RLS but still checks auth_can_view_transaction.
+    if (filters.isFamilyMode) {
+      const missingNameIds = items
+        .filter(
+          (i) => i.account_name === "[deleted]" || i.category_name === "[deleted]",
+        )
+        .map((i) => i.id);
+
+      if (missingNameIds.length > 0) {
+        try {
+          const { data: resolvedNames } = await supabase.rpc(
+            "rpc_get_transaction_display_names",
+            { p_transaction_ids: missingNameIds },
+          );
+          if (resolvedNames) {
+            const nameMap = new Map<
+              string,
+              { account_name: string | null; category_name: string | null }
+            >(
+              (
+                resolvedNames as Array<{
+                  transaction_id: string;
+                  account_name: string | null;
+                  category_name: string | null;
+                }>
+              ).map((r) => [r.transaction_id, r]),
+            );
+            items = items.map((item) => {
+              const resolved = nameMap.get(item.id);
+              if (!resolved) return item;
+              return {
+                ...item,
+                account_name:
+                  item.account_name === "[deleted]" && resolved.account_name
+                    ? resolved.account_name
+                    : item.account_name,
+                category_name:
+                  item.category_name === "[deleted]" && resolved.category_name
+                    ? resolved.category_name
+                    : item.category_name,
+              };
+            });
+          }
+        } catch {
+          // Non-fatal: items keep [deleted] fallback values on RPC error
+          console.error(
+            "[getTransactionList] rpc_get_transaction_display_names failed",
+          );
+        }
+      }
+    }
 
     // Accounts for filter dropdown
     let accountsQuery = supabase

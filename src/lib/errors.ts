@@ -59,6 +59,8 @@ export enum ErrorCode {
   MacroUpdateFailed = "macro_update_failed",
   MacroArchiveFailed = "macro_archive_failed",
   MacroFetchFailed = "macro_fetch_failed",
+  MacroUnarchiveFailed = "macro_unarchive_failed",
+  MacroDeleteFailed = "macro_delete_failed",
   // ↓ Added by Story 5.2b
   MacroApplyFailed = "macro_apply_failed",
   // ↓ Added by Story 6.3

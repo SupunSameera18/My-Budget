@@ -137,7 +137,7 @@ export function ReminderPreferencesForm({
           aria-disabled={isPending ? "true" : undefined}
           onClick={isPending ? undefined : handleToggle}
           className={`relative h-6 w-11 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-accent ${
-            enabled ? "bg-brand-accent-strong" : "bg-ink-secondary/30"
+            enabled ? "bg-brand-accent-strong" : "bg-slate-300 dark:bg-slate-500"
           }`}
         >
           <span
@@ -190,6 +190,11 @@ export function ReminderPreferencesForm({
               ))}
             </select>
           </div>
+
+          <p className="text-xs text-ink-secondary">
+            Reminder only sends on days you haven&apos;t logged a transaction
+            yet.
+          </p>
         </div>
       )}
     </div>

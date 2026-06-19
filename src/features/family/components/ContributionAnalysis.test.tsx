@@ -181,6 +181,18 @@ describe("ContributionAnalysis", () => {
     );
   });
 
+  it("uses partnerName prop for partner column header instead of displayName from data", () => {
+    render(
+      <ContributionAnalysis
+        initialData={makeData("You", "Partner")}
+        isFamilyMode={true}
+        partnerName="Jordan"
+      />,
+    );
+    expect(screen.getByRole("columnheader", { name: "Jordan" })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Partner" })).not.toBeInTheDocument();
+  });
+
   it("shows error message and populates aria-live region on fetch failure", async () => {
     vi.mocked(getContributionAnalysis).mockResolvedValue(null);
 

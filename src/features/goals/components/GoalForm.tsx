@@ -75,9 +75,7 @@ export function GoalForm({ currency, isFamilyMode }: GoalFormProps) {
           className="min-h-[44px] rounded-md border border-hairline bg-surface-base px-3 py-2 text-sm text-ink-primary"
         />
         {fieldError?.field === "name" && (
-          <p className="text-xs text-breathing-low-text">
-            {fieldError.message}
-          </p>
+          <p className="text-xs text-destructive">{fieldError.message}</p>
         )}
       </div>
 
@@ -102,9 +100,7 @@ export function GoalForm({ currency, isFamilyMode }: GoalFormProps) {
           />
         </div>
         {fieldError?.field === "target_amount_display" && (
-          <p className="text-xs text-breathing-low-text">
-            {fieldError.message}
-          </p>
+          <p className="text-xs text-destructive">{fieldError.message}</p>
         )}
       </div>
 

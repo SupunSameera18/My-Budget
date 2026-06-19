@@ -13,6 +13,10 @@ interface SplitSheetProps {
   amountMinor: number;
   currency: string;
   partnerName: string;
+  /** Whether the viewer logged (owns) the transaction. Drives the default
+   *  "who paid" amount: the owner defaults to having paid the full bill, the
+   *  partner to having paid nothing (i.e. the owner fronted it). */
+  isOwner?: boolean;
   onSaved: () => void;
   onCancel: () => void;
 }
@@ -22,13 +26,15 @@ export function SplitSheet({
   amountMinor,
   currency,
   partnerName,
+  isOwner = true,
   onSaved,
   onCancel,
 }: SplitSheetProps) {
   const [isPending, startTransition] = useTransition();
-  const [method, setMethod] = useState<SplitMethod>("equal");
-  const [payerPct, setPayerPct] = useState(50);
-  const [payerFixed, setPayerFixed] = useState(Math.ceil(amountMinor / 2));
+  // "who paid" amounts: default to the owner having paid the full amount.
+  const [method, setMethod] = useState<SplitMethod>("fixed");
+  const [payerPct, setPayerPct] = useState(isOwner ? 100 : 0);
+  const [payerFixed, setPayerFixed] = useState(isOwner ? amountMinor : 0);
   const [validationError, setValidationError] = useState("");
   const [statusMsg, setStatusMsg] = useState("");
 
@@ -61,7 +67,7 @@ export function SplitSheet({
     }
     if (method === "fixed") {
       if (payerFixed < 0 || payerFixed > amountMinor) {
-        return `Your share must be between 0 and ${formatMoney(amountMinor, currency)}`;
+        return `What you paid must be between 0 and ${formatMoney(amountMinor, currency)}`;
       }
     }
     return "";
@@ -97,13 +103,17 @@ export function SplitSheet({
   const partnerPct = 100 - payerPct;
 
   return (
-    <div className="flex flex-col gap-5" role="dialog" aria-label="Edit split">
+    <div className="flex flex-col gap-5" role="dialog" aria-label="Who paid">
       {/* ARIA live region — always mounted */}
       <div aria-live="polite" role="status" className="sr-only">
         {statusMsg}
       </div>
 
-      <h3 className="text-sm font-bold text-ink-primary">Edit split</h3>
+      <h3 className="text-sm font-bold text-ink-primary">Who paid?</h3>
+      <p className="-mt-3 text-xs text-ink-secondary">
+        Record how much each of you actually paid toward this. Settle-up
+        rebalances you both toward an equal share.
+      </p>
 
       {/* Split method selector */}
       <div role="radiogroup" aria-label="Split method" className="flex gap-2">
@@ -139,7 +149,7 @@ export function SplitSheet({
               htmlFor="payer-pct"
               className="text-xs font-bold text-ink-secondary"
             >
-              Your share (%)
+              You paid (%)
             </label>
             <Input
               id="payer-pct"
@@ -151,7 +161,7 @@ export function SplitSheet({
                 setPayerPct(Math.max(0, Math.min(100, Number(e.target.value))));
                 setValidationError("");
               }}
-              aria-label="Your share (%)"
+              aria-label="You paid (%)"
               className="min-h-[44px] border border-hairline bg-surface-base text-ink-primary"
             />
           </div>
@@ -160,14 +170,14 @@ export function SplitSheet({
               htmlFor="partner-pct"
               className="text-xs font-bold text-ink-secondary"
             >
-              {partnerName}&apos;s share (%)
+              {partnerName} paid (%)
             </label>
             <Input
               id="partner-pct"
               type="number"
               value={partnerPct}
               readOnly
-              aria-label="Partner's share (%)"
+              aria-label="Partner paid (%)"
               className="min-h-[44px] border border-hairline bg-surface-base text-ink-secondary opacity-60"
             />
           </div>
@@ -182,7 +192,7 @@ export function SplitSheet({
               htmlFor="payer-fixed"
               className="text-xs font-bold text-ink-secondary"
             >
-              Your share ({currency})
+              You paid ({currency})
             </label>
             <Input
               id="payer-fixed"
@@ -196,7 +206,7 @@ export function SplitSheet({
                 setPayerFixed(Number.isNaN(v) ? 0 : Math.round(v * 100));
                 setValidationError("");
               }}
-              aria-label="Your share (%)"
+              aria-label="You paid"
               className="min-h-[44px] border border-hairline bg-surface-base text-ink-primary"
             />
           </div>
@@ -205,14 +215,14 @@ export function SplitSheet({
               htmlFor="partner-fixed"
               className="text-xs font-bold text-ink-secondary"
             >
-              {partnerName}&apos;s share ({currency})
+              {partnerName} paid ({currency})
             </label>
             <Input
               id="partner-fixed"
               type="number"
               value={((amountMinor - payerFixed) / 100).toFixed(2)}
               readOnly
-              aria-label="Partner's share (%)"
+              aria-label="Partner paid"
               className="min-h-[44px] border border-hairline bg-surface-base text-ink-secondary opacity-60"
             />
           </div>
@@ -228,11 +238,11 @@ export function SplitSheet({
 
       {/* Live preview */}
       <p aria-live="polite" className="text-sm text-ink-primary">
-        You pay:{" "}
+        You paid:{" "}
         <span className="font-semibold">
           {formatMoney(preview.payerShareMinor, currency)}
         </span>{" "}
-        | {partnerName} pays:{" "}
+        | {partnerName} paid:{" "}
         <span className="font-semibold">
           {formatMoney(preview.partnerShareMinor, currency)}
         </span>

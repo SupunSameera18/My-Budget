@@ -5,7 +5,7 @@
 
 BEGIN;
 
-SELECT plan(8);
+SELECT plan(9);
 
 -- ── Setup ──────────────────────────────────────────────────────────────────────
 
@@ -106,14 +106,22 @@ SET LOCAL role TO authenticated;
 
 SET LOCAL "request.jwt.claims" TO '{"sub": "99999999-9999-4999-8999-999999999901"}';
 
--- ── Test 6: Owner DELETE on their own macro raises 42501 (REVOKE enforced) ───
+-- ── Test 6: Owner DELETE on a non-archived macro returns 0 rows ──────────────
+-- Migration 0066 grants DELETE to authenticated but the policy requires archived_at IS NOT NULL.
+-- A non-archived macro is invisible to the DELETE policy, so no rows are affected.
 
-SELECT throws_ok(
-  $$DELETE FROM public.macros WHERE id = '99999999-9999-4999-8999-999999999903'$$,
-  '42501',
-  NULL::text,
-  'Owner DELETE on own macro raises 42501 (REVOKE DELETE enforced)'
+DELETE FROM public.macros WHERE id = '99999999-9999-4999-8999-999999999903';
+
+SET LOCAL role TO postgres;
+
+SELECT is(
+  (SELECT COUNT(*)::int FROM public.macros WHERE id = '99999999-9999-4999-8999-999999999903'),
+  1,
+  'Owner DELETE on non-archived macro returns 0 rows (RLS policy requires archived_at IS NOT NULL)'
 );
+
+SET LOCAL role TO authenticated;
+SET LOCAL "request.jwt.claims" TO '{"sub": "99999999-9999-4999-8999-999999999901"}';
 
 -- ── Test 7: CHECK constraint blocks INSERT with both account_id and goal_id non-null ──
 
@@ -147,6 +155,25 @@ SELECT throws_ok(
   '23514',
   NULL::text,
   'CHECK constraint: both account_id and goal_id null raises 23514'
+);
+
+-- ── Test 9: Owner CAN DELETE an archived macro ───────────────────────────────
+-- Archive the macro as postgres, then delete it as owner.
+
+SET LOCAL role TO postgres;
+UPDATE public.macros SET archived_at = NOW() WHERE id = '99999999-9999-4999-8999-999999999903';
+
+SET LOCAL role TO authenticated;
+SET LOCAL "request.jwt.claims" TO '{"sub": "99999999-9999-4999-8999-999999999901"}';
+
+DELETE FROM public.macros WHERE id = '99999999-9999-4999-8999-999999999903';
+
+SET LOCAL role TO postgres;
+
+SELECT is(
+  (SELECT COUNT(*)::int FROM public.macros WHERE id = '99999999-9999-4999-8999-999999999903'),
+  0,
+  'Owner CAN DELETE their own archived macro (row is gone)'
 );
 
 SELECT * FROM finish();

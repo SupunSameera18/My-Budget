@@ -50,6 +50,8 @@
     --budget-saving-text: #1f6f6d;
     --budget-breathing-low: #c9a24b;
     --budget-breathing-low-text: #8a6a1e;
+    --budget-breathing-low-bg: rgba(201, 162, 75, 0.1);
+    --budget-breathing-low-border: rgba(201, 162, 75, 0.3);
   }
 
   .dark {
@@ -98,6 +100,8 @@
     --budget-accent-text: #4fa6a6; /* same as accent — passes on dark canvas */
     --budget-breathing-low: #c9a24b;
     --budget-breathing-low-text: #c9a24b;
+    --budget-breathing-low-bg: rgba(201, 162, 75, 0.15);
+    --budget-breathing-low-border: rgba(201, 162, 75, 0.4);
   }
 }
 
@@ -117,6 +121,6 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground overflow-hidden;
   }
 }

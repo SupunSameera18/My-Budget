@@ -197,9 +197,22 @@ describe("getTransactionFormData — isFamilyMode + transactionDefaults", () => 
     membership: object | null;
     txDefaults: object | null;
   }) {
+    // isFamilyMode is derived via getFamilyStatus() → supabase.rpc("rpc_get_family_status").
+    // Mirror the membership arg into that RPC's response shape.
+    const familyStatusData = membership
+      ? {
+          status: "in_family",
+          family_unit_id: (membership as { family_unit_id: string })
+            .family_unit_id,
+          partner_name: "Partner",
+          partner_join_date: null,
+        }
+      : { status: "solo" };
+
     vi.mocked(requireUser).mockResolvedValue({
       supabase: {
         from: buildFromMock({ membership, txDefaults }),
+        rpc: vi.fn().mockResolvedValue({ data: familyStatusData, error: null }),
       } as never,
       user: { id: USER_ID } as never,
     });

@@ -41,7 +41,7 @@ beforeEach(() => {
 
 describe("ExternalTransferForm — no accounts", () => {
   it("renders 'Add an account' message when accounts.length < 1", () => {
-    render(<ExternalTransferForm accounts={[]} />);
+    render(<ExternalTransferForm accounts={[]} currency="USD" />);
     expect(
       screen.getByText(/add an account to record an external transfer/i),
     ).toBeInTheDocument();
@@ -50,14 +50,14 @@ describe("ExternalTransferForm — no accounts", () => {
 
 describe("ExternalTransferForm — 1+ accounts", () => {
   it("renders the ARIA live region with role=status", () => {
-    render(<ExternalTransferForm accounts={accounts} />);
+    render(<ExternalTransferForm accounts={accounts} currency="USD" />);
     const liveRegion = screen.getByRole("status");
     expect(liveRegion).toBeTruthy();
     expect(liveRegion.getAttribute("aria-live")).toBe("polite");
   });
 
   it("renders account select, direction select, amount, date, note inputs", () => {
-    render(<ExternalTransferForm accounts={accounts} />);
+    render(<ExternalTransferForm accounts={accounts} currency="USD" />);
     expect(screen.getByLabelText(/account/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/direction/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/amount/i)).toBeInTheDocument();
@@ -66,14 +66,14 @@ describe("ExternalTransferForm — 1+ accounts", () => {
   });
 
   it("renders the submit button labeled 'Record transfer'", () => {
-    render(<ExternalTransferForm accounts={accounts} />);
+    render(<ExternalTransferForm accounts={accounts} currency="USD" />);
     expect(
       screen.getByRole("button", { name: /record transfer/i }),
     ).toBeInTheDocument();
   });
 
   it("submit button is enabled when online and not pending", () => {
-    render(<ExternalTransferForm accounts={accounts} />);
+    render(<ExternalTransferForm accounts={accounts} currency="USD" />);
     expect(
       screen.getByRole("button", { name: /record transfer/i }),
     ).not.toBeDisabled();
@@ -81,7 +81,7 @@ describe("ExternalTransferForm — 1+ accounts", () => {
 
   it("submit button is disabled when offline", () => {
     vi.mocked(useOnlineStatus).mockReturnValue(false);
-    render(<ExternalTransferForm accounts={accounts} />);
+    render(<ExternalTransferForm accounts={accounts} currency="USD" />);
     expect(
       screen.getByRole("button", { name: /record transfer/i }),
     ).toBeDisabled();
@@ -92,7 +92,7 @@ describe("ExternalTransferForm — 1+ accounts", () => {
       ok: true,
       data: undefined,
     });
-    render(<ExternalTransferForm accounts={accounts} />);
+    render(<ExternalTransferForm accounts={accounts} currency="USD" />);
 
     const amountInput = screen.getByLabelText(/amount/i) as HTMLInputElement;
     fireEvent.change(amountInput, { target: { value: "100.00" } });

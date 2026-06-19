@@ -40,13 +40,13 @@ const goalMacro: MacroWithTarget = {
   amount_minor: 5000,
   account_id: null,
   goal_id: "goal-1",
-  category_id: "cat-2",
+  category_id: null,
   last_used_at: null,
   archived_at: null,
   created_at: "2026-06-01T00:00:00Z",
   account_name: null,
   goal_name: "Vacation Fund",
-  category_name: "Savings",
+  category_name: null,
 };
 
 const mockAccounts = [{ id: "account-1", name: "Checking" }];
@@ -91,6 +91,19 @@ describe("MacroCard", () => {
     expect(screen.getByText(/Goal: Vacation Fund/i)).toBeTruthy();
   });
 
+  it("does not render category label for goal-targeted macro", () => {
+    render(
+      <MacroCard
+        macro={goalMacro}
+        currency="USD"
+        accounts={mockAccounts}
+        goals={mockGoals}
+        categories={mockCategories}
+      />,
+    );
+    expect(screen.queryByText(/Entertainment/i)).toBeNull();
+  });
+
   it("shows Edit and Archive buttons in default view", () => {
     render(
       <MacroCard
@@ -118,6 +131,24 @@ describe("MacroCard", () => {
     fireEvent.click(screen.getByRole("button", { name: /edit/i }));
     expect(screen.getByRole("button", { name: /save/i })).toBeTruthy();
     expect(screen.getByRole("button", { name: /cancel/i })).toBeTruthy();
+  });
+
+  it("edit form hides category when target switched to Goal", () => {
+    render(
+      <MacroCard
+        macro={accountMacro}
+        currency="USD"
+        accounts={mockAccounts}
+        goals={mockGoals}
+        categories={mockCategories}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /edit/i }));
+    const goalRadio = screen
+      .getAllByRole("radio")
+      .find((r) => (r as HTMLInputElement).value === "goal")!;
+    fireEvent.click(goalRadio);
+    expect(screen.queryByLabelText(/category/i)).toBeNull();
   });
 
   it("edit form submits and closes on success", async () => {

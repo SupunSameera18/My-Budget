@@ -17,6 +17,6 @@ export default async function OnboardingLayout({
   }
 
   return (
-    <div className="flex min-h-dvh flex-col bg-surface-base">{children}</div>
+    <div className="flex h-dvh flex-col overflow-y-auto bg-surface-base">{children}</div>
   );
 }
