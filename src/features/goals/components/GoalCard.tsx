@@ -214,7 +214,7 @@ export function GoalCard({
           aria-modal="true"
           aria-labelledby={`reclassify-goal-title-${goal.id}`}
           hidden={!reclassifyConfirmOpen || undefined}
-          className="mt-3 rounded-lg border border-hairline bg-surface-base p-4"
+          className="mt-3 rounded-lg border border-hairline bg-surface-inset p-4"
         >
           <p
             id={`reclassify-goal-title-${goal.id}`}
@@ -236,7 +236,7 @@ export function GoalCard({
                 setReclassifyStatus("");
               }}
               disabled={reclassifyPending}
-              className="min-h-[36px] flex-1 rounded-md border border-hairline bg-surface-base text-sm text-ink-secondary disabled:opacity-50"
+              className="min-h-[36px] flex-1 rounded-md border border-hairline bg-card text-sm text-ink-secondary disabled:opacity-50"
             >
               Cancel
             </button>

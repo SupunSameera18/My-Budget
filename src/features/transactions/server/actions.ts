@@ -402,12 +402,13 @@ export async function getTransaction(
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("currency, subcategories_enabled")
+      .select("currency, subcategories_enabled, display_name")
       .eq("user_id", user.id)
       .single();
 
     const currency = profile?.currency ?? "USD";
     const subcategoriesEnabled = profile?.subcategories_enabled ?? false;
+    const viewerName = profile?.display_name ?? undefined;
 
     let subcategories: { id: string; name: string; category_id: string }[] = [];
     // Non-owner partner cannot see or pick owner's subcategories (no RPC equivalent).
@@ -461,6 +462,7 @@ export async function getTransaction(
       currency,
       subcategoriesEnabled,
       subcategories: subcategories as EditTransactionFormData["subcategories"],
+      viewerName,
       partnerName,
       viewerUserId: user.id,
       isFamilyMode,
@@ -1000,10 +1002,13 @@ export async function editSharedTransaction(
       );
     }
 
+    const amountMinor = parseAmountMinor(parsed.data.amount_display);
+
     const { error: rpcError } = await supabase.rpc(
       "rpc_edit_shared_transaction",
       {
         p_transaction_id: transactionId,
+        p_amount_minor: amountMinor,
         p_note: parsed.data.note ?? null,
         p_category_id: parsed.data.category_id,
       },

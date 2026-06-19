@@ -442,7 +442,8 @@ describe("TransactionEditSheet — reclassify controls", () => {
 });
 
 describe("TransactionEditSheet — shared transaction", () => {
-  it("disables the amount field for shared transactions", () => {
+  it("enables the amount field for the owner of a shared transaction", () => {
+    // viewerUserId matches transaction.user_id → isOwner = true
     render(
       <TransactionEditSheet
         {...baseProps}
@@ -450,25 +451,19 @@ describe("TransactionEditSheet — shared transaction", () => {
         isShared
       />,
     );
-    const amountInput = screen.getByLabelText(/amount/i);
-    expect(amountInput).toBeDisabled();
-    expect(amountInput).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByLabelText(/amount/i)).not.toBeDisabled();
   });
 
-  it("sets aria-describedby on amount field pointing to hint text for shared transactions", () => {
+  it("enables the amount field for a non-owner partner of a shared transaction", () => {
     render(
       <TransactionEditSheet
         {...baseProps}
+        viewerUserId="user-2"
         transaction={sharedTransaction}
         isShared
       />,
     );
-    const amountInput = screen.getByLabelText(/amount/i);
-    expect(amountInput).toHaveAttribute(
-      "aria-describedby",
-      "amount-readonly-hint",
-    );
-    expect(document.getElementById("amount-readonly-hint")).toBeInTheDocument();
+    expect(screen.getByLabelText(/amount/i)).not.toBeDisabled();
   });
 
   it("does not disable amount field for personal transactions", () => {
@@ -496,7 +491,7 @@ describe("TransactionEditSheet — shared transaction", () => {
     });
   });
 
-  it("shows 'You' for viewer's own trail entry and 'Partner' for partner's", () => {
+  it("shows viewer and partner names in trail when provided", () => {
     const viewerEntry: ActivityTrailEntry = {
       ...mockTrailEntry,
       id: "trail-viewer",
@@ -512,7 +507,32 @@ describe("TransactionEditSheet — shared transaction", () => {
         {...baseProps}
         transaction={sharedTransaction}
         isShared
-        partnerName="Bob"
+        viewerName="Maya"
+        partnerName="Sam"
+        viewerUserId="user-1"
+        activityTrail={[viewerEntry, partnerEntry]}
+      />,
+    );
+    expect(screen.getByText("Maya")).toBeInTheDocument();
+    expect(screen.getByText("Sam")).toBeInTheDocument();
+  });
+
+  it("falls back to 'You' / 'Partner' in trail when names are not provided", () => {
+    const viewerEntry: ActivityTrailEntry = {
+      ...mockTrailEntry,
+      id: "trail-viewer",
+      user_id: "user-1",
+    };
+    const partnerEntry: ActivityTrailEntry = {
+      ...mockTrailEntry,
+      id: "trail-partner",
+      user_id: "user-2",
+    };
+    render(
+      <TransactionEditSheet
+        {...baseProps}
+        transaction={sharedTransaction}
+        isShared
         viewerUserId="user-1"
         activityTrail={[viewerEntry, partnerEntry]}
       />,

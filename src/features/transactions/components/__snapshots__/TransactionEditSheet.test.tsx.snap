@@ -25,12 +25,6 @@ exports[`TransactionEditSheet — layout snapshot > matches snapshot for persona
           (USD)
         </span>
       </label>
-      <span
-        class="sr-only"
-        id="amount-readonly-hint"
-      >
-        To correct a shared amount, use Close-the-Month correction (available in a future update).
-      </span>
       <input
         class="flex h-9 w-full rounded-md px-3 py-1 text-base shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm min-h-[44px] border border-hairline bg-surface-base text-ink-primary"
         id="amount_display"
@@ -180,17 +174,8 @@ exports[`TransactionEditSheet — layout snapshot > matches snapshot for shared 
           (USD)
         </span>
       </label>
-      <span
-        class="sr-only"
-        id="amount-readonly-hint"
-      >
-        To correct a shared amount, use Close-the-Month correction (available in a future update).
-      </span>
       <input
-        aria-describedby="amount-readonly-hint"
-        aria-disabled="true"
-        class="flex h-9 w-full rounded-md px-3 py-1 text-base shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm min-h-[44px] border border-hairline bg-surface-base text-ink-primary cursor-not-allowed opacity-60"
-        disabled=""
+        class="flex h-9 w-full rounded-md px-3 py-1 text-base shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm min-h-[44px] border border-hairline bg-surface-base text-ink-primary"
         id="amount_display"
         inputmode="decimal"
         type="text"
@@ -307,7 +292,7 @@ exports[`TransactionEditSheet — layout snapshot > matches snapshot for shared 
       class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 min-h-[44px] w-full"
       type="button"
     >
-      Edit who paid
+      Edit Split
     </button>
     <div
       class="flex flex-col gap-2"
@@ -321,9 +306,10 @@ exports[`TransactionEditSheet — layout snapshot > matches snapshot for shared 
       </button>
       <div
         aria-labelledby="make-personal-heading"
-        class=" flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4"
+        class=" flex-col gap-3 rounded-lg border p-4"
         hidden=""
         role="alertdialog"
+        style="background-color: var(--budget-breathing-low-bg); border-color: var(--budget-breathing-low-border);"
       >
         <p
           class="text-sm font-medium text-ink-primary"
@@ -340,7 +326,7 @@ exports[`TransactionEditSheet — layout snapshot > matches snapshot for shared 
           class="flex gap-2"
         >
           <button
-            class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 shadow h-9 px-4 py-2 min-h-[44px] flex-1 bg-amber-600 text-white hover:bg-amber-700"
+            class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 shadow hover:bg-primary/90 h-9 px-4 py-2 min-h-[44px] flex-1 bg-breathing-low text-white hover:opacity-90"
             type="button"
           >
             Make personal

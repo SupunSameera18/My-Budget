@@ -31,6 +31,7 @@ interface TransactionEditSheetProps {
   subcategories: Subcategory[];
   activityTrail: ActivityTrailEntry[];
   isShared?: boolean;
+  viewerName?: string;
   partnerName?: string;
   viewerUserId: string;
   isFamilyMode?: boolean;
@@ -86,7 +87,8 @@ export function TransactionEditSheet({
   subcategories,
   activityTrail,
   isShared = false,
-  partnerName = "Your partner",
+  viewerName,
+  partnerName,
   viewerUserId,
   isFamilyMode = false,
   partnerJoinDate,
@@ -184,6 +186,7 @@ export function TransactionEditSheet({
 
   function buildSharedFormData(): FormData {
     const fd = new FormData();
+    fd.set("amount_display", amountDisplay);
     fd.set("category_id", selectedCategoryId);
     if (note.trim()) fd.set("note", note.trim());
     return fd;
@@ -256,24 +259,13 @@ export function TransactionEditSheet({
           Amount{" "}
           <span className="font-normal text-ink-secondary">({currency})</span>
         </label>
-        {/* hint is always in DOM so screen readers can reference it via aria-describedby */}
-        <span id="amount-readonly-hint" className="sr-only">
-          To correct a shared amount, use Close-the-Month correction (available
-          in a future update).
-        </span>
         <Input
           id="amount_display"
           type="text"
           inputMode="decimal"
           value={amountDisplay}
           onChange={(e) => setAmountDisplay(e.target.value)}
-          disabled={isShared}
-          aria-disabled={isShared ? "true" : undefined}
-          aria-describedby={isShared ? "amount-readonly-hint" : undefined}
-          className={
-            "min-h-[44px] border border-hairline bg-surface-base text-ink-primary" +
-            (isShared ? " cursor-not-allowed opacity-60" : "")
-          }
+          className="min-h-[44px] border border-hairline bg-surface-base text-ink-primary"
         />
       </div>
 
@@ -427,7 +419,7 @@ export function TransactionEditSheet({
           disabled={isPending}
           className="min-h-[44px] w-full"
         >
-          Edit who paid
+          Edit Split
         </Button>
       )}
 
@@ -489,7 +481,11 @@ export function TransactionEditSheet({
             role="alertdialog"
             aria-labelledby="make-personal-heading"
             hidden={!showMakePersonalConfirm || undefined}
-            className={`${showMakePersonalConfirm ? "flex" : ""} flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4`}
+            className={`${showMakePersonalConfirm ? "flex" : ""} flex-col gap-3 rounded-lg border p-4`}
+            style={{
+              backgroundColor: "var(--budget-breathing-low-bg)",
+              borderColor: "var(--budget-breathing-low-border)",
+            }}
           >
             <p
               id="make-personal-heading"
@@ -507,7 +503,7 @@ export function TransactionEditSheet({
                 disabled={isPending}
                 aria-disabled={isPending ? "true" : undefined}
                 onClick={handleMakePersonal}
-                className="min-h-[44px] flex-1 bg-amber-600 text-white hover:bg-amber-700"
+                className="min-h-[44px] flex-1 bg-breathing-low text-white hover:opacity-90"
               >
                 {isPending ? "Saving…" : "Make personal"}
               </Button>
@@ -576,7 +572,7 @@ export function TransactionEditSheet({
           <h2 className="text-sm font-bold text-ink-primary">History</h2>
           <ol className="flex flex-col gap-2">
             {activityTrail.map((entry) => {
-              const editorLabel = getDisplayName(entry.user_id, viewerUserId);
+              const editorLabel = getDisplayName(entry.user_id, viewerUserId, viewerName, partnerName);
               return (
                 <li
                   key={entry.id}
@@ -598,9 +594,9 @@ export function TransactionEditSheet({
                           ? "bg-destructive/10 text-destructive"
                           : entry.change_type === "reclassified_to_shared" ||
                               entry.change_type === "reclassified_to_personal"
-                            ? "bg-amber-100 text-amber-800"
+                            ? "bg-breathing-low/15 text-breathing-low-text"
                             : entry.change_type === "macro_apply"
-                              ? "bg-purple-100 text-purple-800"
+                              ? "bg-surface-inset text-ink-secondary"
                               : "bg-brand-accent-strong/10 text-brand-accent-strong"
                       }`}
                     >

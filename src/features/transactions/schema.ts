@@ -130,6 +130,9 @@ export type EditTransactionFormData = {
 
 // Edit shared transaction schema — amount is excluded (server enforces this structurally)
 export const editSharedTransactionSchema = z.object({
+  amount_display: moneyDisplaySchema.refine((v) => parseAmountMinor(v) > 0, {
+    message: "Amount must be greater than zero",
+  }),
   category_id: z.string().uuid("Select a category"),
   note: z
     .string()
