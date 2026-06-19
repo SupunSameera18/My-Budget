@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { OfflineRetryBanner } from "@/components/feedback/OfflineRetryBanner";
 import { createGoal } from "@/features/goals/server/actions";
+import { currencySymbol } from "@/lib/format";
 
 interface GoalFormProps {
   currency: string;
@@ -53,6 +54,7 @@ export function GoalForm({ currency, isFamilyMode }: GoalFormProps) {
   return (
     <form
       onSubmit={onSubmit}
+      noValidate
       className="mx-auto flex w-full max-w-[600px] flex-col gap-4"
     >
       {/* ARIA live region — always present in DOM */}
@@ -88,7 +90,9 @@ export function GoalForm({ currency, isFamilyMode }: GoalFormProps) {
           Target amount
         </label>
         <div className="flex min-h-[44px] items-center rounded-md border border-hairline bg-surface-base px-3">
-          <span className="mr-2 text-sm text-ink-secondary">{currency}</span>
+          <span className="mr-2 text-sm text-ink-secondary">
+            {currencySymbol(currency)}
+          </span>
           <input
             id="target_amount_display"
             name="target_amount_display"

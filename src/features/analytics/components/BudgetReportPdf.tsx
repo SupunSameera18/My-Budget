@@ -3,6 +3,7 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import type { MonthlySummaryData } from "@/features/analytics/server/actions";
 import type { ExportRow } from "@/features/analytics/schema";
+import { formatMoney } from "@/lib/format";
 
 interface BudgetReportPdfProps {
   summary: MonthlySummaryData;
@@ -23,10 +24,12 @@ export function BudgetReportPdf({
           <Text style={styles.heading}>Monthly Summary — {selectedMonth}</Text>
           <Text>
             Net: {summary.netMinor >= 0 ? "+" : ""}
-            {(summary.netMinor / 100).toFixed(2)} {summary.currency}
+            {formatMoney(summary.netMinor, summary.currency)}
           </Text>
-          <Text>Income: {(summary.incomeMinor / 100).toFixed(2)}</Text>
-          <Text>Expenses: {(summary.expenseMinor / 100).toFixed(2)}</Text>
+          <Text>Income: {formatMoney(summary.incomeMinor, summary.currency)}</Text>
+          <Text>
+            Expenses: {formatMoney(summary.expenseMinor, summary.currency)}
+          </Text>
           {summary.healthScore && (
             <Text>Health Score: {summary.healthScore.score}/100</Text>
           )}
@@ -39,7 +42,7 @@ export function BudgetReportPdf({
             {summary.topCategories.map((c) => (
               <View key={c.name} style={styles.row}>
                 <Text>{c.name}</Text>
-                <Text>{(c.amountMinor / 100).toFixed(2)}</Text>
+                <Text>{formatMoney(c.amountMinor, summary.currency)}</Text>
               </View>
             ))}
           </View>

@@ -22,7 +22,11 @@ import type {
 } from "@/features/transactions/schema";
 import type { MacroWithTarget } from "@/features/macros/schema";
 import { ErrorCode, type AppError } from "@/lib/errors";
-import { formatMoney } from "@/lib/format";
+import {
+  formatMoney,
+  currencySymbol,
+  groupAmountString,
+} from "@/lib/format";
 import { applyTransactionToBreathingRoom } from "@/lib/money/transaction-preview";
 import { NumberPad } from "./NumberPad";
 
@@ -212,8 +216,10 @@ export function LogSheet({
             aria-live="polite"
             className="text-5xl font-bold tabular-nums text-ink-primary"
           >
-            <span className="text-2xl text-ink-secondary">{currency} </span>
-            {amountDisplay}
+            <span className="text-2xl text-ink-secondary">
+              {currencySymbol(currency)}{" "}
+            </span>
+            {groupAmountString(amountDisplay)}
           </p>
           {step1PreviewMinor !== null && (
             <p

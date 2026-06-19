@@ -141,7 +141,7 @@ describe("SubcategoryRow — archived subcategory (isArchived=true)", () => {
     expect(screen.getByRole("button", { name: /delete/i })).toBeInTheDocument();
   });
 
-  it("does NOT show Delete button when hasHistory=true", () => {
+  it("shows Delete button when hasHistory=true but clicking explains it is blocked", async () => {
     render(
       <SubcategoryRow
         subcategory={archivedSubcategory}
@@ -149,9 +149,16 @@ describe("SubcategoryRow — archived subcategory (isArchived=true)", () => {
         isArchived={true}
       />,
     );
+    const deleteBtn = screen.getByRole("button", { name: /delete/i });
+    expect(deleteBtn).toBeInTheDocument();
+    await userEvent.click(deleteBtn);
     expect(
-      screen.queryByRole("button", { name: /delete/i }),
+      screen.getByText(/has transactions, so it can't be deleted/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/delete permanently\? this cannot be undone/i),
     ).not.toBeInTheDocument();
+    expect(deleteSubcategory).not.toHaveBeenCalled();
   });
 
   it("clicking Delete shows confirmation UI before calling deleteSubcategory", async () => {

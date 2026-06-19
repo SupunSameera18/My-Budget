@@ -107,7 +107,7 @@ export function JoinFamilyForm() {
         {statusMsg}
       </div>
 
-      <form onSubmit={handleCodeSubmit} className="flex flex-col gap-3">
+      <form onSubmit={handleCodeSubmit} noValidate className="flex flex-col gap-3">
         <label
           htmlFor="invite-code-input"
           className="text-sm text-ink-secondary"

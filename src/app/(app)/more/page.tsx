@@ -113,7 +113,7 @@ export default async function MorePage() {
         </Link>
       </div>
 
-      <form action={signOut}>
+      <form action={signOut} noValidate>
         <button
           type="submit"
           className="flex min-h-[44px] w-full items-center gap-3 rounded-md border border-hairline bg-surface-raised px-4 text-sm text-ink-primary transition-colors hover:bg-surface-inset"

@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SplitSheet } from "@/features/transactions/components/SplitSheet";
 import { getDisplayName } from "@/lib/display-names";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, currencySymbol } from "@/lib/format";
 import type { Account } from "@/features/accounts/schema";
 import type {
   Transaction,
@@ -278,7 +278,9 @@ export function TransactionEditSheet({
           className="text-xs font-bold text-ink-secondary"
         >
           Amount{" "}
-          <span className="font-normal text-ink-secondary">({currency})</span>
+          <span className="font-normal text-ink-secondary">
+            ({currencySymbol(currency)})
+          </span>
         </label>
         <Input
           id="amount_display"

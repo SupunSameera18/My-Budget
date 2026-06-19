@@ -8,7 +8,10 @@ import {
   currencyStepSchema,
   type OnboardingProfile,
 } from "@/features/onboarding/schema";
-import { createAccount } from "@/features/accounts/server/actions";
+import {
+  createAccount,
+  updateAccount,
+} from "@/features/accounts/server/actions";
 
 export async function getOnboardingProfile(): Promise<
   Result<OnboardingProfile>
@@ -75,21 +78,37 @@ export async function saveCurrencyStep(formData: FormData): Promise<void> {
 export async function createFirstAccountAndAdvance(
   formData: FormData,
 ): Promise<void> {
-  const result = await createAccount(formData);
-  if (!result.ok) return;
-
   const auth = await requireUser();
   if (!auth) return;
   const { supabase, user } = auth;
 
-  // Guard: only advance if still on step 3
-  const { error } = await supabase
+  // Idempotency for step-back: if the user already created an account in a
+  // prior visit to this step, update it in place instead of inserting a
+  // duplicate. Otherwise create a fresh one.
+  const { data: existing } = await supabase
+    .from("accounts")
+    .select("id")
+    .eq("user_id", user.id)
+    .is("archived_at", null)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (existing) {
+    const result = await updateAccount(existing.id, formData);
+    if (!result.ok) return;
+  } else {
+    const result = await createAccount(formData);
+    if (!result.ok) return;
+  }
+
+  // Guard: only advance if still on step 3 (no-op when already past it)
+  await supabase
     .from("profiles")
     .update({ onboarding_step: 4 })
     .eq("user_id", user.id)
     .lte("onboarding_step", 3);
 
-  if (error) return;
   redirect("/onboarding/categories");
 }
 

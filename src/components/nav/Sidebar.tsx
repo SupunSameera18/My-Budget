@@ -87,7 +87,7 @@ export function Sidebar({ unreadCount = 0 }: SidebarProps) {
 
       <div className="flex shrink-0 flex-col gap-1 border-t border-hairline px-3 py-3">
         <ThemeToggle />
-        <form action={signOut}>
+        <form action={signOut} noValidate>
           <button
             type="submit"
             className="flex min-h-[44px] w-full items-center gap-3 rounded-md px-3 text-sm text-ink-secondary transition-colors hover:bg-surface-inset hover:text-ink-primary"

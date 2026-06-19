@@ -8,6 +8,7 @@ vi.mock("@/features/transactions/server/actions", () => ({
 
 vi.mock("@/lib/format", () => ({
   formatMoney: vi.fn((minor: number) => `$${(minor / 100).toFixed(2)}`),
+  currencySymbol: vi.fn(() => "$"),
 }));
 
 import { SplitSheet } from "./SplitSheet";

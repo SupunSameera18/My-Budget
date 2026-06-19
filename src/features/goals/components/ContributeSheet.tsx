@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { OfflineRetryBanner } from "@/components/feedback/OfflineRetryBanner";
 import { contributeToGoal } from "@/features/goals/server/actions";
+import { currencySymbol } from "@/lib/format";
 
 interface ContributeSheetProps {
   goalId: string;
@@ -121,7 +122,7 @@ export function ContributeSheet({
           {statusMessage}
         </p>
 
-        <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
           <input type="hidden" name="goal_id" value={goalId} />
 
           {/* Amount */}
@@ -134,7 +135,7 @@ export function ContributeSheet({
             </label>
             <div className="flex min-h-[44px] items-center rounded-md border border-hairline bg-surface-base px-3">
               <span className="mr-2 text-sm text-ink-secondary">
-                {currency}
+                {currencySymbol(currency)}
               </span>
               <input
                 ref={amountRef}

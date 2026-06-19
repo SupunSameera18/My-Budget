@@ -56,7 +56,7 @@ export async function ChecklistCard() {
             A few things to set up
           </h2>
         </div>
-        <form action={markChecklistComplete}>
+        <form action={markChecklistComplete} noValidate>
           <button
             type="submit"
             aria-label="Dismiss setup checklist"

@@ -1,9 +1,18 @@
-import { saveNameStep } from "@/features/onboarding/server/actions";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { SubmitButton } from "@/components/ui/submit-button";
+import { redirect } from "next/navigation";
+import { requireUser } from "@/lib/supabase/require-user";
+import { NameForm } from "./NameForm";
 
-export default function NamePage() {
+export default async function NamePage() {
+  const auth = await requireUser();
+  if (!auth) redirect("/auth/login");
+
+  const { supabase, user } = auth;
+  const { data } = await supabase
+    .from("profiles")
+    .select("display_name")
+    .eq("user_id", user.id)
+    .single();
+
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-8 p-6 pt-12">
       <div>
@@ -18,24 +27,7 @@ export default function NamePage() {
         </p>
       </div>
 
-      <form action={saveNameStep} className="flex flex-col gap-6">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="display_name">Your name</Label>
-          <Input
-            id="display_name"
-            name="display_name"
-            type="text"
-            placeholder="e.g. John"
-            maxLength={50}
-            required
-            autoFocus
-            autoComplete="given-name"
-            className="min-h-[44px]"
-          />
-        </div>
-
-        <SubmitButton className="min-h-[44px] w-full">Continue</SubmitButton>
-      </form>
+      <NameForm defaultName={data?.display_name ?? ""} />
     </div>
   );
 }

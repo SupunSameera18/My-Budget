@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, currencySymbol } from "@/lib/format";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { updateBudget, archiveBudget } from "@/features/budgets/server/actions";
 import {
@@ -111,7 +111,7 @@ export function BudgetCard({
     return (
       <article className="rounded-xl border border-hairline bg-card p-4 shadow-sm">
         {liveRegion}
-        <form onSubmit={handleEdit} className="flex flex-col gap-4">
+        <form onSubmit={handleEdit} noValidate className="flex flex-col gap-4">
           {/* Name */}
           <div className="flex flex-col gap-1">
             <label
@@ -143,10 +143,12 @@ export function BudgetCard({
               htmlFor={`bud-limit-${budget.id}`}
               className="text-sm font-medium text-ink-primary"
             >
-              Limit ({currency})
+              Limit ({currencySymbol(currency)})
             </label>
             <div className="flex min-h-[44px] items-center rounded-md border border-hairline bg-surface-base px-3">
-              <span className="mr-2 text-sm text-ink-secondary">{currency}</span>
+              <span className="mr-2 text-sm text-ink-secondary">
+                {currencySymbol(currency)}
+              </span>
               <input
                 id={`bud-limit-${budget.id}`}
                 name="limit_amount_display"

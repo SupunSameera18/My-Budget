@@ -1,19 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-
-function getCurrencySymbol(code: string): string {
-  try {
-    const parts = new Intl.NumberFormat("en", {
-      style: "currency",
-      currency: code,
-      currencyDisplay: "symbol",
-    }).formatToParts(0);
-    return parts.find((p) => p.type === "currency")?.value ?? code;
-  } catch {
-    return code;
-  }
-}
+import { currencySymbol, groupAmountString } from "@/lib/format";
 
 interface CurrencyAmountInputProps {
   currency: string;
@@ -21,6 +9,8 @@ interface CurrencyAmountInputProps {
   id: string;
   disabled?: boolean;
   className?: string;
+  /** Raw numeric value (e.g. "1000.00") to pre-fill, e.g. when editing. */
+  initialValue?: string;
 }
 
 export function CurrencyAmountInput({
@@ -29,10 +19,15 @@ export function CurrencyAmountInput({
   id,
   disabled,
   className,
+  initialValue = "",
 }: CurrencyAmountInputProps) {
-  const symbol = getCurrencySymbol(currency);
-  const [rawValue, setRawValue] = useState("");
-  const [displayValue, setDisplayValue] = useState("");
+  const symbol = currencySymbol(currency);
+  // Wider left padding when the symbol is more than one glyph (Rs, CHF, A$…).
+  const padClass = symbol.length > 1 ? "pl-11" : "pl-8";
+  const [rawValue, setRawValue] = useState(initialValue);
+  const [displayValue, setDisplayValue] = useState(
+    groupAmountString(initialValue),
+  );
   const [decimalError, setDecimalError] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -62,11 +57,11 @@ export function CurrencyAmountInput({
     const decimalMatch = normalized.match(/\.(\d+)$/);
     setDecimalError(!!decimalMatch && decimalMatch[1].length > 2);
     setRawValue(normalized);
-    setDisplayValue(normalized);
+    setDisplayValue(groupAmountString(normalized));
   }
 
   function handleFocus() {
-    setDisplayValue(rawValue);
+    setDisplayValue(groupAmountString(rawValue));
   }
 
   function handleBlur() {
@@ -107,7 +102,7 @@ export function CurrencyAmountInput({
           placeholder="0.00"
           disabled={disabled}
           aria-invalid={decimalError}
-          className={`flex h-10 w-full rounded-md border border-input bg-background py-2 pl-8 pr-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-h-[44px] ${className ?? ""}`}
+          className={`flex h-10 w-full rounded-md border border-input bg-background py-2 ${padClass} pr-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-h-[44px] ${className ?? ""}`}
         />
       </div>
       {decimalError && (

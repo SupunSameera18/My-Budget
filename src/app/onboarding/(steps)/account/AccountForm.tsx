@@ -6,38 +6,34 @@ import { ACCOUNT_TYPES, ACCOUNT_TYPE_LABELS } from "@/features/accounts/schema";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { CurrencyAmountInput } from "@/components/ui/currency-amount-input";
 
-function getCurrencySymbol(code: string): string {
-  try {
-    const parts = new Intl.NumberFormat("en", {
-      style: "currency",
-      currency: code,
-      currencyDisplay: "symbol",
-    }).formatToParts(0);
-    return parts.find((p) => p.type === "currency")?.value ?? code;
-  } catch {
-    return code;
-  }
+interface InitialAccount {
+  name: string;
+  type: string;
+  balance: string;
 }
 
-export function AccountForm({ currency }: { currency: string }) {
+export function AccountForm({
+  currency,
+  initialAccount = null,
+}: {
+  currency: string;
+  initialAccount?: InitialAccount | null;
+}) {
   const [isPending, startTransition] = useTransition();
-  const [balance, setBalance] = useState("");
-  const [decimalError, setDecimalError] = useState(false);
-
-  const symbol = getCurrencySymbol(currency);
-
-  function handleBalanceChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const val = e.target.value;
-    setBalance(val);
-    const decimalMatch = val.match(/\.(\d+)$/);
-    setDecimalError(!!decimalMatch && decimalMatch[1].length > 2);
-  }
+  const [nameError, setNameError] = useState<string | null>(null);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (decimalError) return;
     const formData = new FormData(e.currentTarget);
+    // Custom validation in place of native browser constraints.
+    const name = (formData.get("name") as string)?.trim() ?? "";
+    if (!name) {
+      setNameError("Enter an account name.");
+      return;
+    }
+    setNameError(null);
     startTransition(async () => {
       await createFirstAccountAndAdvance(formData);
     });
@@ -53,10 +49,12 @@ export function AccountForm({ currency }: { currency: string }) {
           type="text"
           placeholder="e.g. Main Bank"
           maxLength={50}
-          required
+          defaultValue={initialAccount?.name ?? ""}
           autoComplete="off"
           disabled={isPending}
+          aria-invalid={!!nameError}
         />
+        {nameError && <p className="text-xs text-destructive">{nameError}</p>}
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -64,7 +62,7 @@ export function AccountForm({ currency }: { currency: string }) {
         <select
           id="type"
           name="type"
-          required
+          defaultValue={initialAccount?.type ?? ACCOUNT_TYPES[0]}
           disabled={isPending}
           className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
         >
@@ -78,33 +76,16 @@ export function AccountForm({ currency }: { currency: string }) {
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="openingBalance">Opening balance</Label>
-        <div className="relative flex items-center">
-          <span className="pointer-events-none absolute left-3 text-sm text-ink-secondary">
-            {symbol}
-          </span>
-          <Input
-            id="openingBalance"
-            name="openingBalance"
-            type="text"
-            inputMode="decimal"
-            placeholder="0.00"
-            value={balance}
-            onChange={handleBalanceChange}
-            disabled={isPending}
-            className="min-h-[44px] pl-8"
-          />
-        </div>
-        {decimalError && (
-          <p className="text-xs text-destructive">
-            Use only two decimal places.
-          </p>
-        )}
+        <CurrencyAmountInput
+          id="openingBalance"
+          name="openingBalance"
+          currency={currency}
+          disabled={isPending}
+          initialValue={initialAccount?.balance ?? ""}
+        />
       </div>
 
-      <SubmitButton
-        className="min-h-[44px] w-full"
-        disabled={isPending || decimalError}
-      >
+      <SubmitButton className="min-h-[44px] w-full" disabled={isPending}>
         Continue
       </SubmitButton>
     </form>

@@ -6,6 +6,9 @@ export const reclassifyGoalSchema = z.object({
   to_shared: z.enum(["true", "false"]).transform((v) => v === "true"),
 });
 
+export const GOAL_RECURRENCES = ["none", "weekly", "monthly"] as const;
+export type GoalRecurrence = (typeof GOAL_RECURRENCES)[number];
+
 export const createGoalSchema = z.object({
   name: z
     .string()
@@ -14,6 +17,7 @@ export const createGoalSchema = z.object({
     .trim(),
   target_amount_display: moneyDisplaySchema,
   is_shared: z.enum(["true"]).optional(),
+  recurrence: z.enum(GOAL_RECURRENCES).default("none"),
 });
 
 export const contributeGoalSchema = z.object({
@@ -52,6 +56,8 @@ export type GoalWithProgress = {
   created_at: string;
   is_shared: boolean;
   isOwner: boolean;
+  recurrence: GoalRecurrence;
+  period_end: string | null;
   myContributionMinor?: number;
   partnerContributionMinor?: number;
   partnerContributorId?: string;

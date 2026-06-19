@@ -42,6 +42,7 @@ export function CreateMacroForm({
         e.preventDefault();
         void handleCreate(new FormData(e.currentTarget));
       }}
+      noValidate
       className="flex flex-col gap-4"
     >
       <div className="flex flex-col gap-1">

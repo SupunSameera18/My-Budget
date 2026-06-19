@@ -33,7 +33,7 @@ describe("GoalForm", () => {
     render(<GoalForm currency="USD" isFamilyMode={false} />);
     expect(screen.getByLabelText(/name/i)).toBeTruthy();
     expect(screen.getByLabelText(/target amount/i)).toBeTruthy();
-    expect(screen.getByText("USD")).toBeTruthy();
+    expect(screen.getByText("$")).toBeTruthy();
     expect(screen.getByRole("button", { name: /create goal/i })).toBeTruthy();
   });
 

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { splitTransactionAction } from "@/features/transactions/server/actions";
 import { splitTransaction } from "@/lib/money/split";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, currencySymbol } from "@/lib/format";
 import type { SplitMethod } from "@/lib/money/split";
 
 interface SplitSheetProps {
@@ -192,7 +192,7 @@ export function SplitSheet({
               htmlFor="payer-fixed"
               className="text-xs font-bold text-ink-secondary"
             >
-              You paid ({currency})
+              You paid ({currencySymbol(currency)})
             </label>
             <Input
               id="payer-fixed"
@@ -215,7 +215,7 @@ export function SplitSheet({
               htmlFor="partner-fixed"
               className="text-xs font-bold text-ink-secondary"
             >
-              {partnerName} paid ({currency})
+              {partnerName} paid ({currencySymbol(currency)})
             </label>
             <Input
               id="partner-fixed"

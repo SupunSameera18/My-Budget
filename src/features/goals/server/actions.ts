@@ -24,6 +24,8 @@ export async function createGoal(
       name: formData.get("name") as string,
       target_amount_display: formData.get("target_amount_display") as string,
       is_shared: (formData.get("is_shared") as string | null) ?? undefined,
+      recurrence:
+        (formData.get("recurrence") as string | null) ?? undefined,
     };
 
     const parsed = createGoalSchema.safeParse(raw);
@@ -53,6 +55,7 @@ export async function createGoal(
       p_name: parsed.data.name,
       p_target_minor: targetMinor,
       p_is_shared: isShared,
+      p_recurrence: parsed.data.recurrence,
     });
 
     if (error) {

@@ -4,6 +4,7 @@ import { useRef, useState, useEffect } from "react";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { OfflineRetryBanner } from "@/components/feedback/OfflineRetryBanner";
 import { editGoalTarget } from "@/features/goals/server/actions";
+import { currencySymbol } from "@/lib/format";
 
 interface EditGoalTargetSheetProps {
   goalId: string;
@@ -120,7 +121,7 @@ export function EditGoalTargetSheet({
               Edit target for {goalName}
             </h2>
 
-            <form onSubmit={onSubmit} className="flex flex-col gap-4">
+            <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
               <input type="hidden" name="goal_id" value={goalId} />
 
               {/* Target amount */}
@@ -133,7 +134,7 @@ export function EditGoalTargetSheet({
                 </label>
                 <div className="flex min-h-[44px] items-center rounded-md border border-hairline bg-surface-base px-3">
                   <span className="mr-2 text-sm text-ink-secondary">
-                    {currency}
+                    {currencySymbol(currency)}
                   </span>
                   <input
                     ref={inputRef}

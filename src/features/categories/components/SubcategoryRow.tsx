@@ -77,6 +77,7 @@ export function SubcategoryRow({
         <form
           ref={formRef}
           onSubmit={handleUpdate}
+          noValidate
           className="flex flex-col gap-3"
         >
           <div className="flex flex-col gap-1">
@@ -213,19 +214,23 @@ export function SubcategoryRow({
             >
               {isPending ? "Restoring…" : "Unarchive"}
             </button>
-            {!hasHistory && (
-              <button
-                type="button"
-                disabled={isPending}
-                onClick={() => {
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() => {
+                setError(null);
+                if (hasHistory) {
+                  setError(
+                    "This subcategory has transactions, so it can't be deleted. Keep it archived instead.",
+                  );
+                } else {
                   setShowDeleteConfirm(true);
-                  setError(null);
-                }}
-                className="min-h-[44px] flex-1 rounded-md border border-destructive px-3 text-sm font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
-              >
-                Delete
-              </button>
-            )}
+                }
+              }}
+              className="min-h-[44px] flex-1 rounded-md border border-destructive px-3 text-sm font-medium text-destructive hover:bg-destructive/10 disabled:opacity-50"
+            >
+              Delete
+            </button>
           </>
         )}
       </div>

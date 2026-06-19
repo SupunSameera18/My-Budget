@@ -82,7 +82,7 @@ describe("BudgetReportPdf", () => {
         selectedMonth="2026-05"
       />,
     );
-    expect(screen.getByText(/5000\.00/)).toBeTruthy();
+    expect(screen.getByText(/\$5,000\.00/)).toBeTruthy();
   });
 
   it("renders expense total", () => {
@@ -93,7 +93,7 @@ describe("BudgetReportPdf", () => {
         selectedMonth="2026-05"
       />,
     );
-    expect(screen.getByText(/3000\.00/)).toBeTruthy();
+    expect(screen.getByText(/\$3,000\.00/)).toBeTruthy();
   });
 
   it("renders Health Score when non-null", () => {
