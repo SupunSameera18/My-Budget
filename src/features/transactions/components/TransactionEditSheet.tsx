@@ -36,6 +36,8 @@ interface TransactionEditSheetProps {
   viewerUserId: string;
   isFamilyMode?: boolean;
   partnerJoinDate?: string | null;
+  lastSettledAt?: string | null;
+  isSettleLocked?: boolean;
 }
 
 const ACTIVITY_FIELD_LABELS: Record<string, string> = {
@@ -92,6 +94,8 @@ export function TransactionEditSheet({
   viewerUserId,
   isFamilyMode = false,
   partnerJoinDate,
+  lastSettledAt,
+  isSettleLocked: isSettleLockedProp,
 }: TransactionEditSheetProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -134,6 +138,12 @@ export function TransactionEditSheet({
     !isShared &&
     !!partnerJoinDate &&
     transaction.date < partnerJoinDate;
+  // Prefer the server-computed value (passed as prop) to avoid server/client date-parse divergence.
+  const isSettleLocked =
+    isSettleLockedProp ??
+    (isShared &&
+      !!lastSettledAt &&
+      new Date(transaction.created_at) <= new Date(lastSettledAt));
 
   function handleMakeShared() {
     setReclassifyError("");
@@ -250,6 +260,17 @@ export function TransactionEditSheet({
         {liveMessage}
       </div>
 
+      {/* Settle lock banner */}
+      {isSettleLocked && (
+        <div
+          role="note"
+          className="rounded-lg border border-hairline bg-surface-inset px-4 py-3 text-sm text-ink-secondary"
+        >
+          This shared transaction is locked because it was settled. To correct
+          it, log a new transaction.
+        </div>
+      )}
+
       {/* Amount */}
       <div className="flex flex-col gap-1.5">
         <label
@@ -265,6 +286,7 @@ export function TransactionEditSheet({
           inputMode="decimal"
           value={amountDisplay}
           onChange={(e) => setAmountDisplay(e.target.value)}
+          disabled={isSettleLocked}
           className="min-h-[44px] border border-hairline bg-surface-base text-ink-primary"
         />
       </div>
@@ -281,6 +303,7 @@ export function TransactionEditSheet({
           id="account_id"
           value={selectedAccountId}
           onChange={(e) => setSelectedAccountId(e.target.value)}
+          disabled={isSettleLocked}
           className="flex min-h-[44px] w-full rounded-md border border-hairline bg-surface-base px-3 py-2 text-sm text-ink-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="Account"
         >
@@ -307,6 +330,7 @@ export function TransactionEditSheet({
             setSelectedCategoryId(e.target.value);
             setSelectedSubcategoryId("");
           }}
+          disabled={isSettleLocked}
           className="flex min-h-[44px] w-full rounded-md border border-hairline bg-surface-base px-3 py-2 text-sm text-ink-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="Category"
         >
@@ -346,6 +370,7 @@ export function TransactionEditSheet({
             id="subcategory_id"
             value={selectedSubcategoryId}
             onChange={(e) => setSelectedSubcategoryId(e.target.value)}
+            disabled={isSettleLocked}
             className="flex min-h-[44px] w-full rounded-md border border-hairline bg-surface-base px-3 py-2 text-sm text-ink-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <option value="">None</option>
@@ -371,7 +396,8 @@ export function TransactionEditSheet({
           type="date"
           value={selectedDate}
           onChange={(e) => setSelectedDate(e.target.value)}
-          className="flex min-h-[44px] w-full rounded-md border border-hairline bg-surface-base px-3 py-2 text-sm text-ink-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          disabled={isSettleLocked}
+          className="flex min-h-[44px] w-full rounded-md border border-hairline bg-surface-base px-3 py-2 text-sm text-ink-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
           aria-label="Date"
         />
       </div>
@@ -389,6 +415,7 @@ export function TransactionEditSheet({
           autoComplete="off"
           value={note}
           onChange={(e) => setNote(e.target.value)}
+          disabled={isSettleLocked}
           className="min-h-[44px] border border-hairline bg-surface-base text-ink-primary"
         />
       </div>
@@ -401,17 +428,19 @@ export function TransactionEditSheet({
       )}
 
       {/* Save button */}
-      <Button
-        type="button"
-        disabled={isPending || !isOnline}
-        onClick={handleSave}
-        className="min-h-[44px] w-full rounded-md bg-brand-accent-strong font-bold text-white"
-      >
-        {isPending ? "Saving…" : "Save changes"}
-      </Button>
+      {!isSettleLocked && (
+        <Button
+          type="button"
+          disabled={isPending || !isOnline}
+          onClick={handleSave}
+          className="min-h-[44px] w-full rounded-md bg-brand-accent-strong font-bold text-white"
+        >
+          {isPending ? "Saving…" : "Save changes"}
+        </Button>
+      )}
 
       {/* Edit split — only for Shared transactions */}
-      {isShared && (
+      {isShared && !isSettleLocked && (
         <Button
           type="button"
           variant="outline"
@@ -426,7 +455,7 @@ export function TransactionEditSheet({
       {/* ── Reclassify: Make shared (Personal → Shared) ────────────────────
           Hidden in solo mode; only shown to transaction owner when personal.
           Disabled with explanation if transaction date precedes partner join date. */}
-      {isFamilyMode && isOwner && !isShared && (
+      {isFamilyMode && isOwner && !isShared && !isSettleLocked && (
         <div className="flex flex-col gap-2">
           {/* Pre-join explanation — always in DOM so aria-describedby resolves (§9) */}
           <span id="pre-join-hint" className="sr-only">
@@ -457,7 +486,7 @@ export function TransactionEditSheet({
       {/* ── Reclassify: Make personal (Shared → Personal) ──────────────────
           Hidden in solo mode; only shown to transaction owner when shared.
           Requires inline confirmation (destructive action). */}
-      {isFamilyMode && isOwner && isShared && (
+      {isFamilyMode && isOwner && isShared && !isSettleLocked && (
         <div className="flex flex-col gap-2">
           <Button
             type="button"
@@ -480,8 +509,7 @@ export function TransactionEditSheet({
           <div
             role="alertdialog"
             aria-labelledby="make-personal-heading"
-            hidden={!showMakePersonalConfirm || undefined}
-            className={`${showMakePersonalConfirm ? "flex" : ""} flex-col gap-3 rounded-lg border p-4`}
+            className={`${showMakePersonalConfirm ? "flex" : "hidden"} flex-col gap-3 rounded-lg border p-4`}
             style={{
               backgroundColor: "var(--budget-breathing-low-bg)",
               borderColor: "var(--budget-breathing-low-border)",
@@ -527,9 +555,9 @@ export function TransactionEditSheet({
         <p className="text-sm text-destructive">{reclassifyError}</p>
       )}
 
-      {/* Delete section — only owner can delete; partner sees no delete button */}
-      {isShared &&
-      viewerUserId !== transaction.user_id ? null : !showDeleteConfirm ? (
+      {/* Delete section — only owner can delete; partner sees no delete button; locked transactions cannot be deleted */}
+      {isSettleLocked || (isShared &&
+      viewerUserId !== transaction.user_id) ? null : !showDeleteConfirm ? (
         <Button
           type="button"
           variant="outline"

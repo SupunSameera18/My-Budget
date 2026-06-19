@@ -4,6 +4,7 @@ import {
   getFamilyStatus,
   getContributionAnalysis,
   getSettleTally,
+  getLastSettlementDate,
 } from "@/features/family/server/actions";
 import { InviteGenerator } from "@/features/family/components/InviteGenerator";
 import { JoinFamilyForm } from "@/features/family/components/JoinFamilyForm";
@@ -11,23 +12,30 @@ import { FamilyStatusBanner } from "@/features/family/components/FamilyStatusBan
 import { ContributionAnalysis } from "@/features/family/components/ContributionAnalysis";
 import { SettleUpPanel } from "@/features/family/components/SettleUpPanel";
 import { CloseMonthForm } from "@/features/family/components/CloseMonthForm";
-import { currentMonthBoundaries } from "@/lib/period";
-
 export default async function FamilyPage() {
   const auth = await requireUser();
   if (!auth) redirect("/auth/login");
 
-  const { start, end } = currentMonthBoundaries();
   const familyStatus = await getFamilyStatus();
 
   const isFamilyMode = familyStatus.status === "in_family";
 
-  const [contributionData, tally] = await Promise.all([
-    getContributionAnalysis(start, end),
-    isFamilyMode
-      ? getSettleTally((familyStatus as { familyUnitId: string }).familyUnitId)
-      : Promise.resolve(null),
-  ]);
+  const familyUnitId = isFamilyMode
+    ? (familyStatus as { familyUnitId: string }).familyUnitId
+    : null;
+
+  const [lastSettledAt, tally] = familyUnitId
+    ? await Promise.all([
+        getLastSettlementDate(familyUnitId),
+        getSettleTally(familyUnitId),
+      ])
+    : [null, null];
+
+  // Pass the full settlement timestamp — rpc_get_contribution_analysis (0077) filters
+  // by created_at > p_settled_at (TIMESTAMPTZ), same boundary as rpc_settle_up.
+  const contributionData = isFamilyMode
+    ? await getContributionAnalysis(lastSettledAt)
+    : null;
 
   return (
     <main className="mx-auto max-w-xl px-4 py-8">
@@ -58,6 +66,7 @@ export default async function FamilyPage() {
             initialData={contributionData}
             isFamilyMode={isFamilyMode}
             partnerName={familyStatus.partner.displayName}
+            lastSettledAt={lastSettledAt}
           />
 
           <SettleUpPanel

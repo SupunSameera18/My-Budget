@@ -3,7 +3,7 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { AlertCircle, Bell, CalendarCheck, Users } from "lucide-react";
+import { AlertCircle, Bell, CalendarCheck, CheckCircle2, Users } from "lucide-react";
 import {
   markNotificationRead,
   dismissNotification,
@@ -18,6 +18,7 @@ const TYPE_ICONS: Record<NotificationType, React.ElementType> = {
   logging_reminder: Bell,
   month_end_summary: CalendarCheck,
   partner_shared_transaction: Users,
+  partner_settled_up: CheckCircle2,
 };
 
 function relativeTime(isoString: string): string {

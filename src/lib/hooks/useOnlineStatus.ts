@@ -3,9 +3,8 @@
 import { useState, useEffect } from "react";
 
 export function useOnlineStatus(): boolean {
-  const [isOnline, setIsOnline] = useState(() =>
-    typeof window !== "undefined" ? navigator.onLine : true,
-  );
+  // Start true to match server SSR output; sync to real value in effect after hydration
+  const [isOnline, setIsOnline] = useState(true);
 
   useEffect(() => {
     setIsOnline(navigator.onLine);

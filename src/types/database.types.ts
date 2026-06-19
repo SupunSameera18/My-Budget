@@ -455,7 +455,8 @@ export type Database = {
             | "logging_reminder"
             | "budget_threshold"
             | "month_end_summary"
-            | "partner_shared_transaction";
+            | "partner_shared_transaction"
+            | "partner_settled_up";
           title: string;
           body: string;
           link: string | null;
@@ -472,7 +473,8 @@ export type Database = {
             | "logging_reminder"
             | "budget_threshold"
             | "month_end_summary"
-            | "partner_shared_transaction";
+            | "partner_shared_transaction"
+            | "partner_settled_up";
           title: string;
           body: string;
           link?: string | null;
@@ -690,7 +692,7 @@ export type Database = {
       };
       // ↓ Added by Story 7.9
       rpc_get_contribution_analysis: {
-        Args: { p_period_start?: string | null; p_period_end?: string | null };
+        Args: { p_settled_at?: string | null; p_period_end?: string | null };
         Returns: {
           contributor_id: string;
           total_paid_minor: number;

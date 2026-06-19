@@ -55,4 +55,5 @@ export type GoalWithProgress = {
   myContributionMinor?: number;
   partnerContributionMinor?: number;
   partnerContributorId?: string;
+  partnerHasContributed?: boolean;
 };

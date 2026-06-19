@@ -22,6 +22,11 @@ export default async function TransactionPage({
   const trail = await getActivityTrail(id);
 
   const isShared = result.data.transaction.is_shared;
+  const isSettleLocked =
+    isShared &&
+    !!result.data.lastSettledAt &&
+    new Date(result.data.transaction.created_at) <=
+      new Date(result.data.lastSettledAt);
 
   return (
     <div className="mx-auto max-w-2xl p-4">
@@ -37,6 +42,8 @@ export default async function TransactionPage({
         isShared={isShared}
         partnerName={result.data.partnerName}
         viewerUserId={result.data.viewerUserId}
+        lastSettledAt={result.data.lastSettledAt}
+        isSettleLocked={isSettleLocked}
       />
     </div>
   );

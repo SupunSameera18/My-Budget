@@ -9,7 +9,7 @@
 
 BEGIN;
 
-SELECT plan(8);
+SELECT plan(13);
 
 -- ─── Seed ───────────────────────────────────────────────────────────────────
 
@@ -52,11 +52,13 @@ INSERT INTO public.transactions (id, user_id, account_id, category_id, amount_mi
    '11111111-8002-4000-8000-000000000021',
    10000, current_date - 5, 'expense', true);
 
--- Split: alice is payer, equal split (alice's view: +5000 = bob owes alice)
+-- Who-paid split (migration 0070): payer_share/partner_share record who ACTUALLY
+-- paid. Alice fronted the whole 10000 (alice paid 10000, bob paid 0); fair share
+-- is 5000 each, so alice is +5000 → bob owes alice 5000.
 INSERT INTO public.transaction_splits (transaction_id, payer_id, payer_share_minor, partner_share_minor, split_method) VALUES
   ('11111111-8002-4000-8000-000000000030',
    '11111111-8002-4000-8000-000000000001',
-   5000, 5000, 'equal');
+   10000, 0, 'fixed');
 
 -- ─── S1: rpc_mark_settled inserts one row and returns a UUID ─────────────────
 
@@ -125,7 +127,9 @@ SELECT throws_ok(
 SET LOCAL role TO postgres;
 DELETE FROM public.settlements WHERE family_unit_id = '11111111-8002-4000-8000-000000000010';
 
--- Add a new unsettled split (bob paid) to give the tally a non-zero value
+-- Add a new unsettled shared transaction where bob fronted the whole 6000
+-- (bob paid 6000, alice paid 0). Bob is the payer; partner_share is alice's
+-- 0 contribution. Bob's fair share is 3000, so bob is +3000 → non-zero tally.
 INSERT INTO public.transactions (id, user_id, account_id, category_id, amount_minor, date, type, is_shared) VALUES
   ('11111111-8002-4000-8000-000000000031', '11111111-8002-4000-8000-000000000001',
    '11111111-8002-4000-8000-000000000011',
@@ -135,7 +139,7 @@ INSERT INTO public.transactions (id, user_id, account_id, category_id, amount_mi
 INSERT INTO public.transaction_splits (transaction_id, payer_id, payer_share_minor, partner_share_minor, split_method) VALUES
   ('11111111-8002-4000-8000-000000000031',
    '11111111-8002-4000-8000-000000000002',
-   3000, 3000, 'equal');
+   6000, 0, 'fixed');
 
 SET LOCAL role TO authenticated;
 SET LOCAL "request.jwt.claims" TO '{"sub": "11111111-8002-4000-8000-000000000002"}';
@@ -153,10 +157,14 @@ SELECT isnt(
 -- ─── S6: zero-tally rpc_mark_settled raises P0001 ─────────────────────────────
 -- (Phase 2 review patch D1: settling a zero-balance period is a no-op guard)
 
--- Remove period settlement; remove splits so tally = 0
+-- Remove the settlement and archive every shared transaction so the tally is 0.
+-- (Under the who-paid model just deleting splits is NOT enough — a split-less
+-- shared transaction falls back to "owner paid the full amount", which is still
+-- a non-zero contribution. Archiving removes it from rpc_settle_up entirely.)
 SET LOCAL role TO postgres;
 DELETE FROM public.settlements WHERE family_unit_id = '11111111-8002-4000-8000-000000000010';
-DELETE FROM public.transaction_splits WHERE transaction_id IN (
+UPDATE public.transactions SET archived_at = now()
+ WHERE id IN (
   '11111111-8002-4000-8000-000000000030',
   '11111111-8002-4000-8000-000000000031'
 );
@@ -168,6 +176,126 @@ SELECT throws_ok(
   $$ SELECT public.rpc_mark_settled('11111111-8002-4000-8000-000000000010'::uuid) $$,
   'P0001', NULL::text,
   'S6: zero-tally rpc_mark_settled raises P0001 (cannot settle a zero-balance period)'
+);
+
+-- ─── S7 (settle-anytime, migration 0078): a deliberate re-settle in the SAME
+--     period writes a NEW watermark and resets the tally to 0 ─────────────────
+-- Regression for "second settle in the same month silently no-ops": before 0078
+-- the per-month idempotency returned the first watermark and wrote nothing, so
+-- the tally never reset even though the toast claimed success.
+
+SET LOCAL role TO postgres;
+-- Clean slate: no settlements; revive tx030 as the only live shared spend and
+-- keep tx031 archived (from S6). Alice fronted the whole 10000 → alice +5000.
+DELETE FROM public.settlements WHERE family_unit_id = '11111111-8002-4000-8000-000000000010';
+DELETE FROM public.transaction_splits WHERE transaction_id IN (
+  '11111111-8002-4000-8000-000000000030',
+  '11111111-8002-4000-8000-000000000031'
+);
+UPDATE public.transactions SET archived_at = NULL  WHERE id = '11111111-8002-4000-8000-000000000030';
+UPDATE public.transactions SET archived_at = now() WHERE id = '11111111-8002-4000-8000-000000000031';
+
+INSERT INTO public.transaction_splits (transaction_id, payer_id, payer_share_minor, partner_share_minor, split_method) VALUES
+  ('11111111-8002-4000-8000-000000000030',
+   '11111111-8002-4000-8000-000000000001',
+   10000, 0, 'fixed');
+
+SET LOCAL role TO authenticated;
+SET LOCAL "request.jwt.claims" TO '{"sub": "11111111-8002-4000-8000-000000000001"}';
+
+-- First settle in the period → one watermark, tally resets.
+CREATE TEMP TABLE s7_first (settlement_id UUID) ON COMMIT DROP;
+GRANT INSERT ON s7_first TO authenticated;
+INSERT INTO s7_first SELECT public.rpc_mark_settled('11111111-8002-4000-8000-000000000010'::uuid);
+
+-- Backdate the first watermark by an hour. Inside this single test transaction
+-- now() is frozen, so without backdating the next transaction's created_at would
+-- equal settled_at and fall on the wrong side of the `created_at > cutoff`
+-- boundary. Backdating reproduces real time passing between two settles.
+SET LOCAL role TO postgres;
+UPDATE public.settlements
+   SET settled_at = now() - interval '1 hour'
+ WHERE id = (SELECT settlement_id FROM s7_first);
+
+-- New shared spend logged AFTER the first watermark but before now()
+-- (created_at = now() - 30 min  ⇒  inside the unsettled window).
+INSERT INTO public.transactions (id, user_id, account_id, category_id, amount_minor, date, type, is_shared, created_at) VALUES
+  ('11111111-8002-4000-8000-000000000032', '11111111-8002-4000-8000-000000000001',
+   '11111111-8002-4000-8000-000000000011',
+   '11111111-8002-4000-8000-000000000021',
+   8000, current_date, 'expense', true, now() - interval '30 minutes');
+-- Alice fronted the whole 8000 → alice +4000 on this transaction.
+INSERT INTO public.transaction_splits (transaction_id, payer_id, payer_share_minor, partner_share_minor, split_method) VALUES
+  ('11111111-8002-4000-8000-000000000032',
+   '11111111-8002-4000-8000-000000000001',
+   8000, 0, 'fixed');
+
+SET LOCAL role TO authenticated;
+SET LOCAL "request.jwt.claims" TO '{"sub": "11111111-8002-4000-8000-000000000001"}';
+
+CREATE TEMP TABLE s7_second (settlement_id UUID) ON COMMIT DROP;
+GRANT INSERT ON s7_second TO authenticated;
+INSERT INTO s7_second SELECT public.rpc_mark_settled('11111111-8002-4000-8000-000000000010'::uuid);
+
+SELECT isnt(
+  (SELECT settlement_id FROM s7_second),
+  (SELECT settlement_id FROM s7_first),
+  'S7: re-settling the same period writes a NEW watermark (distinct from the first)'
+);
+
+SELECT is(
+  public.rpc_settle_up('11111111-8002-4000-8000-000000000010'::uuid),
+  0::bigint,
+  'S7: tally resets to 0 after the deliberate same-period re-settle'
+);
+
+-- ─── S8 (migration 0079): settling notifies the PARTNER ──────────────────────
+-- When alice settles, bob (the partner — not the settler) receives a
+-- 'partner_settled_up' notification carrying the settler's display name.
+
+SET LOCAL role TO postgres;
+-- Fresh state: clear notifications + settlements; revive a non-zero balance.
+DELETE FROM public.notifications
+ WHERE user_id IN ('11111111-8002-4000-8000-000000000001','11111111-8002-4000-8000-000000000002');
+DELETE FROM public.settlements WHERE family_unit_id = '11111111-8002-4000-8000-000000000010';
+DELETE FROM public.transaction_splits WHERE transaction_id IN (
+  '11111111-8002-4000-8000-000000000030','11111111-8002-4000-8000-000000000032');
+UPDATE public.transactions SET archived_at = NULL  WHERE id = '11111111-8002-4000-8000-000000000030';
+UPDATE public.transactions SET archived_at = now() WHERE id = '11111111-8002-4000-8000-000000000032';
+-- Give alice a display name so the notification title is asserted exactly.
+UPDATE public.profiles SET display_name = 'Alice'
+ WHERE user_id = '11111111-8002-4000-8000-000000000001';
+-- Alice fronted the whole 10000 → alice +5000 → non-zero, settleable.
+INSERT INTO public.transaction_splits (transaction_id, payer_id, payer_share_minor, partner_share_minor, split_method) VALUES
+  ('11111111-8002-4000-8000-000000000030','11111111-8002-4000-8000-000000000001',10000, 0, 'fixed');
+
+SET LOCAL role TO authenticated;
+SET LOCAL "request.jwt.claims" TO '{"sub": "11111111-8002-4000-8000-000000000001"}';
+SELECT public.rpc_mark_settled('11111111-8002-4000-8000-000000000010'::uuid);
+
+SET LOCAL role TO postgres;
+SELECT is(
+  (SELECT count(*)::int FROM public.notifications
+    WHERE user_id = '11111111-8002-4000-8000-000000000002'
+      AND type = 'partner_settled_up'),
+  1,
+  'S8: the partner (bob) receives exactly one partner_settled_up notification'
+);
+
+SELECT is(
+  (SELECT count(*)::int FROM public.notifications
+    WHERE user_id = '11111111-8002-4000-8000-000000000001'
+      AND type = 'partner_settled_up'),
+  0,
+  'S8: the settler (alice) does NOT receive a settle notification'
+);
+
+SELECT is(
+  (SELECT title FROM public.notifications
+    WHERE user_id = '11111111-8002-4000-8000-000000000002'
+      AND type = 'partner_settled_up' LIMIT 1),
+  'Alice settled up',
+  'S8: notification title carries the settler''s display name'
 );
 
 SELECT * FROM finish();

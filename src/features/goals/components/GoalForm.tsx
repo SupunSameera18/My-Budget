@@ -123,7 +123,7 @@ export function GoalForm({ currency, isFamilyMode }: GoalFormProps) {
             <span className="font-medium">Make shared</span>
           </label>
           <p id="make-shared-help" className="text-xs text-ink-secondary">
-            Both partners can contribute and see progress.
+            All family members can contribute and see progress.
           </p>
         </div>
       </div>

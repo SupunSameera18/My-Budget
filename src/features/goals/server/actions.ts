@@ -199,7 +199,13 @@ export async function editGoalTarget(formData: FormData): Promise<Result> {
 }
 
 export async function getGoals(): Promise<
-  Result<{ goals: GoalWithProgress[]; currency: string; isFamilyMode: boolean }>
+  Result<{
+    goals: GoalWithProgress[];
+    currency: string;
+    isFamilyMode: boolean;
+    viewerName: string | null;
+    partnerName: string | null;
+  }>
 > {
   noStore();
   try {
@@ -207,33 +213,46 @@ export async function getGoals(): Promise<
     if (!auth) return err(ErrorCode.GoalFetchFailed, "Not authenticated");
     const { supabase, user } = auth;
 
-    const [goalsResult, profileResult, memberResult] = await Promise.all([
-      supabase
-        .from("goals")
-        .select(
-          "id, user_id, name, target_minor, is_shared, created_at, goal_contributions(amount_minor, date, user_id)",
-        )
-        .is("archived_at", null)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("profiles")
-        .select("currency")
-        .eq("user_id", user.id)
-        .single(),
-      supabase
-        .from("family_members")
-        .select("join_date")
-        .eq("user_id", user.id)
-        .maybeSingle(),
-    ]);
+    const [goalsResult, profileResult, memberResult, familyStatusResult] =
+      await Promise.all([
+        supabase
+          .from("goals")
+          .select(
+            "id, user_id, name, target_minor, is_shared, created_at, goal_contributions(amount_minor, date, user_id)",
+          )
+          .is("archived_at", null)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("profiles")
+          .select("currency, display_name")
+          .eq("user_id", user.id)
+          .single(),
+        supabase
+          .from("family_members")
+          .select("join_date")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+        supabase.rpc("rpc_get_family_status"),
+      ]);
 
     if (goalsResult.error) {
       return err(ErrorCode.GoalFetchFailed, "Failed to load goals.");
     }
 
     const currency = profileResult.data?.currency ?? "USD";
+    const viewerName: string | null =
+      (profileResult.data as { currency: string; display_name?: string | null })
+        ?.display_name ?? null;
     const viewerJoinDate: string | null = memberResult.data?.join_date ?? null;
     const isFamilyMode = !!viewerJoinDate;
+
+    let partnerName: string | null = null;
+    if (familyStatusResult.data && !familyStatusResult.error) {
+      const raw = familyStatusResult.data as Record<string, unknown>;
+      if (raw.status === "in_family") {
+        partnerName = (raw.partner_name as string) || null;
+      }
+    }
 
     const goals: GoalWithProgress[] = (goalsResult.data ?? []).map((g) => {
       const isOwner = g.user_id === user.id;
@@ -262,6 +281,7 @@ export async function getGoals(): Promise<
       let myContributionMinor: number | undefined;
       let partnerContributionMinor: number | undefined;
       let partnerContributorId: string | undefined;
+      let partnerHasContributed = false;
       if (g.is_shared && viewerJoinDate) {
         myContributionMinor = progressContribs
           .filter((c) => c.user_id === user.id)
@@ -274,6 +294,8 @@ export async function getGoals(): Promise<
           0,
         );
         partnerContributorId = partnerContribs[0]?.user_id;
+        // Check all contributions (not just post-join) to guard the "Make personal" action
+        partnerHasContributed = allContribs.some((c) => c.user_id !== user.id);
       }
 
       return {
@@ -290,10 +312,11 @@ export async function getGoals(): Promise<
         myContributionMinor,
         partnerContributionMinor,
         partnerContributorId,
+        partnerHasContributed,
       };
     });
 
-    return ok({ goals, currency, isFamilyMode });
+    return ok({ goals, currency, isFamilyMode, viewerName, partnerName });
   } catch (e) {
     console.error("[getGoals] unexpected error:", e);
     return err(ErrorCode.GoalFetchFailed, "Failed to load goals.");
@@ -378,6 +401,33 @@ export async function deleteGoalContributionSet(
       ErrorCode.GoalContributionDeleteFailed,
       "Failed to delete contribution.",
     );
+  }
+}
+
+export async function deleteGoal(goalId: string): Promise<Result> {
+  try {
+    const auth = await requireUser();
+    if (!auth) return err(ErrorCode.GoalDeleteFailed, "Not authenticated");
+    const { supabase, user } = auth;
+
+    const { data, error } = await supabase
+      .from("goals")
+      .update({ archived_at: new Date().toISOString() })
+      .eq("id", goalId)
+      .eq("user_id", user.id)
+      .is("archived_at", null)
+      .select("id");
+
+    if (error) return err(ErrorCode.GoalDeleteFailed, "Failed to delete goal.");
+    if (!data || data.length === 0) {
+      return err(ErrorCode.GoalDeleteFailed, "Goal not found or access denied.");
+    }
+
+    revalidatePath("/goals");
+    revalidatePath("/dashboard");
+    return ok();
+  } catch {
+    return err(ErrorCode.GoalDeleteFailed, "An unexpected error occurred.");
   }
 }
 

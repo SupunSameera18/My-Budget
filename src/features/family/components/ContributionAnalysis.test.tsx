@@ -1,14 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { describe, it, expect } from "vitest";
+import { render, screen } from "@testing-library/react";
 import { ContributionAnalysis } from "./ContributionAnalysis";
 import type { ContributionAnalysisData } from "@/features/family/schema";
-
-vi.mock("@/features/family/server/actions", () => ({
-  getContributionAnalysis: vi.fn(),
-}));
-
-// Import after mock so vi.mocked() works
-import { getContributionAnalysis } from "@/features/family/server/actions";
 
 const makeData = (
   aliceName = "Alice",
@@ -31,13 +24,8 @@ const makeData = (
     },
   ],
   currency: "USD",
-  periodStart: "2026-06-01",
+  settledAt: "2026-06-01T00:00:00Z",
   periodEnd: "2026-06-30",
-});
-
-beforeEach(() => {
-  vi.resetAllMocks();
-  vi.mocked(getContributionAnalysis).mockResolvedValue(makeData());
 });
 
 describe("ContributionAnalysis", () => {
@@ -81,7 +69,6 @@ describe("ContributionAnalysis", () => {
       <ContributionAnalysis initialData={null} isFamilyMode={false} />,
     );
 
-    // Accessible name is not computed for hidden subtrees; query by attribute
     const section = container.querySelector(
       "section[aria-labelledby='contribution-analysis-heading']",
     );
@@ -128,7 +115,7 @@ describe("ContributionAnalysis", () => {
         },
       ],
       currency: "USD",
-      periodStart: null,
+      settledAt: null,
       periodEnd: null,
     };
     render(
@@ -144,43 +131,6 @@ describe("ContributionAnalysis", () => {
     expect(screen.getByText("No shared expenses")).toBeInTheDocument();
   });
 
-  it("period selector has role=radiogroup with aria-label", () => {
-    render(
-      <ContributionAnalysis initialData={makeData()} isFamilyMode={true} />,
-    );
-
-    const group = screen.getByRole("radiogroup", { name: /analysis period/i });
-    expect(group).toBeInTheDocument();
-  });
-
-  it("each period option has role=radio with aria-checked", () => {
-    render(
-      <ContributionAnalysis initialData={makeData()} isFamilyMode={true} />,
-    );
-
-    const radios = screen.getAllByRole("radio");
-    expect(radios).toHaveLength(3);
-    // "This month" is the default — should be checked
-    const thisMonth = screen.getByRole("radio", { name: /this month/i });
-    expect(thisMonth).toHaveAttribute("aria-checked", "true");
-  });
-
-  it("changes period and calls server action when selector is clicked", async () => {
-    render(
-      <ContributionAnalysis initialData={makeData()} isFamilyMode={true} />,
-    );
-
-    const lastThree = screen.getByRole("radio", { name: /last 3 months/i });
-    await act(async () => {
-      fireEvent.click(lastThree);
-    });
-
-    expect(vi.mocked(getContributionAnalysis)).toHaveBeenCalledWith(
-      expect.any(String), // start
-      expect.any(String), // end
-    );
-  });
-
   it("uses partnerName prop for partner column header instead of displayName from data", () => {
     render(
       <ContributionAnalysis
@@ -193,22 +143,21 @@ describe("ContributionAnalysis", () => {
     expect(screen.queryByRole("columnheader", { name: "Partner" })).not.toBeInTheDocument();
   });
 
-  it("shows error message and populates aria-live region on fetch failure", async () => {
-    vi.mocked(getContributionAnalysis).mockResolvedValue(null);
-
+  it("shows 'All time' subtitle when no lastSettledAt", () => {
     render(
       <ContributionAnalysis initialData={makeData()} isFamilyMode={true} />,
     );
+    expect(screen.getByText("All time")).toBeInTheDocument();
+  });
 
-    const allTime = screen.getByRole("radio", { name: /all time/i });
-    await act(async () => {
-      fireEvent.click(allTime);
-    });
-
-    // Both aria-live and visual <p> contain the error — use getAllByText
-    const errorElements = screen.getAllByText(
-      /could not load contribution data/i,
+  it("shows 'Since [date]' subtitle when lastSettledAt is provided", () => {
+    render(
+      <ContributionAnalysis
+        initialData={makeData()}
+        isFamilyMode={true}
+        lastSettledAt="2026-05-31T10:00:00Z"
+      />,
     );
-    expect(errorElements.length).toBeGreaterThan(0);
+    expect(screen.getByText(/Since/i)).toBeInTheDocument();
   });
 });

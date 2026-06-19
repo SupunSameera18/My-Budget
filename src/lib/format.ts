@@ -4,7 +4,7 @@ export function formatMoney(
 ): string {
   const units = Number(minor) / 100;
   try {
-    return new Intl.NumberFormat(undefined, {
+    return new Intl.NumberFormat("en", {
       style: "currency",
       currency,
       minimumFractionDigits: 2,

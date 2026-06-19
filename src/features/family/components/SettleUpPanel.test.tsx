@@ -124,22 +124,45 @@ describe("SettleUpPanel", () => {
     expect(btn).not.toHaveAttribute("aria-disabled");
   });
 
-  it("button has aria-disabled='true' and is html-disabled when isPending", () => {
+  it("clicking Mark as settled shows inline confirmation dialog (non-zero tally)", () => {
+    renderPanel({ tally: 5000 });
+    fireEvent.click(screen.getByRole("button", { name: /mark as settled/i }));
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+    expect(
+      screen.getByText(/lock shared transactions/i),
+    ).toBeInTheDocument();
+    expect(vi.mocked(markSettled)).not.toHaveBeenCalled();
+  });
+
+  it("Cancel in confirmation hides the dialog without settling", () => {
+    renderPanel({ tally: 5000 });
+    fireEvent.click(screen.getByRole("button", { name: /mark as settled/i }));
+    fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(vi.mocked(markSettled)).not.toHaveBeenCalled();
+  });
+
+  it("button has aria-disabled='true' and is html-disabled when isPending", async () => {
     vi.mocked(markSettled).mockImplementation(() => new Promise(() => {}));
     renderPanel({ tally: 5000 });
-    const btn = screen.getByRole("button", { name: /mark as settled/i });
-    act(() => {
-      fireEvent.click(btn);
+    fireEvent.click(screen.getByRole("button", { name: /mark as settled/i }));
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("button", { name: /confirm settle up/i }),
+      );
     });
-    expect(btn).toHaveAttribute("aria-disabled", "true");
-    expect(btn).toBeDisabled();
+    const primaryBtn = screen.getByRole("button", { name: /mark as settled/i });
+    expect(primaryBtn).toHaveAttribute("aria-disabled", "true");
+    expect(primaryBtn).toBeDisabled();
   });
 
   it("mark as settled button calls markSettled and router.refresh on success", async () => {
     renderPanel({ tally: 5000 });
-    const btn = screen.getByRole("button", { name: /mark as settled/i });
+    fireEvent.click(screen.getByRole("button", { name: /mark as settled/i }));
     await act(async () => {
-      fireEvent.click(btn);
+      fireEvent.click(
+        screen.getByRole("button", { name: /confirm settle up/i }),
+      );
     });
     expect(vi.mocked(markSettled)).toHaveBeenCalledWith("unit-123");
     expect(mockRefresh).toHaveBeenCalled();
@@ -147,8 +170,11 @@ describe("SettleUpPanel", () => {
 
   it("ARIA live region announces success after settle", async () => {
     renderPanel({ tally: 5000 });
+    fireEvent.click(screen.getByRole("button", { name: /mark as settled/i }));
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: /mark as settled/i }));
+      fireEvent.click(
+        screen.getByRole("button", { name: /confirm settle up/i }),
+      );
     });
     expect(screen.getByRole("status")).toHaveTextContent(
       "Balance settled. Running tally has been reset.",
@@ -161,8 +187,11 @@ describe("SettleUpPanel", () => {
       error: { code: "settle_up_failed" as never, message: "rpc error" },
     });
     renderPanel({ tally: 5000 });
+    fireEvent.click(screen.getByRole("button", { name: /mark as settled/i }));
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: /mark as settled/i }));
+      fireEvent.click(
+        screen.getByRole("button", { name: /confirm settle up/i }),
+      );
     });
     expect(screen.getByRole("status")).toHaveTextContent(
       "Settlement failed. Please try again.",

@@ -357,11 +357,11 @@ describe("getContributionAnalysis", () => {
     expect(result!.contributions[0].goalContributionMinor).toBe(100);
   });
 
-  it("passes period params to RPC", async () => {
+  it("passes settled_at and period_end to RPC", async () => {
     const rpc = makeContributionAuth(RPC_ROWS);
-    await getContributionAnalysis("2026-06-01", "2026-06-30");
+    await getContributionAnalysis("2026-06-01T10:30:00Z", "2026-06-30");
     expect(rpc).toHaveBeenCalledWith("rpc_get_contribution_analysis", {
-      p_period_start: "2026-06-01",
+      p_settled_at: "2026-06-01T10:30:00Z",
       p_period_end: "2026-06-30",
     });
   });

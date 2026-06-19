@@ -49,6 +49,8 @@ export default async function GoalsPage() {
               currency={result.data.currency}
               isFamilyMode={result.data.isFamilyMode}
               viewerUserId={user.id}
+              viewerName={result.data.viewerName}
+              partnerName={result.data.partnerName}
             />
           ))}
         </div>

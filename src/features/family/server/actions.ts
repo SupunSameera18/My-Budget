@@ -30,6 +30,27 @@ export async function getSettleTally(
   }
 }
 
+// Returns the settled_at timestamp of the most recent settlement, or null if none.
+export async function getLastSettlementDate(
+  familyUnitId: string,
+): Promise<string | null> {
+  const auth = await requireUser();
+  if (!auth) return null;
+  try {
+    const { data, error } = await auth.supabase
+      .from("settlements")
+      .select("settled_at")
+      .eq("family_unit_id", familyUnitId)
+      .order("settled_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) return null;
+    return (data.settled_at as string) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // Calls rpc_mark_settled to write a settlement watermark for the current period.
 export async function markSettled(
   familyUnitId: string,
@@ -301,8 +322,8 @@ export async function closeMonth(
 }
 
 export async function getContributionAnalysis(
-  periodStart?: string,
-  periodEnd?: string,
+  settledAt?: string | null,
+  periodEnd?: string | null,
 ): Promise<ContributionAnalysisData | null> {
   // Graceful supplementary: return null (not redirect) so callers can fetch in parallel
   const auth = await requireUser();
@@ -312,7 +333,7 @@ export async function getContributionAnalysis(
     const { data: rows, error } = await auth.supabase.rpc(
       "rpc_get_contribution_analysis",
       {
-        p_period_start: periodStart ?? null,
+        p_settled_at: settledAt ?? null,
         p_period_end: periodEnd ?? null,
       },
     );
@@ -368,7 +389,7 @@ export async function getContributionAnalysis(
     return {
       contributions: contributions as [ContributionEntry, ContributionEntry],
       currency: callerProfile?.currency ?? "USD",
-      periodStart: periodStart ?? null,
+      settledAt: settledAt ?? null,
       periodEnd: periodEnd ?? null,
     };
   } catch {

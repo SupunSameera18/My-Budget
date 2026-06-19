@@ -9,7 +9,7 @@ export interface ContributionEntry {
 export interface ContributionAnalysisData {
   contributions: [ContributionEntry, ContributionEntry];
   currency: string;
-  periodStart: string | null;
+  settledAt: string | null;
   periodEnd: string | null;
 }
 

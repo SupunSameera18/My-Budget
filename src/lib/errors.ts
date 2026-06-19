@@ -103,6 +103,7 @@ export enum ErrorCode {
   GoalContributionDeleteFailed = "goal_contribution_delete_failed",
   GoalContributionsFetchFailed = "goal_contributions_fetch_failed",
   ReclassifyGoalFailed = "reclassify_goal_failed",
+  GoalDeleteFailed = "goal_delete_failed",
 }
 
 export type AppError = {

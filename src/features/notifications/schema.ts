@@ -10,7 +10,8 @@ export type NotificationType =
   | "logging_reminder"
   | "budget_threshold"
   | "month_end_summary"
-  | "partner_shared_transaction";
+  | "partner_shared_transaction"
+  | "partner_settled_up";
 
 export interface Notification {
   id: string;

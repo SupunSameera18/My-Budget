@@ -12,6 +12,10 @@ interface GoalHistorySheetProps {
   goalId: string;
   goalName: string;
   currency: string;
+  isShared?: boolean;
+  viewerUserId?: string;
+  viewerName?: string | null;
+  partnerName?: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -20,6 +24,10 @@ export function GoalHistorySheet({
   goalId,
   goalName,
   currency,
+  isShared,
+  viewerUserId,
+  viewerName,
+  partnerName,
   open,
   onOpenChange,
 }: GoalHistorySheetProps) {
@@ -162,6 +170,13 @@ export function GoalHistorySheet({
                         </span>
                       )}
                     </span>
+                    {isShared && viewerUserId && (
+                      <span className="text-xs text-ink-secondary">
+                        {contrib.user_id === viewerUserId
+                          ? (viewerName ?? "You")
+                          : (partnerName ?? "Family member")}
+                      </span>
+                    )}
                   </div>
                   {isMacro && (
                     <button

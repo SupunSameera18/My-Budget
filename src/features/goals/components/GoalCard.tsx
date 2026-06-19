@@ -1,15 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { formatMoney } from "@/lib/format";
-import { getDisplayName } from "@/lib/display-names";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { SharedBadge } from "@/features/family/components/SharedBadge";
 import { ContributeSheet } from "./ContributeSheet";
 import { EditGoalTargetSheet } from "./EditGoalTargetSheet";
 import { GoalHistorySheet } from "./GoalHistorySheet";
-import { reclassifyGoal } from "@/features/goals/server/actions";
+import { reclassifyGoal, deleteGoal } from "@/features/goals/server/actions";
 import type { GoalWithProgress } from "@/features/goals/schema";
 
 interface GoalCardProps {
@@ -17,6 +16,8 @@ interface GoalCardProps {
   currency: string;
   isFamilyMode: boolean;
   viewerUserId?: string;
+  viewerName?: string | null;
+  partnerName?: string | null;
 }
 
 export function GoalCard({
@@ -24,6 +25,8 @@ export function GoalCard({
   currency,
   isFamilyMode,
   viewerUserId = "",
+  viewerName,
+  partnerName,
 }: GoalCardProps) {
   const router = useRouter();
   const [contributeOpen, setContributeOpen] = useState(false);
@@ -35,6 +38,35 @@ export function GoalCard({
   );
   const [reclassifyPending, setReclassifyPending] = useState(false);
   const [reclassifyStatus, setReclassifyStatus] = useState("");
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deletePending, setDeletePending] = useState(false);
+  const [deleteStatus, setDeleteStatus] = useState("");
+  const [toastMsg, setToastMsg] = useState("");
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function showToast(msg: string) {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToastMsg(msg);
+    toastTimerRef.current = setTimeout(() => setToastMsg(""), 3000);
+  }
+
+  useEffect(() => () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); }, []);
+
+  async function handleDelete() {
+    setDeleteStatus("");
+    setDeletePending(true);
+    try {
+      const result = await deleteGoal(goal.id);
+      if (!result.ok) {
+        setDeleteStatus(result.error.message);
+      } else {
+        setDeleteConfirmOpen(false);
+        router.refresh();
+      }
+    } finally {
+      setDeletePending(false);
+    }
+  }
 
   async function handleReclassify() {
     if (reclassifyTarget === null) return;
@@ -123,15 +155,11 @@ export function GoalCard({
         {showBreakdown && (
           <dl className="mb-4 flex flex-col gap-1 text-xs text-ink-secondary">
             <div className="flex justify-between">
-              <dt>You</dt>
+              <dt>{viewerName ?? "You"}</dt>
               <dd>{formatMoney(goal.myContributionMinor ?? 0, currency)}</dd>
             </div>
             <div className="flex justify-between">
-              <dt>
-                {goal.partnerContributorId
-                  ? getDisplayName(goal.partnerContributorId, viewerUserId)
-                  : "Partner"}
-              </dt>
+              <dt>{partnerName ?? "Family member"}</dt>
               <dd>
                 {formatMoney(goal.partnerContributionMinor ?? 0, currency)}
               </dd>
@@ -196,6 +224,12 @@ export function GoalCard({
             <button
               type="button"
               onClick={() => {
+                if (goal.partnerHasContributed) {
+                  showToast(
+                    `Cannot make personal — ${partnerName ?? "your family member"} has already contributed.`,
+                  );
+                  return;
+                }
                 setReclassifyTarget(false);
                 setReclassifyStatus("");
                 setReclassifyConfirmOpen(true);
@@ -204,6 +238,19 @@ export function GoalCard({
               className="min-h-[36px] rounded-md border border-hairline bg-surface-base px-3 text-xs text-ink-secondary"
             >
               Make personal
+            </button>
+          )}
+          {goal.isOwner && (
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteStatus("");
+                setDeleteConfirmOpen(true);
+              }}
+              aria-label={`Delete ${goal.name}`}
+              className="min-h-[36px] rounded-md border border-hairline bg-surface-base px-3 text-xs text-destructive"
+            >
+              Delete
             </button>
           )}
         </div>
@@ -221,8 +268,8 @@ export function GoalCard({
             className="mb-3 text-sm font-medium text-ink-primary"
           >
             {reclassifyTarget
-              ? `Make "${goal.name}" shared with your partner?`
-              : `Make "${goal.name}" personal (visible only to you)?`}
+              ? `Make "${goal.name}" shared with ${partnerName ?? "your family member"}?`
+              : `Make "${goal.name}" personal (visible only to ${viewerName ?? "you"})?`}
           </p>
           {reclassifyStatus && (
             <p className="mb-2 text-xs text-destructive">{reclassifyStatus}</p>
@@ -254,6 +301,61 @@ export function GoalCard({
             </button>
           </div>
         </div>
+        {/* Delete confirmation alertdialog */}
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby={`delete-goal-title-${goal.id}`}
+          hidden={!deleteConfirmOpen || undefined}
+          className="mt-3 rounded-lg border border-destructive/30 bg-surface-inset p-4"
+        >
+          <p
+            id={`delete-goal-title-${goal.id}`}
+            className="mb-1 text-sm font-medium text-ink-primary"
+          >
+            Delete &ldquo;{goal.name}&rdquo;?
+          </p>
+          <p className="mb-3 text-xs text-ink-secondary">
+            {goal.is_shared && goal.partnerHasContributed
+              ? `${partnerName ?? "Your family member"} has contributed to this goal. Deleting it will remove it for both of you.`
+              : "This cannot be undone."}
+          </p>
+          {deleteStatus && (
+            <p className="mb-2 text-xs text-destructive">{deleteStatus}</p>
+          )}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteConfirmOpen(false);
+                setDeleteStatus("");
+              }}
+              disabled={deletePending}
+              className="min-h-[36px] flex-1 rounded-md border border-hairline bg-card text-sm text-ink-secondary disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleDelete()}
+              disabled={deletePending}
+              className="min-h-[36px] flex-1 rounded-md bg-destructive text-sm font-medium text-white disabled:opacity-50"
+            >
+              {deletePending ? "Deleting…" : "Delete"}
+            </button>
+          </div>
+        </div>
+        {/* Toast */}
+        {toastMsg && (
+          <div
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            className="mt-3 rounded-lg bg-foreground px-4 py-2 text-sm text-background"
+          >
+            {toastMsg}
+          </div>
+        )}
       </article>
 
       <ContributeSheet
@@ -279,6 +381,10 @@ export function GoalCard({
         goalId={goal.id}
         goalName={goal.name}
         currency={currency}
+        isShared={goal.is_shared}
+        viewerUserId={viewerUserId}
+        viewerName={viewerName}
+        partnerName={partnerName}
         open={historyOpen}
         onOpenChange={setHistoryOpen}
       />

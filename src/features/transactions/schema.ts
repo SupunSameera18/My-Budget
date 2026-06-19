@@ -126,6 +126,7 @@ export type EditTransactionFormData = {
   viewerUserId: string;
   isFamilyMode?: boolean;
   partnerJoinDate?: string | null;
+  lastSettledAt?: string | null;
 };
 
 // Edit shared transaction schema — amount is excluded (server enforces this structurally)

@@ -23,7 +23,10 @@ import { currentMonthBoundaries } from "@/lib/period";
 import { dedupeRecentNotes } from "@/lib/note-suggestions";
 import type { MacroWithTarget } from "@/features/macros/schema";
 import { getServerPostHogKey } from "@/lib/analytics/server-posthog";
-import { getFamilyStatus } from "@/features/family/server/actions";
+import {
+  getFamilyStatus,
+  getLastSettlementDate,
+} from "@/features/family/server/actions";
 
 export async function getTransactionFormData(): Promise<
   Result<TransactionFormData>
@@ -430,6 +433,7 @@ export async function getTransaction(
     let partnerName: string | undefined;
     let isFamilyMode = false;
     let partnerJoinDate: string | null = null;
+    let lastSettledAt: string | null = null;
     try {
       const { data: familyStatus } = await supabase.rpc(
         "rpc_get_family_status",
@@ -441,6 +445,10 @@ export async function getTransaction(
           partnerName = raw.partner_name;
         }
         partnerJoinDate = (raw?.partner_join_date as string | null) ?? null;
+        const familyUnitId = raw?.family_unit_id as string | undefined;
+        if (familyUnitId) {
+          lastSettledAt = await getLastSettlementDate(familyUnitId);
+        }
       }
     } catch {
       // Non-fatal — reclassify controls will be hidden in solo mode
@@ -467,6 +475,7 @@ export async function getTransaction(
       viewerUserId: user.id,
       isFamilyMode,
       partnerJoinDate,
+      lastSettledAt,
     });
   } catch {
     return err(
