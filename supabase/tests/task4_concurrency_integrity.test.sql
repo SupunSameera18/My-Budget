@@ -13,7 +13,7 @@
 
 BEGIN;
 
-SELECT plan(16);
+SELECT plan(19);
 
 -- ──────────────────────────────────────────────────────────────────────────────
 -- Seed (as postgres — bypasses RLS)
@@ -253,6 +253,38 @@ SELECT is(
     WHERE family_unit_id = '11111111-a004-4000-8000-000000000010'),
   2,
   'T7b: two adjustment rows inserted; zero-delta entry skipped'
+);
+
+-- T7c: account balance moved by the net delta (+100 − 50 = +50).
+-- Baseline here is 49900: T3 edited a shared expense 1000→1100, reducing this
+-- account by 100 from its 50000 seed. So 49900 + 50 = 49950.
+SELECT is(
+  (SELECT actual_balance_minor FROM public.accounts
+    WHERE id = '11111111-a004-4000-8000-000000000020'),
+  49950::bigint,
+  'T7c: actual_balance_minor moved to entered actual (net delta applied)'
+);
+
+-- T7d: positive delta (+100) recorded as an incoming external transfer (to_account_id)
+SELECT is(
+  (SELECT count(*)::int FROM public.transfers
+    WHERE type = 'external'
+      AND to_account_id   = '11111111-a004-4000-8000-000000000020'
+      AND from_account_id IS NULL
+      AND amount_minor    = 100),
+  1,
+  'T7d: +delta creates an incoming external transfer of 100'
+);
+
+-- T7e: negative delta (−50) recorded as an outgoing external transfer (from_account_id)
+SELECT is(
+  (SELECT count(*)::int FROM public.transfers
+    WHERE type = 'external'
+      AND from_account_id = '11111111-a004-4000-8000-000000000020'
+      AND to_account_id   IS NULL
+      AND amount_minor    = 50),
+  1,
+  'T7e: −delta creates an outgoing external transfer of 50'
 );
 
 -- ──────────────────────────────────────────────────────────────────────────────

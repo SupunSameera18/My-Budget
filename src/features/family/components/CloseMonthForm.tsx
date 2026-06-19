@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { formatMoney } from "@/lib/format";
 import {
   markSettled,
@@ -35,7 +36,9 @@ export function CloseMonthForm({
     {},
   );
   const [liveMessage, setLiveMessage] = useState("");
+  const [closedSuccess, setClosedSuccess] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   // Load accounts client-side on mount (useEffect cancellation pattern §4)
   useEffect(() => {
@@ -54,6 +57,8 @@ export function CloseMonthForm({
   const isZeroTally = tally === 0;
 
   function handleBalanceChange(accountId: string, value: string) {
+    // Editing again starts a fresh reconciliation — drop the success banner.
+    if (closedSuccess) setClosedSuccess(false);
     setActualBalances((prev) => ({ ...prev, [accountId]: value }));
   }
 
@@ -82,6 +87,9 @@ export function CloseMonthForm({
           setLiveMessage("Settlement failed. Please try again.");
           return;
         }
+        // Re-fetch server data so the reset tally is reflected page-wide,
+        // matching SettleUpPanel's behavior after a settle.
+        router.refresh();
       }
       setStep1Complete(true);
       setStep(2);
@@ -105,7 +113,15 @@ export function CloseMonthForm({
     startTransition(async () => {
       const result = await closeMonth(familyUnitId, adjustments);
       if (result.ok) {
-        setLiveMessage("Month closed successfully.");
+        setLiveMessage(
+          "Account balances adjusted and month closed successfully.",
+        );
+        setClosedSuccess(true);
+        setActualBalances({}); // clear the entered amounts
+        router.refresh();
+        // Reflect the newly adjusted balances in the displayed "App balance".
+        const refreshed = await getUserAccountsForReconciliation();
+        setAccounts(refreshed);
       } else {
         setLiveMessage("Reconciliation failed. Please try again.");
       }
@@ -118,6 +134,21 @@ export function CloseMonthForm({
       <div aria-live="polite" role="status" className="sr-only">
         {liveMessage}
       </div>
+
+      {/* Visible success banner — sr announcement handled by the live region above */}
+      {closedSuccess && (
+        <div className="flex items-start justify-between gap-4 rounded-lg border border-hairline bg-surface-inset px-4 py-3 text-sm text-ink-primary">
+          <p>Account balances adjusted and month closed successfully.</p>
+          <button
+            type="button"
+            onClick={() => setClosedSuccess(false)}
+            aria-label="Dismiss banner"
+            className="shrink-0 text-ink-secondary hover:text-ink-primary"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       <h2 className="text-base font-semibold text-ink-primary">
         Close the Month

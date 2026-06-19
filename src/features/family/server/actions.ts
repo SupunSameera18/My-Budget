@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import crypto from "crypto";
 import { requireUser } from "@/lib/supabase/require-user";
 import { ok, err, ErrorCode } from "@/lib/errors";
@@ -63,6 +64,16 @@ export async function markSettled(
   });
 
   if (error) return err(ErrorCode.SettleUpFailed, error.message);
+
+  // Settling locks every shared transaction up to today, so the cached
+  // transaction detail pages still render the pre-settle (unlocked) state
+  // on client navigation. Purge them so the lock is reflected without a
+  // hard refresh. The ("/transactions/[id]", "page") form revalidates all
+  // dynamic instances of the detail route, not just one id.
+  revalidatePath("/transactions/[id]", "page");
+  revalidatePath("/transactions");
+  revalidatePath("/dashboard");
+
   return ok({ settlementId: data as string });
 }
 

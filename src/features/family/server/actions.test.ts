@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ErrorCode } from "@/lib/errors";
 
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/supabase/require-user", () => ({ requireUser: vi.fn() }));
 vi.mock("node:crypto", () => ({
   randomBytes: vi.fn(() => Buffer.from("a".repeat(32))),

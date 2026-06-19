@@ -8,6 +8,9 @@ import {
 } from "@testing-library/react";
 import { CloseMonthForm } from "./CloseMonthForm";
 
+const mockRefresh = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: vi.fn() }));
+
 // Mock server actions
 vi.mock("@/features/family/server/actions", () => ({
   markSettled: vi.fn(),
@@ -24,6 +27,7 @@ import {
   getUserAccountsForReconciliation,
   closeMonth,
 } from "@/features/family/server/actions";
+import { useRouter } from "next/navigation";
 
 const FAMILY_UNIT_ID = "unit-abc-123";
 const TALLY = 5000;
@@ -48,6 +52,7 @@ function defaultProps(
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(useRouter).mockReturnValue({ refresh: mockRefresh } as never);
   vi.mocked(getUserAccountsForReconciliation).mockResolvedValue(ACCOUNTS);
   vi.mocked(markSettled).mockResolvedValue({
     ok: true,
@@ -121,6 +126,32 @@ describe("CloseMonthForm", () => {
       expect(screen.getByText("Savings")).toBeInTheDocument();
     });
     expect(markSettled).toHaveBeenCalledWith(FAMILY_UNIT_ID);
+  });
+
+  // ── T5b: Step 1 settle refreshes the page so the reset tally is reflected ─────
+
+  it("calls router.refresh after a successful step 1 settle", async () => {
+    render(<CloseMonthForm {...defaultProps()} />);
+    fireEvent.click(
+      screen.getByRole("button", { name: /Confirm & Continue/i }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Step 2 of 2/i)).toBeInTheDocument();
+    });
+    expect(mockRefresh).toHaveBeenCalled();
+  });
+
+  // ── T5c: Zero-tally step 1 does not settle, so no refresh ─────────────────────
+
+  it("does not call router.refresh when tally is 0 (nothing settled)", async () => {
+    render(<CloseMonthForm {...defaultProps({ tally: 0 })} />);
+    fireEvent.click(screen.getByRole("button", { name: /Continue →/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Step 2 of 2/i)).toBeInTheDocument();
+    });
+    expect(mockRefresh).not.toHaveBeenCalled();
   });
 
   // ── T6: Step 2 has aria-label and aria-describedby on inputs ────────────────
@@ -198,8 +229,47 @@ describe("CloseMonthForm", () => {
 
     await waitFor(() => {
       const liveRegion = screen.getByRole("status");
-      expect(liveRegion).toHaveTextContent("Month closed successfully.");
+      expect(liveRegion).toHaveTextContent(
+        "Account balances adjusted and month closed successfully.",
+      );
     });
+
+    expect(mockRefresh).toHaveBeenCalled();
+  });
+
+  // ── T8b: Success shows a visible banner and clears the entered amounts ─────────
+
+  it("shows a success banner and clears inputs after a successful close", async () => {
+    render(<CloseMonthForm {...defaultProps()} />);
+    fireEvent.click(
+      screen.getByRole("button", { name: /Confirm & Continue/i }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Checking")).toBeInTheDocument();
+    });
+
+    const [firstInput] = screen.getAllByRole("spinbutton");
+    fireEvent.change(firstInput, { target: { value: "999" } });
+    expect(firstInput).toHaveValue(999);
+
+    fireEvent.click(screen.getByRole("button", { name: /Close Month/i }));
+
+    // Visible banner appears (separate from the sr-only live region).
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /Dismiss banner/i }),
+      ).toBeInTheDocument();
+    });
+
+    // Entered amount is cleared.
+    expect(screen.getAllByRole("spinbutton")[0]).toHaveValue(null);
+
+    // Banner is dismissible.
+    fireEvent.click(screen.getByRole("button", { name: /Dismiss banner/i }));
+    expect(
+      screen.queryByRole("button", { name: /Dismiss banner/i }),
+    ).not.toBeInTheDocument();
   });
 
   // ── T9: Empty inputs call closeMonth with empty adjustments ──────────────────
